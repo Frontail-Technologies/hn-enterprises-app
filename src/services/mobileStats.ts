@@ -21,10 +21,17 @@ export type SupervisorStatId =
   | 'jmr-done'
   | 'site-expenses-done'
   | 'flushing-testing'
-  | 'route-marker'
   | 'commissioning'
   | 'dpr'
-  | 'planning';
+  | 'planning'
+  | 'pole-marker'
+  | 'route-marker'
+  | 'complaint-customer'
+  | 'total-pbg-assignment'
+  | 'total-connection-done'
+  | 'total-connection-remark'
+  | 'total-conversion-done'
+  | 'customer-resolve';
 
 export type SupervisorStatDetailRow = {
   id: string;
@@ -67,26 +74,32 @@ export function getSupervisorStats(): SupervisorStat[] {
   const jmrDone = doneCount((customer) => customer.billingCompletion.jmrDone);
   const siteExpensesDone = doneCount((customer) => customer.billingCompletion.paymentStatus === 'Paid');
   const flushingTestingDone = workProgressRecords.filter((record) => record.currentStage === 'GC').length;
-  const routeMarkerDone = customers.filter((customer) => customer.mdpeFittings.coupler20Mm).length;
   const commissioningDone = doneCount((customer) => Boolean(customer.commissioningConversion.commissioningDate));
   const dprDone = planningDprRecords.filter((record) => record.status === 'Completed').length;
   const planningDone = planningDprRecords.length;
 
   return [
     { id: 'survey-done', label: 'Survey Done', value: `${surveyDone}/${totalCustomers}`, suffix: 'Customers', tone: 'green' },
+    { id: 'conversion-done', label: 'Conversion Done', value: `${conversionDone}/${totalCustomers}`, suffix: 'Customers', tone: 'orange' },
     { id: 'gi-done', label: 'GI Done', value: `${giDone}/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
+    { id: 'jmr-done', label: 'JMR Done', value: `${jmrDone}/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
     { id: 'gc-done', label: 'GC Done', value: `${gcDone}/${totalCustomers}`, suffix: 'Customers', tone: 'orange' },
+    { id: 'site-expenses-done', label: 'Site Expenses Done', value: `${siteExpensesDone}/${totalCustomers}`, suffix: 'Customers', tone: 'red' },
     { id: 'laying', label: 'Laying', value: `${layingDone}/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
+    { id: 'flushing-testing', label: 'Flushing / Testing', value: String(flushingTestingDone), suffix: 'Records', tone: 'blue' },
     { id: 'valve-chamber', label: 'Valve Chamber', value: `${valveChamberDone}/${totalCustomers}`, suffix: 'Customers', tone: 'orange' },
     { id: 'pre-commissioning', label: 'Pre Commissioning', value: `${preCommissioningDone}/${totalCustomers}`, suffix: 'Customers', tone: 'green' },
-    { id: 'conversion-done', label: 'Conversion Done', value: `${conversionDone}/${totalCustomers}`, suffix: 'Customers', tone: 'orange' },
-    { id: 'jmr-done', label: 'JMR Done', value: `${jmrDone}/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
-    { id: 'site-expenses-done', label: 'Site Expenses Done', value: `${siteExpensesDone}/${totalCustomers}`, suffix: 'Customers', tone: 'red' },
-    { id: 'flushing-testing', label: 'Flushing / Testing', value: String(flushingTestingDone), suffix: 'Records', tone: 'blue' },
-    { id: 'route-marker', label: 'Route Marker / Pole Marker', value: String(routeMarkerDone), suffix: 'Customers', tone: 'orange' },
     { id: 'commissioning', label: 'Commissioning', value: `${commissioningDone}/${totalCustomers}`, suffix: 'Customers', tone: 'green' },
     { id: 'dpr', label: 'DPR', value: String(dprDone), suffix: 'Completed', tone: 'blue' },
     { id: 'planning', label: 'Planning', value: String(planningDone), suffix: 'Plans', tone: 'orange' },
+    { id: 'pole-marker', label: 'Pole Marker', value: `2/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
+    { id: 'route-marker', label: 'Route Marker', value: `1/${totalCustomers}`, suffix: 'Customers', tone: 'orange' },
+    { id: 'complaint-customer', label: 'Complaint Customer', value: '1', suffix: 'Open', tone: 'red' },
+    { id: 'total-pbg-assignment', label: 'Total PBG Assignment', value: '2', suffix: 'Assigned', tone: 'blue' },
+    { id: 'total-connection-done', label: 'Total Connection Done', value: `2/${totalCustomers}`, suffix: 'Customers', tone: 'green' },
+    { id: 'total-connection-remark', label: 'Total Connection Remark', value: '1', suffix: 'Pending', tone: 'orange' },
+    { id: 'total-conversion-done', label: 'Total Conversion Done', value: `1/${totalCustomers}`, suffix: 'Customers', tone: 'green' },
+    { id: 'customer-resolve', label: 'Customer Resolve', value: `1/${totalCustomers}`, suffix: 'Customers', tone: 'blue' },
   ];
 }
 
@@ -94,7 +107,44 @@ export function getSupervisorStatById(statId: string) {
   return getSupervisorStats().find((stat) => stat.id === statId) ?? null;
 }
 
+const newStatDetailRows: Partial<Record<SupervisorStatId, SupervisorStatDetailRow[]>> = {
+  'pole-marker': [
+    { id: 'pole-marker-cust-001', customerId: 'cust-001', title: 'Rajesh Kumar', reference: 'BP-100245', site: 'Shyam Nagar Block A', status: 'Done', updatedOn: '2025-02-18', helper: 'Pole marker installed' },
+    { id: 'pole-marker-cust-002', customerId: 'cust-002', title: 'Meena Sharma', reference: 'TR-553901', site: 'Shyam Nagar Block B', status: 'Done', updatedOn: '2025-02-17', helper: 'Pole marker installed' },
+    { id: 'pole-marker-cust-003', customerId: 'cust-003', title: 'Green Mart Store', reference: 'BP-220118', site: 'Commercial Block', status: 'Pending', updatedOn: '2025-02-16', helper: 'Marker pending' },
+  ],
+  'route-marker': [
+    { id: 'route-marker-cust-001', customerId: 'cust-001', title: 'Rajesh Kumar', reference: 'BP-100245', site: 'Shyam Nagar Block A', status: 'Done', updatedOn: '2025-02-18', helper: 'Route marker verified' },
+    { id: 'route-marker-cust-002', customerId: 'cust-002', title: 'Meena Sharma', reference: 'TR-553901', site: 'Shyam Nagar Block B', status: 'Pending', updatedOn: '2025-02-17', helper: 'Awaiting verification' },
+  ],
+  'complaint-customer': [
+    { id: 'complaint-cust-003', customerId: 'cust-003', title: 'Green Mart Store', reference: 'BP-220118', site: 'Commercial Block', status: 'Pending', updatedOn: '2025-02-18', helper: 'Low gas pressure complaint' },
+  ],
+  'total-pbg-assignment': [
+    { id: 'pbg-cust-001', customerId: 'cust-001', title: 'Rajesh Kumar', reference: 'BP-100245', site: 'Shyam Nagar Block A', status: 'Done', updatedOn: '2025-02-15', helper: 'PBG assigned to Amit Rathore' },
+    { id: 'pbg-cust-002', customerId: 'cust-002', title: 'Meena Sharma', reference: 'TR-553901', site: 'Shyam Nagar Block B', status: 'Done', updatedOn: '2025-02-14', helper: 'PBG assigned to Vikas Saini' },
+  ],
+  'total-connection-done': [
+    { id: 'conn-done-cust-001', customerId: 'cust-001', title: 'Rajesh Kumar', reference: 'BP-100245', site: 'Shyam Nagar Block A', status: 'Done', updatedOn: '2025-02-18', helper: 'Connection completed' },
+    { id: 'conn-done-cust-002', customerId: 'cust-002', title: 'Meena Sharma', reference: 'TR-553901', site: 'Shyam Nagar Block B', status: 'Done', updatedOn: '2025-02-17', helper: 'Connection completed' },
+    { id: 'conn-done-cust-003', customerId: 'cust-003', title: 'Green Mart Store', reference: 'BP-220118', site: 'Commercial Block', status: 'Pending', updatedOn: '2025-02-16', helper: 'Connection pending' },
+  ],
+  'total-connection-remark': [
+    { id: 'conn-remark-cust-003', customerId: 'cust-003', title: 'Green Mart Store', reference: 'BP-220118', site: 'Commercial Block', status: 'Pending', updatedOn: '2025-02-16', helper: 'Awaiting customer confirmation' },
+  ],
+  'total-conversion-done': [
+    { id: 'conv-done-cust-002', customerId: 'cust-002', title: 'Meena Sharma', reference: 'TR-553901', site: 'Shyam Nagar Block B', status: 'Done', updatedOn: '2025-02-17', helper: 'Conversion completed' },
+  ],
+  'customer-resolve': [
+    { id: 'resolve-cust-003', customerId: 'cust-003', title: 'Green Mart Store', reference: 'BP-220118', site: 'Commercial Block', status: 'Done', updatedOn: '2025-02-19', helper: 'Complaint resolved on site visit' },
+  ],
+};
+
 export function getSupervisorStatDetails(statId: string): SupervisorStatDetailRow[] {
+  if (statId in newStatDetailRows) {
+    return newStatDetailRows[statId as SupervisorStatId] ?? [];
+  }
+
   if (statId === 'dpr' || statId === 'planning') {
     return planningDprRecords.map((record) => ({
       id: record.id,
@@ -164,10 +214,6 @@ export function getSupervisorStatDetails(statId: string): SupervisorStatDetailRo
     }
     if (statId === 'site-expenses-done') {
       return { ...base, status: customer.billingCompletion.paymentStatus === 'Paid' ? 'Done' : 'Pending', helper: `${customer.billingCompletion.paymentMode} : Rs. ${customer.billingCompletion.initialAmount}` };
-    }
-    if (statId === 'route-marker') {
-      const done = Boolean(customer.mdpeFittings.coupler20Mm);
-      return { ...base, status: done ? 'Done' : 'Pending', helper: `Coupler 20 mm: ${customer.mdpeFittings.coupler20Mm || '-'}` };
     }
 
     return { ...base, status: 'Pending', helper: '-' };

@@ -1,9 +1,11 @@
-import { Check, ChevronDown } from 'lucide-react-native';
+import { Check, ChevronDown, Search } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { Input } from '../ui/Input';
 import { Sheet } from '../ui/Sheet';
 
 type SimpleSelectOption<T extends string> = {
@@ -18,6 +20,7 @@ type SimpleSelectProps<T extends string> = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChange: (value: T) => void;
+  searchable?: boolean;
 };
 
 export function SimpleSelect<T extends string>({
@@ -27,14 +30,28 @@ export function SimpleSelect<T extends string>({
   open,
   onOpenChange,
   onChange,
+  searchable = false,
 }: SimpleSelectProps<T>) {
   const { colors } = useTheme();
+  const [query, setQuery] = useState('');
   const selected = options.find((option) => option.value === value);
+
+  const visibleOptions = useMemo(() => {
+    if (!searchable) return options;
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(normalized));
+  }, [options, query, searchable]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) setQuery('');
+    onOpenChange(nextOpen);
+  };
 
   return (
     <>
       <Pressable
-        onPress={() => onOpenChange(true)}
+        onPress={() => handleOpenChange(true)}
         style={({ pressed }) => [
           styles.trigger,
           { backgroundColor: colors.card, borderColor: colors.border },
@@ -50,9 +67,17 @@ export function SimpleSelect<T extends string>({
         <ChevronDown size={17} color={colors.muted} />
       </Pressable>
 
-      <Sheet visible={open} onClose={() => onOpenChange(false)} title={label}>
+      <Sheet visible={open} onClose={() => handleOpenChange(false)} title={label}>
         <View style={styles.options}>
-          {options.map((option) => {
+          {searchable ? (
+            <Input
+              placeholder={`Search ${label.toLowerCase()}`}
+              value={query}
+              onChangeText={setQuery}
+              leftIcon={<Search size={18} color={colors.muted} />}
+            />
+          ) : null}
+          {visibleOptions.map((option) => {
             const active = option.value === value;
 
             return (
@@ -60,7 +85,7 @@ export function SimpleSelect<T extends string>({
                 key={option.value}
                 onPress={() => {
                   onChange(option.value);
-                  onOpenChange(false);
+                  handleOpenChange(false);
                 }}
                 style={({ pressed }) => [
                   styles.option,

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { Screen } from '@/components/ui/Screen';
+import { dprTaskTemplates } from '@/constants/dprTasks';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
@@ -29,21 +30,6 @@ type PlanTask = {
   worker: string;
 };
 
-const taskTemplates: Omit<PlanTask, 'qty' | 'worker'>[] = [
-  { id: 'survey', label: 'SURVEY DONE' },
-  { id: 'gi', label: 'GI DONE' },
-  { id: 'gc', label: 'GC DONE' },
-  { id: 'laying', label: 'LAYING' },
-  { id: 'valve', label: 'VALVE CHAMBER' },
-  { id: 'pre', label: 'PREE COMMISING' },
-  { id: 'conversion', label: 'CONVERSION DONE' },
-  { id: 'jmr', label: 'JMR DONE' },
-  { id: 'expense', label: 'SITE EXPENSES DONE' },
-  { id: 'testing', label: 'FLUSSHING/TESTING' },
-  { id: 'route', label: 'ROUTE MARKER/POLE MARKER' },
-  { id: 'commissioning', label: 'COMMISSING' },
-];
-
 const siteAddressOptions: { label: string; value: SiteAddress }[] = [
   { label: 'Radha Nagar', value: 'radha-nagar' },
   { label: 'Shyam Nagar Block A', value: 'shyam-a' },
@@ -55,7 +41,7 @@ function createSitePlan(index: number): PlanSite {
   return {
     id: `site-plan-${index}`,
     siteAddress: index === 1 ? 'radha-nagar' : 'shyam-a',
-    tasks: taskTemplates.map((task) => ({
+    tasks: dprTaskTemplates.map((task) => ({
       ...task,
       qty: index === 1 ? '1' : '',
       worker: index === 1 && task.id === 'survey'
@@ -190,6 +176,7 @@ function SitePlanCard({
         open={siteSelectOpen}
         onOpenChange={setSiteSelectOpen}
         onChange={(value) => onChange(site.id, value)}
+        searchable
       />
 
       <View style={[styles.workTable, { borderColor: colors.border }]}>
@@ -337,6 +324,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     textAlign: 'center',
+    textAlignVertical: 'center',
     ...typography.body,
   },
   workerInput: {

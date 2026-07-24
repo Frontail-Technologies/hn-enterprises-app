@@ -1,8 +1,10 @@
 import { Camera, Edit3, Filter, IndianRupee, Plus, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
+import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
+import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,6 +16,7 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
+import { useColumnFilters, type FilterableColumn } from '@/hooks/useColumnFilters';
 
 type ExpenseStatus = 'All' | 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
 type SiteAddress = 'All' | 'Radha Nagar' | 'Shyam Nagar Block A' | 'Shyam Nagar Block B';
@@ -49,6 +52,17 @@ const siteOptions: { label: string; value: SiteAddress }[] = [
 const formSiteOptions = siteOptions.filter(
   (option): option is { label: string; value: Exclude<SiteAddress, 'All'> } => option.value !== 'All',
 );
+
+type ExpenseColumnKey = keyof Pick<ExpenseRecord, 'purpose' | 'paidTo' | 'siteAddress' | 'amount' | 'date' | 'status'>;
+
+const columns: FilterableColumn<ExpenseColumnKey>[] = [
+  { key: 'purpose', label: 'Purpose' },
+  { key: 'paidTo', label: 'Paid To' },
+  { key: 'siteAddress', label: 'Site' },
+  { key: 'amount', label: 'Amount' },
+  { key: 'date', label: 'Date' },
+  { key: 'status', label: 'Status' },
+];
 
 const initialExpenses: ExpenseRecord[] = [
   {
@@ -107,10 +121,6 @@ export default function ExpensesScreen() {
   const { showToast } = useToast();
   const [expenses, setExpenses] = useState(initialExpenses);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ExpenseStatus>('All');
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [siteFilter, setSiteFilter] = useState<SiteAddress>('All');
-  const [siteFilterOpen, setSiteFilterOpen] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -120,12 +130,25 @@ export default function ExpensesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseRecord>(emptyDraft);
 
+  const {
+    activeColumn,
+    pendingValues,
+    filterSearch,
+    setFilterSearch,
+    activeValues,
+    matchesFilters,
+    isColumnActive,
+    openFilter,
+    closeFilter,
+    togglePendingValue,
+    applyFilter,
+    clearFilter,
+  } = useColumnFilters<ExpenseRecord, ExpenseColumnKey>(columns, expenses);
+
   const filteredExpenses = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return expenses.filter((expense) => {
-      const matchesStatus = statusFilter === 'All' || expense.status === statusFilter;
-      const matchesSite = siteFilter === 'All' || expense.siteAddress === siteFilter;
       const matchesFromDate = fromDate ? expense.date >= fromDate : true;
       const matchesToDate = toDate ? expense.date <= toDate : true;
       const matchesSearch =
@@ -135,9 +158,9 @@ export default function ExpensesScreen() {
           .toLowerCase()
           .includes(query);
 
-      return matchesStatus && matchesSite && matchesFromDate && matchesToDate && matchesSearch;
+      return matchesFromDate && matchesToDate && matchesSearch && matchesFilters(expense);
     });
-  }, [expenses, fromDate, search, siteFilter, statusFilter, toDate]);
+  }, [expenses, fromDate, matchesFilters, search, toDate]);
 
   const total = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
@@ -181,15 +204,13 @@ export default function ExpensesScreen() {
   };
 
   const resetFilters = () => {
-    setStatusFilter('All');
-    setSiteFilter('All');
     setFromDate('');
     setToDate('');
     setFilterSheetOpen(false);
   };
 
   return (
-    <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
       <AppHeader title="Expenses" subtitle="Site expenses and payment records" />
 
       <View style={styles.topRow}>
@@ -226,54 +247,66 @@ export default function ExpensesScreen() {
         <Text style={[styles.resultText, { color: colors.muted }]}>
           Showing {filteredExpenses.length} of {expenses.length} records
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator>
-          <View>
+        <ScrollableTable
+          header={
             <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              <Text style={[styles.headerCell, styles.purposeCell, { color: colors.muted, borderColor: colors.border }]}>Purpose</Text>
-              <Text style={[styles.headerCell, styles.mediumCell, { color: colors.muted, borderColor: colors.border }]}>Paid To</Text>
-              <Text style={[styles.headerCell, styles.siteCell, { color: colors.muted, borderColor: colors.border }]}>Site</Text>
-              <Text style={[styles.headerCell, styles.amountCell, { color: colors.muted, borderColor: colors.border }]}>Amount</Text>
-              <Text style={[styles.headerCell, styles.mediumCell, { color: colors.muted, borderColor: colors.border }]}>Date</Text>
-              <Text style={[styles.headerCell, styles.statusCell, { color: colors.muted, borderColor: colors.border }]}>Status</Text>
+              {columns.map((column) => {
+                const active = isColumnActive(column.key);
+                return (
+                  <Pressable
+                    key={column.key}
+                    onPress={() => openFilter(column)}
+                    style={[styles.headerCellPressable, columnWidthStyles[column.key], { borderColor: colors.border }]}
+                  >
+                    <Text
+                      style={[styles.headerCellText, { color: active ? colors.primary : colors.muted }]}
+                      numberOfLines={1}
+                    >
+                      {column.label}
+                    </Text>
+                    <Filter size={11} color={active ? colors.primary : colors.muted} />
+                  </Pressable>
+                );
+              })}
               <Text style={[styles.headerCell, styles.actionCell, { color: colors.muted, borderColor: colors.border }]}>Action</Text>
             </View>
-
-            {filteredExpenses.map((expense) => (
-              <Pressable
-                key={expense.id}
-                onPress={() => openEdit(expense)}
-                style={({ pressed }) => [
-                  styles.tableRow,
-                  { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
-                ]}
-              >
-                <View style={[styles.purposeCell, { borderColor: colors.border }]}>
-                  <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
-                    {expense.purpose}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.muted }]}>{expense.paymentMode || '-'}</Text>
-                </View>
-                <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-                  {expense.paidTo || '-'}
+          }
+        >
+          {filteredExpenses.map((expense) => (
+            <Pressable
+              key={expense.id}
+              onPress={() => openEdit(expense)}
+              style={({ pressed }) => [
+                styles.tableRow,
+                { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
+              ]}
+            >
+              <View style={[styles.purposeCell, { borderColor: colors.border }]}>
+                <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
+                  {expense.purpose}
                 </Text>
-                <Text style={[styles.bodyCell, styles.siteCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-                  {expense.siteAddress || '-'}
-                </Text>
-                <Text style={[styles.bodyCell, styles.amountCell, { color: colors.primary, borderColor: colors.border }]}>
-                  Rs. {Number(expense.amount || 0).toLocaleString('en-IN')}
-                </Text>
-                <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]}>{expense.date}</Text>
-                <View style={[styles.statusCell, { borderColor: colors.border }]}>
-                  <StatusPill status={expense.status} />
-                </View>
-                <View style={[styles.actionCell, { borderColor: colors.border }]}>
-                  {expense.attachment ? <Camera size={15} color={colors.green} /> : null}
-                  <Edit3 size={15} color={colors.primary} />
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+                <Text style={[typography.caption, { color: colors.muted }]}>{expense.paymentMode || '-'}</Text>
+              </View>
+              <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
+                {expense.paidTo || '-'}
+              </Text>
+              <Text style={[styles.bodyCell, styles.siteCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
+                {expense.siteAddress || '-'}
+              </Text>
+              <Text style={[styles.bodyCell, styles.amountCell, { color: colors.primary, borderColor: colors.border }]}>
+                Rs. {Number(expense.amount || 0).toLocaleString('en-IN')}
+              </Text>
+              <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]}>{expense.date}</Text>
+              <View style={[styles.statusCell, { borderColor: colors.border }]}>
+                <StatusPill status={expense.status} />
+              </View>
+              <View style={[styles.actionCell, { borderColor: colors.border }]}>
+                {expense.attachment ? <Camera size={15} color={colors.green} /> : null}
+                <Edit3 size={15} color={colors.primary} />
+              </View>
+            </Pressable>
+          ))}
+        </ScrollableTable>
       </View>
 
       <Sheet
@@ -290,22 +323,6 @@ export default function ExpensesScreen() {
         <View style={styles.form}>
           <DateField label="From Date" value={fromDate} onChangeText={setFromDate} />
           <DateField label="To Date" value={toDate} onChangeText={setToDate} />
-          <SimpleSelect
-            label="Site Address"
-            value={siteFilter}
-            options={siteOptions}
-            open={siteFilterOpen}
-            onOpenChange={setSiteFilterOpen}
-            onChange={setSiteFilter}
-          />
-          <SimpleSelect
-            label="Status"
-            value={statusFilter}
-            options={statusOptions}
-            open={statusOpen}
-            onOpenChange={setStatusOpen}
-            onChange={setStatusFilter}
-          />
         </View>
       </Sheet>
 
@@ -345,6 +362,7 @@ export default function ExpensesScreen() {
             open={draftSiteOpen}
             onOpenChange={setDraftSiteOpen}
             onChange={(value) => updateDraft('siteAddress', value)}
+            searchable
           />
           <Input
             label="Amount"
@@ -392,6 +410,18 @@ export default function ExpensesScreen() {
           />
         </View>
       </Sheet>
+
+      <ColumnFilterSheet
+        activeColumn={activeColumn}
+        activeValues={activeValues}
+        pendingValues={pendingValues}
+        filterSearch={filterSearch}
+        onSearchChange={setFilterSearch}
+        onToggleValue={togglePendingValue}
+        onClose={closeFilter}
+        onClear={clearFilter}
+        onApply={applyFilter}
+      />
     </Screen>
   );
 }
@@ -466,7 +496,6 @@ const styles = StyleSheet.create({
     width: 88,
   },
   tablePanel: {
-    flex: 1,
     gap: spacing.sm,
     padding: spacing.sm,
   },
@@ -494,6 +523,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  headerCellPressable: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  headerCellText: {
+    ...typography.caption,
+    flex: 1,
+    fontSize: 10,
+    lineHeight: 13,
     textTransform: 'uppercase',
   },
   bodyCell: {
@@ -576,3 +622,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+
+const columnWidthStyles: Record<ExpenseColumnKey, StyleProp<ViewStyle>> = {
+  purpose: styles.purposeCell,
+  paidTo: styles.mediumCell,
+  siteAddress: styles.siteCell,
+  amount: styles.amountCell,
+  date: styles.mediumCell,
+  status: styles.statusCell,
+};

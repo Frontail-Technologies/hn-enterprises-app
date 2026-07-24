@@ -9,7 +9,9 @@ import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { AppHeader } from '@/components/shared/AppHeader';
+import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
+import { dprTaskTemplates, type DprTaskId } from '@/constants/dprTasks';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
@@ -37,20 +39,20 @@ const siteAddressLabels = Object.fromEntries(
   siteAddressOptions.map((option) => [option.value, option.label]),
 ) as Record<SiteAddress, string>;
 
-const initialItems: DprItem[] = [
-  { id: 'survey', label: 'SURVEY DONE', plannedQty: '1', completedQty: '1', worker: 'Jabed', delayReason: '' },
-  { id: 'gi', label: 'GI DONE', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'gc', label: 'GC DONE', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'laying', label: 'LAYING', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'valve', label: 'VALVE CHAMBER', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'pre', label: 'PREE COMMISING', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'conversion', label: 'CONVERSION DONE', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'jmr', label: 'JMR DONE', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'expense', label: 'SITE EXPENSES DONE', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'testing', label: 'FLUSSHING/TESTING', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-  { id: 'route', label: 'ROUTE MARKER/POLE MARKER', plannedQty: '1', completedQty: '', worker: 'Mukesh', delayReason: '' },
-  { id: 'commissioning', label: 'COMMISSING', plannedQty: '1', completedQty: '', worker: '', delayReason: '' },
-];
+const seededItemValues: Partial<Record<DprTaskId, Partial<Omit<DprItem, 'id' | 'label'>>>> = {
+  survey: { completedQty: '1', worker: 'Jabed' },
+  route: { worker: 'Mukesh' },
+};
+
+const initialItems: DprItem[] = dprTaskTemplates.map((task) => ({
+  id: task.id,
+  label: task.label,
+  plannedQty: '1',
+  completedQty: '',
+  worker: '',
+  delayReason: '',
+  ...seededItemValues[task.id],
+}));
 
 export default function DprScreen() {
   const { colors } = useTheme();
@@ -123,6 +125,7 @@ export default function DprScreen() {
           open={siteSelectOpen}
           onOpenChange={setSiteSelectOpen}
           onChange={setSiteAddress}
+          searchable
         />
         <View style={[styles.photoStatus, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Camera size={16} color={colors.primary} />
@@ -132,16 +135,29 @@ export default function DprScreen() {
         </View>
       </Card>
 
-      <View style={styles.itemList}>
-        {items.map((item) => (
-          <Card key={item.id} style={styles.itemCard}>
-            <View style={styles.itemTop}>
-              <Text style={[styles.itemTitle, { color: colors.text }]}>{item.label}</Text>
-              <Text style={[typography.caption, { color: colors.muted }]}>Planned: {item.plannedQty}</Text>
+      <View style={styles.tablePanel}>
+        <ScrollableTable
+          header={
+            <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
+              <Text style={[styles.headerCell, styles.taskCell, { color: colors.muted, borderColor: colors.border }]}>Task</Text>
+              <Text style={[styles.headerCell, styles.plannedCell, { color: colors.muted, borderColor: colors.border }]}>Planned</Text>
+              <Text style={[styles.headerCell, styles.completedCell, { color: colors.muted, borderColor: colors.border }]}>Completed</Text>
+              <Text style={[styles.headerCell, styles.workerCell, { color: colors.muted, borderColor: colors.border }]}>Worker</Text>
+              <Text style={[styles.headerCell, styles.delayCell, { color: colors.muted, borderColor: colors.border }]}>Delay Reason</Text>
             </View>
-            <View style={styles.itemInputs}>
-              <View style={styles.qtyField}>
-                <Text style={[styles.inputLabel, { color: colors.muted }]}>Completed</Text>
+          }
+        >
+          {items.map((item) => (
+            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              <View style={[styles.bodyCell, styles.taskCell, { borderColor: colors.border }]}>
+                <Text style={[styles.taskText, { color: colors.text }]} numberOfLines={2}>
+                  {item.label}
+                </Text>
+              </View>
+              <View style={[styles.bodyCell, styles.plannedCell, { borderColor: colors.border }]}>
+                <Text style={[styles.bodyText, { color: colors.text }]}>{item.plannedQty || '-'}</Text>
+              </View>
+              <View style={[styles.bodyCell, styles.completedCell, { borderColor: colors.border }]}>
                 <TextInput
                   value={item.completedQty}
                   onChangeText={(value) => updateItem(item.id, 'completedQty', value)}
@@ -149,40 +165,38 @@ export default function DprScreen() {
                   placeholder="-"
                   placeholderTextColor={colors.muted}
                   style={[
-                    styles.qtyInput,
+                    styles.cellInput,
                     { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
-              <View style={styles.workerField}>
-                <Text style={[styles.inputLabel, { color: colors.muted }]}>Plumber/Labour</Text>
+              <View style={[styles.bodyCell, styles.workerCell, { borderColor: colors.border }]}>
                 <TextInput
                   value={item.worker}
                   onChangeText={(value) => updateItem(item.id, 'worker', value)}
                   placeholder="-"
                   placeholderTextColor={colors.muted}
                   style={[
-                    styles.workerInput,
+                    styles.cellInputWide,
                     { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
-              <View style={styles.delayField}>
-                <Text style={[styles.inputLabel, { color: colors.muted }]}>Delay Reason</Text>
+              <View style={[styles.bodyCell, styles.delayCell, { borderColor: colors.border }]}>
                 <TextInput
                   value={item.delayReason}
                   onChangeText={(value) => updateItem(item.id, 'delayReason', value)}
                   placeholder="-"
                   placeholderTextColor={colors.muted}
                   style={[
-                    styles.delayInput,
+                    styles.cellInputWide,
                     { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
             </View>
-          </Card>
-        ))}
+          ))}
+        </ScrollableTable>
       </View>
 
       <Input
@@ -260,65 +274,82 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     fontSize: 13,
   },
-  itemList: {
+  tablePanel: {
     gap: spacing.sm,
   },
-  itemCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.sm,
-  },
-  itemTop: {
+  tableRow: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    borderBottomWidth: 1,
   },
-  itemTitle: {
-    flex: 1,
-    ...typography.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
+  tableHeaderRow: {
+    minHeight: 36,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
   },
-  itemInputs: {
-    flexDirection: 'column',
-    gap: spacing.sm,
-  },
-  qtyField: {
-    gap: spacing.xs,
-  },
-  workerField: {
-    gap: spacing.xs,
-  },
-  delayField: {
-    gap: spacing.xs,
-  },
-  inputLabel: {
+  headerCell: {
     ...typography.caption,
     fontSize: 10,
     lineHeight: 13,
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    textTransform: 'uppercase',
   },
-  qtyInput: {
-    minHeight: 38,
+  bodyCell: {
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  taskText: {
+    ...typography.caption,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  bodyText: {
+    ...typography.body,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  taskCell: {
+    width: 160,
+  },
+  plannedCell: {
+    width: 68,
+  },
+  completedCell: {
+    width: 90,
+  },
+  workerCell: {
+    width: 122,
+  },
+  delayCell: {
+    width: 150,
+  },
+  cellInput: {
+    width: '100%',
+    minHeight: 34,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     textAlign: 'center',
+    textAlignVertical: 'center',
     ...typography.body,
+    fontSize: 12,
   },
-  workerInput: {
-    minHeight: 38,
+  cellInputWide: {
+    width: '100%',
+    minHeight: 34,
     borderWidth: 1,
     borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     ...typography.body,
-  },
-  delayInput: {
-    minHeight: 38,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    ...typography.body,
+    fontSize: 11,
   },
   footer: {
     flexDirection: 'row',

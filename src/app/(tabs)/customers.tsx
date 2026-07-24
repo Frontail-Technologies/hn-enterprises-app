@@ -1,16 +1,16 @@
 import { router } from 'expo-router';
-import { Check, Filter, Search } from 'lucide-react-native';
+import { Filter, Search } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
-import { Button } from '@/components/ui/Button';
+import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
-import { Sheet } from '@/components/ui/Sheet';
-import { radius, spacing } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { customers } from '@/services/mockData';
 
 type CustomerGridRow = {
@@ -95,10 +95,6 @@ const demoMasterRows: CustomerGridRow[] = [
 export default function CustomersScreen() {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Partial<Record<ColumnKey, string[]>>>({});
-  const [activeColumn, setActiveColumn] = useState<GridColumn | null>(null);
-  const [pendingValues, setPendingValues] = useState<string[]>([]);
-  const [filterSearch, setFilterSearch] = useState('');
   const openingRowRef = useRef<string | null>(null);
 
   const rows = useMemo<CustomerGridRow[]>(
@@ -119,6 +115,21 @@ export default function CustomersScreen() {
     [],
   );
 
+  const {
+    activeColumn,
+    pendingValues,
+    filterSearch,
+    setFilterSearch,
+    activeValues,
+    matchesFilters,
+    isColumnActive,
+    openFilter,
+    closeFilter,
+    togglePendingValue,
+    applyFilter,
+    clearFilter,
+  } = useColumnFilters<CustomerGridRow, ColumnKey>(columns, rows);
+
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -126,56 +137,10 @@ export default function CustomersScreen() {
       const matchesSearch = query
         ? columns.some((column) => String(row[column.key]).toLowerCase().includes(query))
         : true;
-      const matchesFilters = columns.every((column) => {
-        const values = filters[column.key];
-        return values?.length ? values.includes(String(row[column.key])) : true;
-      });
 
-      return matchesSearch && matchesFilters;
+      return matchesSearch && matchesFilters(row);
     });
-  }, [filters, rows, search]);
-
-  const activeValues = useMemo(() => {
-    if (!activeColumn) return [];
-    const query = filterSearch.trim().toLowerCase();
-    return Array.from(new Set(rows.map((row) => String(row[activeColumn.key]))))
-      .filter(Boolean)
-      .filter((value) => (query ? value.toLowerCase().includes(query) : true));
-  }, [activeColumn, filterSearch, rows]);
-
-  const openFilter = (column: GridColumn) => {
-    setActiveColumn(column);
-    setPendingValues(filters[column.key] ?? []);
-    setFilterSearch('');
-  };
-
-  const togglePendingValue = (value: string) => {
-    setPendingValues((current) =>
-      current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
-    );
-  };
-
-  const applyFilter = () => {
-    if (!activeColumn) return;
-    setFilters((current) => ({
-      ...current,
-      [activeColumn.key]: pendingValues,
-    }));
-    setFilterSearch('');
-    setActiveColumn(null);
-  };
-
-  const clearFilter = () => {
-    if (!activeColumn) return;
-    setFilters((current) => {
-      const next = { ...current };
-      delete next[activeColumn.key];
-      return next;
-    });
-    setPendingValues([]);
-    setFilterSearch('');
-    setActiveColumn(null);
-  };
+  }, [matchesFilters, rows, search]);
 
   const openCustomer = (row: CustomerGridRow) => {
     if (!row.canOpen) return;
@@ -210,7 +175,7 @@ export default function CustomersScreen() {
           <View style={styles.table}>
             <View style={[styles.headerRow, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
               {columns.map((column) => {
-                const active = Boolean(filters[column.key]?.length);
+                const active = isColumnActive(column.key);
                 return (
                   <Pressable
                     key={column.key}
@@ -255,47 +220,17 @@ export default function CustomersScreen() {
         </ScrollView>
       </View>
 
-      <Sheet
-        visible={Boolean(activeColumn)}
-        onClose={() => setActiveColumn(null)}
-        title={activeColumn ? `Filter ${activeColumn.label}` : 'Filter'}
-        footer={
-          <View style={[styles.filterFooter, { borderTopColor: colors.border }]}>
-            <Button label="Clear" variant="outline" onPress={clearFilter} style={styles.footerButton} />
-            <Button label="Apply" onPress={applyFilter} style={styles.footerButton} />
-          </View>
-        }
-      >
-        <View style={styles.filterList}>
-          <Input
-            placeholder="Search filter values"
-            value={filterSearch}
-            onChangeText={setFilterSearch}
-            leftIcon={<Search size={18} color={colors.muted} />}
-          />
-          {activeValues.map((value) => {
-            const selected = pendingValues.includes(value);
-            return (
-              <Pressable
-                key={value}
-                onPress={() => togglePendingValue(value)}
-                style={[
-                  styles.filterOption,
-                  {
-                    backgroundColor: selected ? colors.softOrange : colors.card,
-                    borderColor: selected ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text style={[typography.body, { color: colors.text }]} numberOfLines={2}>
-                  {value}
-                </Text>
-                {selected ? <Check size={17} color={colors.primary} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </Sheet>
+      <ColumnFilterSheet
+        activeColumn={activeColumn}
+        activeValues={activeValues}
+        pendingValues={pendingValues}
+        filterSearch={filterSearch}
+        onSearchChange={setFilterSearch}
+        onToggleValue={togglePendingValue}
+        onClose={closeFilter}
+        onClear={clearFilter}
+        onApply={applyFilter}
+      />
     </Screen>
   );
 }
@@ -355,30 +290,5 @@ const styles = StyleSheet.create({
   cellText: {
     ...typography.caption,
     lineHeight: 16,
-  },
-  filterList: {
-    gap: spacing.sm,
-  },
-  filterOption: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  filterFooter: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    padding: spacing.lg,
-  },
-  footerButton: {
-    flex: 1,
-    minWidth: 0,
-    width: 'auto',
   },
 });

@@ -82,6 +82,7 @@ const styles = StyleSheet.create({
     minHeight: 28,
     padding: 0,
     textAlign: 'center',
+    textAlignVertical: 'center',
     ...typography.bodyMedium,
   },
   unit: {

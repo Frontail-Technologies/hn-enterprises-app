@@ -1,16 +1,12 @@
 import { router } from "expo-router";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ClipboardList,
-  Route,
-} from "lucide-react-native";
+import { ArrowLeft, ClipboardCheck } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { radius, spacing } from "@/constants/spacing";
+import { statIcons } from "@/constants/statIcons";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import {
@@ -18,8 +14,6 @@ import {
   type SupervisorStat,
   type SupervisorStatTone,
 } from "@/services/mobileStats";
-
-const statIcons = [ClipboardList, CheckCircle2, ClipboardList, Route] as const;
 
 export default function AllStatsScreen() {
   const stats = getSupervisorStats();
@@ -32,7 +26,7 @@ export default function AllStatsScreen() {
         left={<BackButton />}
       />
       <View style={styles.grid}>
-        {stats.map((stat, index) => (
+        {stats.map((stat) => (
           <Pressable
             key={stat.label}
             onPress={() =>
@@ -46,7 +40,7 @@ export default function AllStatsScreen() {
               pressed && { opacity: 0.72 },
             ]}
           >
-            <StatCard stat={stat} icon={statIcons[index % statIcons.length]} />
+            <StatCard stat={stat} icon={statIcons[stat.id] ?? ClipboardCheck} />
           </Pressable>
         ))}
       </View>
@@ -67,7 +61,7 @@ function StatCard({
   icon: Icon,
 }: {
   stat: SupervisorStat;
-  icon: typeof ClipboardList;
+  icon: typeof ClipboardCheck;
 }) {
   const { colors } = useTheme();
   const accentColor = getAccentColor(stat.tone, colors);

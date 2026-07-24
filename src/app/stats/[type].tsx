@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, Filter, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
+import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
@@ -41,11 +42,18 @@ export default function StatDetailScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DetailStatus>('All');
   const [siteFilter, setSiteFilter] = useState('All');
+  const [siteSearch, setSiteSearch] = useState('');
 
   const siteOptions = useMemo(
     () => ['All', ...Array.from(new Set(rows.map((row) => row.site))).filter(Boolean)],
     [rows],
   );
+
+  const visibleSiteOptions = useMemo(() => {
+    const query = siteSearch.trim().toLowerCase();
+    if (!query) return siteOptions;
+    return siteOptions.filter((site) => site.toLowerCase().includes(query));
+  }, [siteOptions, siteSearch]);
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -66,11 +74,12 @@ export default function StatDetailScreen() {
   const resetFilters = () => {
     setStatusFilter('All');
     setSiteFilter('All');
+    setSiteSearch('');
     setFilterOpen(false);
   };
 
   return (
-    <Screen edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
       <AppHeader title={stat?.label ?? 'Stat Details'} subtitle={`${filteredRows.length} records`} left={<BackButton />} />
 
       <Input
@@ -86,8 +95,8 @@ export default function StatDetailScreen() {
         <Text style={[styles.resultText, { color: colors.muted }]}>
           Showing {filteredRows.length} of {rows.length} records
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator>
-          <View>
+        <ScrollableTable
+          header={
             <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
               <Text style={[styles.headerCell, styles.nameCell, { color: colors.muted, borderColor: colors.border }]}>Name / Work</Text>
               <Text style={[styles.headerCell, styles.refCell, { color: colors.muted, borderColor: colors.border }]}>Reference</Text>
@@ -96,11 +105,12 @@ export default function StatDetailScreen() {
               <Text style={[styles.headerCell, styles.dateCell, { color: colors.muted, borderColor: colors.border }]}>Date</Text>
               <Text style={[styles.headerCell, styles.helperCell, { color: colors.muted, borderColor: colors.border }]}>Detail</Text>
             </View>
-            {filteredRows.map((row) => (
-              <StatTableRow key={row.id} row={row} />
-            ))}
-          </View>
-        </ScrollView>
+          }
+        >
+          {filteredRows.map((row) => (
+            <StatTableRow key={row.id} row={row} />
+          ))}
+        </ScrollableTable>
       </View>
 
       <Sheet
@@ -127,7 +137,13 @@ export default function StatDetailScreen() {
         </View>
         <View style={styles.filterGroup}>
           <Text style={[styles.filterTitle, { color: colors.text }]}>Site</Text>
-          {siteOptions.map((site) => (
+          <Input
+            placeholder="Search site..."
+            value={siteSearch}
+            onChangeText={setSiteSearch}
+            leftIcon={<Search size={18} color={colors.muted} />}
+          />
+          {visibleSiteOptions.map((site) => (
             <FilterOption
               key={site}
               label={site}
@@ -239,7 +255,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tablePanel: {
-    flex: 1,
     gap: spacing.sm,
     padding: spacing.sm,
   },

@@ -1,10 +1,8 @@
 import { router } from "expo-router";
 import {
   Bell,
-  CheckCircle2,
-  ClipboardList,
+  ClipboardCheck,
   LockKeyhole,
-  Route,
   UserRound,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +14,7 @@ import { AttendanceReminderSheet } from "@/components/shared/AttendanceReminderS
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { radius, spacing } from "@/constants/spacing";
+import { statIcons } from "@/constants/statIcons";
 import { typography } from "@/constants/typography";
 import { useAttendanceStatus } from "@/context/AttendanceContext";
 import { useNotifications } from "@/context/NotificationsContext";
@@ -98,19 +97,11 @@ export default function HomeScreen() {
     [attendanceActivity],
   );
 
-  const statIcons = [
-    ClipboardList,
-    CheckCircle2,
-    ClipboardList,
-    Route,
-    ClipboardList,
-    CheckCircle2,
-  ] as const;
   const summaryCards = getSupervisorStats()
     .slice(0, 6)
-    .map((stat, index) => ({
+    .map((stat) => ({
       ...stat,
-      icon: statIcons[index] ?? ClipboardList,
+      icon: statIcons[stat.id] ?? ClipboardCheck,
     }));
 
   return (
@@ -250,7 +241,7 @@ type SummaryCardProps = {
   id: string;
   label: string;
   value: string;
-  icon: typeof ClipboardList;
+  icon: typeof ClipboardCheck;
   tone: SupervisorStatTone;
 };
 

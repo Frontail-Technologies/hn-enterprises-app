@@ -1,10 +1,9 @@
 import { router } from 'expo-router';
 import { CheckSquare2, Square } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
-import { RequiredLabel } from '@/components/shared/RequiredLabel';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -13,7 +12,6 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useBillingRemarksPanel(customer: CustomerRecord) {
@@ -32,7 +30,6 @@ export function useBillingRemarksPanel(customer: CustomerRecord) {
     evidence: [],
   };
   const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:billing`, billing);
-  const { ref: remarkRef, onFocus: remarkOnFocus } = useScrollIntoViewOnFocus();
 
   const save = async () => {
     await saveDraft();
@@ -65,20 +62,6 @@ export function useBillingRemarksPanel(customer: CustomerRecord) {
       </Card>
 
       <Card style={styles.formCard}>
-        <View style={styles.fieldGroup}>
-          <RequiredLabel label="Final Remark" />
-          <TextInput
-            ref={remarkRef}
-            onFocus={remarkOnFocus}
-            value={values.remark}
-            onChangeText={(value) => updateField('remark', value)}
-            multiline
-            placeholder="Add final remark..."
-            placeholderTextColor={colors.muted}
-            style={[styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-            textAlignVertical="top"
-          />
-        </View>
         <EvidenceUploader title="Supporting Photo / Document" initialFiles={billing.evidence} />
       </Card>
     </>
@@ -125,15 +108,5 @@ const styles = StyleSheet.create({
   toggleText: {
     ...typography.bodyMedium,
     flex: 1,
-  },
-  fieldGroup: {
-    gap: spacing.sm,
-  },
-  textArea: {
-    minHeight: 104,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    ...typography.body,
   },
 });
