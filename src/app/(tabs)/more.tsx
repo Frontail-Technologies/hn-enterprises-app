@@ -16,13 +16,19 @@ import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
+import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
-import { supervisorProfile } from "@/services/mockData";
 
 export default function MoreScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
+  const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/auth/login");
+  };
 
   return (
     <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
@@ -57,14 +63,17 @@ export default function MoreScreen() {
               <UserRound size={30} color={colors.primary} />
             </View>
             <View style={styles.profileCopy}>
+              <Text style={[styles.nameText, { color: colors.text }]}>
+                {user?.name ?? "-"}
+              </Text>
               <Text style={[styles.roleText, { color: colors.text }]}>
-                {supervisorProfile.role}
+                {formatRole(user?.role)}
               </Text>
               <Text style={[styles.emailText, { color: colors.muted }]}>
-                supervisor@hnenterprises.com
+                {user?.email ?? "-"}
               </Text>
               <Text style={[styles.phoneText, { color: colors.text }]}>
-                +91 98765 43210
+                {user?.mobile ?? "-"}
               </Text>
             </View>
             <ChevronRight size={20} color={colors.muted} />
@@ -113,7 +122,7 @@ export default function MoreScreen() {
             styles.logoutRow,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
-          onPress={() => router.replace("/auth/login")}
+          onPress={handleLogout}
         >
           <LogOut size={17} color={colors.red} />
           <Text style={[styles.logoutText, { color: colors.red }]}>Logout</Text>
@@ -121,6 +130,11 @@ export default function MoreScreen() {
       </View>
     </Screen>
   );
+}
+
+function formatRole(role?: string) {
+  if (!role) return "-";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (value) => value.toUpperCase());
 }
 
 type MenuRowProps = {
@@ -189,8 +203,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 1,
   },
-  roleText: {
+  nameText: {
     ...typography.caption,
+    fontSize: 13,
+  },
+  roleText: {
+    ...typography.label,
+    fontSize: 11,
   },
   emailText: {
     ...typography.label,

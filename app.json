@@ -41,6 +41,13 @@
         }
       ],
       [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow HN Enterprises to use secure authentication."
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow HN Enterprises to select field photos and upload evidence."

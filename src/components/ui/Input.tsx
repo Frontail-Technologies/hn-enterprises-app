@@ -11,16 +11,34 @@ type InputProps = TextInputProps & {
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   onRightIconPress?: () => void;
+  error?: string;
 };
 
-export function Input({ label, leftIcon, rightIcon, onRightIconPress, style, onFocus, ...rest }: InputProps) {
+export function Input({
+  label,
+  leftIcon,
+  rightIcon,
+  onRightIconPress,
+  error,
+  style,
+  onFocus,
+  ...rest
+}: InputProps) {
   const { colors } = useTheme();
   const { ref, onFocus: scrollOnFocus } = useScrollIntoViewOnFocus();
 
   return (
     <View style={styles.wrapper}>
       {label ? <Text style={[styles.label, { color: colors.text }]}>{label}</Text> : null}
-      <View style={[styles.inputRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.inputRow,
+          {
+            backgroundColor: colors.card,
+            borderColor: error ? colors.red : colors.border,
+          },
+        ]}
+      >
         {leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
         <TextInput
           ref={ref}
@@ -38,6 +56,7 @@ export function Input({ label, leftIcon, rightIcon, onRightIconPress, style, onF
           </Pressable>
         ) : null}
       </View>
+      {error ? <Text style={[styles.errorText, { color: colors.red }]}>{error}</Text> : null}
     </View>
   );
 }
@@ -71,5 +90,10 @@ const styles = StyleSheet.create({
   },
   iconRight: {
     paddingRight: spacing.lg,
+  },
+  errorText: {
+    ...typography.caption,
+    fontSize: 11,
+    lineHeight: 14,
   },
 });

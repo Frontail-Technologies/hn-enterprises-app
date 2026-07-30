@@ -16,11 +16,17 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { supervisorProfile } from '@/services/mockData';
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
+  const { logout, user } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/auth/login');
+  };
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
@@ -33,9 +39,10 @@ export default function ProfileScreen() {
               <UserRound size={30} color={colors.primary} />
             </View>
             <View style={styles.profileCopy}>
-              <Text style={[styles.roleText, { color: colors.text }]}>{supervisorProfile.role}</Text>
-              <Text style={[styles.emailText, { color: colors.muted }]}>supervisor@hnenterprises.com</Text>
-              <Text style={[styles.phoneText, { color: colors.text }]}>+91 98765 43210</Text>
+              <Text style={[styles.nameText, { color: colors.text }]}>{user?.name ?? '-'}</Text>
+              <Text style={[styles.roleText, { color: colors.muted }]}>{formatRole(user?.role)}</Text>
+              <Text style={[styles.emailText, { color: colors.muted }]}>{user?.email ?? '-'}</Text>
+              <Text style={[styles.phoneText, { color: colors.text }]}>{user?.mobile ?? '-'}</Text>
             </View>
             <ChevronRight size={20} color={colors.muted} />
           </View>
@@ -65,7 +72,7 @@ export default function ProfileScreen() {
 
         <Pressable
           style={[styles.logoutRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => router.replace('/auth/login')}
+          onPress={handleLogout}
         >
           <LogOut size={17} color={colors.red} />
           <Text style={[styles.logoutText, { color: colors.red }]}>Logout</Text>
@@ -73,6 +80,11 @@ export default function ProfileScreen() {
       </View>
     </Screen>
   );
+}
+
+function formatRole(role?: string) {
+  if (!role) return '-';
+  return role.replace(/_/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase());
 }
 
 function BackButton() {
@@ -133,8 +145,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 1,
   },
-  roleText: {
+  nameText: {
     ...typography.caption,
+    fontSize: 13,
+  },
+  roleText: {
+    ...typography.label,
+    fontSize: 11,
   },
   emailText: {
     ...typography.label,

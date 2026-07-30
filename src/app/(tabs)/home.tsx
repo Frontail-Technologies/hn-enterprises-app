@@ -17,6 +17,7 @@ import { radius, spacing } from "@/constants/spacing";
 import { statIcons } from "@/constants/statIcons";
 import { typography } from "@/constants/typography";
 import { useAttendanceStatus } from "@/context/AttendanceContext";
+import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getRecentActivity, type ActivityLogEntry } from "@/services/mockData";
@@ -29,6 +30,7 @@ import { formatTime } from "@/utils/format";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const attendance = useAttendanceStatus();
   const [reminderVisible, setReminderVisible] = useState(false);
@@ -107,7 +109,7 @@ export default function HomeScreen() {
   return (
     <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
       <AppHeader
-        title="Supervisor"
+        title={user?.name ?? "Supervisor"}
         subtitle="Good Morning, here's your operational overview"
         right={
           <View style={styles.headerActions}>
@@ -197,7 +199,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Work Stats
             </Text>
-            <Pressable onPress={() => router.push("/stats")}>
+            <Pressable onPress={() => router.push("/stats/index")}>
               <Text style={[typography.label, { color: colors.primary }]}>
                 View more
               </Text>

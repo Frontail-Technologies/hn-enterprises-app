@@ -1,4 +1,4 @@
-import { Tabs, router, useSegments } from "expo-router";
+import { Redirect, Tabs, router, useSegments } from "expo-router";
 import {
   CalendarDays,
   FileText,
@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { typography } from "@/constants/typography";
+import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -26,6 +27,7 @@ const ROOT_TABS = ["home", "attendance", "customers", "planning", "expenses"];
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { isAuthenticated, isLoading } = useAuth();
   const { showToast } = useToast();
   const segments = useSegments();
   const lastBackPressAt = useRef(0);
@@ -56,6 +58,12 @@ export default function TabsLayout() {
 
     return () => subscription.remove();
   }, [segments, showToast]);
+
+  if (isLoading) return null;
+
+  if (!isAuthenticated) {
+    return <Redirect href="/auth/login" />;
+  }
 
   return (
     <Tabs
