@@ -166,7 +166,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="projects" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
     </Tabs>
   );
