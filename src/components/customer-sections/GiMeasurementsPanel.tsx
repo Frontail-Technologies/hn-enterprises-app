@@ -12,9 +12,10 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
-export function useGiMeasurementsPanel(customer: CustomerRecord) {
+export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const gi = customer.giMeasurements ?? {
@@ -45,9 +46,24 @@ export function useGiMeasurementsPanel(customer: CustomerRecord) {
     showToast('GI draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('GI measurements submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateGiMeasurements(customer.id, {
+        tfToRegulator: values.tfToRegulator,
+        inlet: values.inlet,
+        outlet: values.outlet,
+        totalGiPipeHalfInch: values.totalGiPipeHalfInch,
+        giPipeThreeQuarterInch: values.giPipeThreeQuarterInch,
+        giPipeOneInch: values.giPipeOneInch,
+        giPipeOneAndHalfInch: values.giPipeOneAndHalfInch,
+        giPipeTwoInch: values.giPipeTwoInch,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('GI measurements submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit GI measurements', 'error');
+    }
   };
 
   const content = (

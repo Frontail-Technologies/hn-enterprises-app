@@ -14,13 +14,19 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
 
 const layingOptions: LmcLayingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
 const testingOptions: LmcTestingStatus[] = ['Pending', 'In Progress', 'Passed', 'Failed', 'Not Required', 'On Hold'];
 const purgingOptions: LmcPurgingStatus[] = ['Pending', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
 
-export function usePipeEditForm(customer: CustomerRecord, pipeId: string, onDone?: () => void) {
+export function usePipeEditForm(
+  customer: CustomerRecord,
+  pipeId: string,
+  onDone?: () => void,
+  onRefetch?: () => Promise<void>,
+) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const pipe = customer.lmcPipelineWork.pipeRecords.find((item) => item.id === pipeId);
@@ -58,10 +64,27 @@ export function usePipeEditForm(customer: CustomerRecord, pipeId: string, onDone
     showToast(`${draftPipe.pipeSize} pipe draft saved`, 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast(`${draftPipe.pipeSize} pipe update submitted`, 'success');
-    if (onDone) onDone();
-    else router.back();
+    try {
+      await customersService.upsertLmcPipeRecord(customer.id, {
+        ...draftPipe,
+        lengthMetres: values.lengthMetres,
+        layingDate: values.layingDate,
+        testingDate: values.testingDate,
+        purgingDate: values.purgingDate,
+        layingStatus: values.layingStatus,
+        testingStatus: values.testingStatus,
+        purgingStatus: values.purgingStatus,
+        jointFittingDetails: values.jointFittingDetails,
+        remarks: values.remarks,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast(`${draftPipe.pipeSize} pipe update submitted`, 'success');
+      if (onDone) onDone();
+      else router.back();
+    } catch {
+      showToast(`Unable to submit ${draftPipe.pipeSize} pipe update`, 'error');
+    }
   };
 
   const content = (

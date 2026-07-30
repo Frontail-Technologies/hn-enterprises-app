@@ -11,7 +11,7 @@ import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
-import { customers } from '@/services/mockData';
+import { useCustomerList } from '@/hooks/useCustomerRecord';
 
 type CustomerGridRow = {
   id: string;
@@ -96,6 +96,7 @@ export default function CustomersScreen() {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const openingRowRef = useRef<string | null>(null);
+  const { customers, isLoading } = useCustomerList();
 
   const rows = useMemo<CustomerGridRow[]>(
     () => [
@@ -112,7 +113,7 @@ export default function CustomersScreen() {
       })),
       ...demoMasterRows,
     ],
-    [],
+    [customers],
   );
 
   const {
@@ -169,7 +170,7 @@ export default function CustomersScreen() {
 
       <View style={styles.tablePanel}>
         <Text style={[styles.resultText, { color: colors.muted }]}>
-          Showing {filteredRows.length} of {rows.length} records
+          {isLoading ? 'Loading customers...' : `Showing ${filteredRows.length} of ${rows.length} records`}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator>
           <View style={styles.table}>

@@ -10,6 +10,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
 const mdpeFields = [
@@ -28,7 +29,7 @@ const mdpeFields = [
   ['endCap90Mm', 'End Cap 90 mm'],
 ] as const;
 
-export function useMdpeFittingsPanel(customer: CustomerRecord) {
+export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(
@@ -55,9 +56,15 @@ export function useMdpeFittingsPanel(customer: CustomerRecord) {
     showToast('MDPE draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('MDPE fittings submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateMdpeFittings(customer.id, values);
+      await clearDraft();
+      await onRefetch?.();
+      showToast('MDPE fittings submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit MDPE fittings', 'error');
+    }
   };
 
   const content = (

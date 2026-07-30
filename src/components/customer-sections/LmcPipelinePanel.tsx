@@ -10,11 +10,11 @@ import { useTheme } from '@/context/ThemeContext';
 import type { CustomerRecord, LmcPipeRecord } from '@/services/mockData';
 import { formatDate } from '@/utils/format';
 
-export function useLmcPipelinePanel(customer: CustomerRecord) {
+export function useLmcPipelinePanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const [editingPipeId, setEditingPipeId] = useState<string | null>(null);
 
-  const pipeForm = usePipeEditForm(customer, editingPipeId ?? '', () => setEditingPipeId(null));
+  const pipeForm = usePipeEditForm(customer, editingPipeId ?? '', () => setEditingPipeId(null), onRefetch);
 
   const content = (
     <>

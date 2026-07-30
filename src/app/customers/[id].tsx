@@ -25,40 +25,55 @@ import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
-import { getCustomerById } from "@/services/mockData";
+import { useCustomerRecord } from "@/hooks/useCustomerRecord";
 import type { CustomerRecord } from "@/services/mockData";
 
 export default function CustomerWorkspaceScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
-  const customer = getCustomerById(params.id ?? "");
+  const { customer, isLoading, error, refetch } = useCustomerRecord(params.id);
 
-  if (!customer) {
+  if (isLoading) {
     return (
       <Screen tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
         <AppHeader title="Customer" left={<BackButton />} />
-        <EmptyCustomer />
+        <Text style={typography.body}>Loading customer...</Text>
       </Screen>
     );
   }
 
-  return <CustomerWorkspaceContent customer={customer} />;
+  if (error || !customer) {
+    return (
+      <Screen tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
+        <AppHeader title="Customer" left={<BackButton />} />
+        <EmptyCustomer onRetry={refetch} />
+      </Screen>
+    );
+  }
+
+  return <CustomerWorkspaceContent customer={customer} onRefetch={refetch} />;
 }
 
-function CustomerWorkspaceContent({ customer }: { customer: CustomerRecord }) {
+function CustomerWorkspaceContent({
+  customer,
+  onRefetch,
+}: {
+  customer: CustomerRecord;
+  onRefetch: () => Promise<void>;
+}) {
   const connection = customer.customerConnection;
 
   // Every technical section is now an inline tab panel. Hooks must be called
   // unconditionally regardless of which tab is active (Rules of Hooks).
   const customerInfoPanel = useCustomerInfoPanel(customer);
-  const surveyPanel = useSurveyPanel(customer);
-  const giPanel = useGiMeasurementsPanel(customer);
-  const isolationPanel = useIsolationRegulatorsPanel(customer);
-  const fittingsPanel = useFittingsAccessoriesPanel(customer);
-  const lmcPanel = useLmcPipelinePanel(customer);
-  const civilWorkPanel = useCivilWorkForm(customer);
-  const mdpePanel = useMdpeFittingsPanel(customer);
-  const meterPanel = useMeterCommissioningPanel(customer);
-  const billingPanel = useBillingRemarksPanel(customer);
+  const surveyPanel = useSurveyPanel(customer, onRefetch);
+  const giPanel = useGiMeasurementsPanel(customer, onRefetch);
+  const isolationPanel = useIsolationRegulatorsPanel(customer, onRefetch);
+  const fittingsPanel = useFittingsAccessoriesPanel(customer, onRefetch);
+  const lmcPanel = useLmcPipelinePanel(customer, onRefetch);
+  const civilWorkPanel = useCivilWorkForm(customer, onRefetch);
+  const mdpePanel = useMdpeFittingsPanel(customer, onRefetch);
+  const meterPanel = useMeterCommissioningPanel(customer, onRefetch);
+  const billingPanel = useBillingRemarksPanel(customer, onRefetch);
   const documentsPanel = useDocumentsPanel(customer);
 
   const tabs = [
@@ -244,13 +259,14 @@ function CustomerQuickActions({
   );
 }
 
-function EmptyCustomer() {
+function EmptyCustomer({ onRetry }: { onRetry: () => void }) {
   const { colors } = useTheme();
   return (
     <View style={styles.emptyState}>
       <Text style={[typography.bodyMedium, { color: colors.text }]}>
         Customer not found
       </Text>
+      <Button label="Retry" variant="outline" onPress={onRetry} />
       <Button label="Go Back" onPress={() => router.back()} />
     </View>
   );

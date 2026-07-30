@@ -13,6 +13,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
 const groups = [
@@ -21,7 +22,7 @@ const groups = [
   { key: 'reducers', label: 'Reducers & Other' },
 ] as const;
 
-export function useFittingsAccessoriesPanel(customer: CustomerRecord) {
+export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [activeGroup, setActiveGroup] = useState<(typeof groups)[number]['key']>('clamps');
@@ -51,9 +52,31 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord) {
     showToast('Fittings draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('Fittings submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateFittingsAccessories(customer.id, {
+        clampHalfInch: values.clampHalfInch,
+        clampThreeInchToHalfInch: values.clampThreeInchToHalfInch,
+        elbowHalfInch: values.elbowHalfInch,
+        mfElbowHalfInch: values.mfElbowHalfInch,
+        socketHalfInch: values.socketHalfInch,
+        teeHalfInch: values.teeHalfInch,
+        nippleTwoInch: values.nippleTwoInch,
+        nippleThreeInch: values.nippleThreeInch,
+        nippleFourInch: values.nippleFourInch,
+        reducerElbowThreeQuarterToHalfInch: values.reducerElbowThreeQuarterToHalfInch,
+        threeQuarterInchToThreeInch: values.threeQuarterInchToThreeInch,
+        unionHalfInch: values.unionHalfInch,
+        plugHalfInch: values.plugHalfInch,
+        fittingsOneAndHalfInch: values.fittingsOneAndHalfInch,
+        fittingsTwoInch: values.fittingsTwoInch,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('Fittings submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit fittings', 'error');
+    }
   };
 
   const content = (

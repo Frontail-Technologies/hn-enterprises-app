@@ -16,11 +16,12 @@ import { useToast } from '@/context/ToastContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
 
-export function useSurveyPanel(customer: CustomerRecord) {
+export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { location, captureLocation, loading } = useCurrentLocation();
@@ -54,9 +55,18 @@ export function useSurveyPanel(customer: CustomerRecord) {
   const { ref: obstaclesRef, onFocus: obstaclesOnFocus } = useScrollIntoViewOnFocus();
 
   const submit = async () => {
-    await clearDraft();
-    showToast(survey.approvalStatus === 'Sent Back' ? 'Survey resubmitted' : 'Survey submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateSurvey(customer.id, {
+        ...survey,
+        ...values,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast(survey.approvalStatus === 'Sent Back' ? 'Survey resubmitted' : 'Survey submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit survey', 'error');
+    }
   };
 
   const save = async () => {

@@ -12,9 +12,10 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
-export function useCivilWorkForm(customer: CustomerRecord, onDone?: () => void) {
+export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const civil = customer.lmcPipelineWork ?? {
@@ -49,10 +50,25 @@ export function useCivilWorkForm(customer: CustomerRecord, onDone?: () => void) 
     showToast('Civil work draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('Civil work submitted', 'success');
-    if (onDone) onDone();
-    else router.back();
+    try {
+      await customersService.updateCivilWork(customer.id, {
+        fourMetresUnderGc: values.fourMetresUnderGc,
+        fourMetresAboveGc: values.fourMetresAboveGc,
+        tfHalfInch: values.tfHalfInch,
+        tfOneInch: values.tfOneInch,
+        pcc: values.pcc,
+        rccNalaCrossing: values.rccNalaCrossing,
+        paverBlocks: values.paverBlocks,
+        malua: values.malua,
+        hardRock: values.hardRock,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('Civil work submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit civil work', 'error');
+    }
   };
 
   const content = (

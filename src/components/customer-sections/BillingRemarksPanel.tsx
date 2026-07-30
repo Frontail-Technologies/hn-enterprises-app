@@ -12,9 +12,10 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
-export function useBillingRemarksPanel(customer: CustomerRecord) {
+export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const billing = customer.billingCompletion ?? {
@@ -36,9 +37,25 @@ export function useBillingRemarksPanel(customer: CustomerRecord) {
     showToast('Billing remarks draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('JMR / billing remarks submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateBilling(customer.id, {
+        paymentStatus: values.paymentStatus,
+        paymentMode: values.paymentMode,
+        initialAmount: values.initialAmount,
+        jmrDone: values.jmrDone,
+        jmrSubmittedInPbg: values.jmrSubmittedInPbg,
+        giBillDone: values.giBillDone,
+        gcBillDone: values.gcBillDone,
+        conversionBillDone: values.conversionBillDone,
+        remark: billing.remark,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('JMR / billing remarks submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit billing remarks', 'error');
+    }
   };
 
   const content = (

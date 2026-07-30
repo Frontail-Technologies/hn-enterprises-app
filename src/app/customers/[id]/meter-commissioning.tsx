@@ -8,25 +8,41 @@ import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { getCustomerById } from '@/services/mockData';
+import { useCustomerRecord } from '@/hooks/useCustomerRecord';
 import type { CustomerRecord } from '@/services/mockData';
 
 export default function MeterCommissioningScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
-  const customer = getCustomerById(params.id ?? '');
+  const { customer, isLoading, error, refetch } = useCustomerRecord(params.id);
 
-  if (!customer) return <MissingCustomer />;
+  if (isLoading) return <LoadingCustomer />;
+  if (error || !customer) return <MissingCustomer />;
 
-  return <MeterCommissioningScreenContent customer={customer} />;
+  return <MeterCommissioningScreenContent customer={customer} onRefetch={refetch} />;
 }
 
-function MeterCommissioningScreenContent({ customer }: { customer: CustomerRecord }) {
-  const { content, footer } = useMeterCommissioningPanel(customer);
+function MeterCommissioningScreenContent({
+  customer,
+  onRefetch,
+}: {
+  customer: CustomerRecord;
+  onRefetch: () => Promise<void>;
+}) {
+  const { content, footer } = useMeterCommissioningPanel(customer, onRefetch);
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} bottomAccessory={footer}>
       <CustomerSectionHeader title="Meter & Commissioning" customer={customer} />
       {content}
+    </Screen>
+  );
+}
+
+function LoadingCustomer() {
+  const { colors } = useTheme();
+  return (
+    <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Text style={[typography.bodyMedium, { color: colors.text }]}>Loading...</Text>
     </Screen>
   );
 }

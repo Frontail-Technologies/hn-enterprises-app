@@ -15,9 +15,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
-export function useMeterCommissioningPanel(customer: CustomerRecord) {
+export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const meter = customer.commissioningConversion ?? {
@@ -43,9 +44,25 @@ export function useMeterCommissioningPanel(customer: CustomerRecord) {
     showToast('Meter draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('Meter & commissioning submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateCommissioningConversion(customer.id, {
+        meterNo: values.meterNo,
+        installationDate: values.installationDate,
+        commissioningDate: values.commissioningDate,
+        conversionDate: values.conversionDate,
+        regulatorPressure: values.regulatorPressure,
+        regulatorNo: values.regulatorNo,
+        meterType: values.meterType,
+        meterReading: values.meterReading,
+        nonConversionRemark: values.nonConversionRemark,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('Meter & commissioning submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit meter & commissioning', 'error');
+    }
   };
 
   const content = (

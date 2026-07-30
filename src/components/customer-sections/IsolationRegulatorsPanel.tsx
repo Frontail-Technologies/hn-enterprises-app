@@ -12,9 +12,10 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
+import { customersService } from '@/services/customers.service';
 import type { CustomerRecord } from '@/services/mockData';
 
-export function useIsolationRegulatorsPanel(customer: CustomerRecord) {
+export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const source = customer.isolationFittings ?? {
@@ -43,9 +44,26 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord) {
     showToast('Isolation draft saved', 'success');
   };
   const submit = async () => {
-    await clearDraft();
-    showToast('Isolation and regulators submitted', 'success');
-    router.back();
+    try {
+      await customersService.updateIsolationRegulators(customer.id, {
+        isolationValveHalfInch: values.isolationValveHalfInch,
+        isolationValveThreeQuarterInch: values.isolationValveThreeQuarterInch,
+        isolationValveOneInch: values.isolationValveOneInch,
+        isolationValveOneAndHalfInch: values.isolationValveOneAndHalfInch,
+        isolationValveTwoInch: values.isolationValveTwoInch,
+        applianceValveHalfInch: values.applianceValveHalfInch,
+        regulator6BarTo100Mbar: values.regulator6BarTo100Mbar,
+        regulator6BarTo21Mbar: values.regulator6BarTo21Mbar,
+        regulator100MbarTo21Mbar: values.regulator100MbarTo21Mbar,
+        warningPlate: values.warningPlate,
+      });
+      await clearDraft();
+      await onRefetch?.();
+      showToast('Isolation and regulators submitted', 'success');
+      router.back();
+    } catch {
+      showToast('Unable to submit isolation and regulators', 'error');
+    }
   };
 
   const content = (

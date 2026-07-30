@@ -8,20 +8,29 @@ import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { getCustomerById } from '@/services/mockData';
+import { useCustomerRecord } from '@/hooks/useCustomerRecord';
 import type { CustomerRecord } from '@/services/mockData';
 
 export default function LmcPipeUpdateScreen() {
   const params = useLocalSearchParams<{ id?: string; pipeId?: string }>();
-  const customer = getCustomerById(params.id ?? '');
+  const { customer, isLoading, error, refetch } = useCustomerRecord(params.id);
 
-  if (!customer) return <MissingPipe />;
+  if (isLoading) return <LoadingCustomer />;
+  if (error || !customer) return <MissingPipe />;
 
-  return <LmcPipeUpdateScreenContent customer={customer} pipeId={params.pipeId ?? ''} />;
+  return <LmcPipeUpdateScreenContent customer={customer} pipeId={params.pipeId ?? ''} onRefetch={refetch} />;
 }
 
-function LmcPipeUpdateScreenContent({ customer, pipeId }: { customer: CustomerRecord; pipeId: string }) {
-  const { pipe, content, footer } = usePipeEditForm(customer, pipeId);
+function LmcPipeUpdateScreenContent({
+  customer,
+  pipeId,
+  onRefetch,
+}: {
+  customer: CustomerRecord;
+  pipeId: string;
+  onRefetch: () => Promise<void>;
+}) {
+  const { pipe, content, footer } = usePipeEditForm(customer, pipeId, undefined, onRefetch);
 
   if (!pipe) return <MissingPipe />;
 
@@ -29,6 +38,15 @@ function LmcPipeUpdateScreenContent({ customer, pipeId }: { customer: CustomerRe
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} bottomAccessory={footer}>
       <CustomerSectionHeader title={`${pipe.pipeSize} Pipe`} customer={customer} />
       {content}
+    </Screen>
+  );
+}
+
+function LoadingCustomer() {
+  const { colors } = useTheme();
+  return (
+    <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Text style={[typography.bodyMedium, { color: colors.text }]}>Loading...</Text>
     </Screen>
   );
 }
