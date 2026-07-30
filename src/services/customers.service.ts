@@ -229,7 +229,8 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     scheme: raw.scheme ?? "",
     plumberName: raw.plumberName ?? "",
     supervisorName: raw.supervisorName ?? "",
-    jobCardDone: "",
+    // master-import writes this into billingCompletion.jobCardDone, not a top-level column
+    jobCardDone: String((raw.billingCompletion as Record<string, unknown> | null)?.jobCardDone ?? ""),
     connectionType: (raw.connectionType as CustomerConnectionDetails["connectionType"]) || "Domestic",
     houseType: raw.houseType ?? "",
   };
