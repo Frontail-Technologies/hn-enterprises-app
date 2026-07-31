@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
@@ -15,7 +16,7 @@ import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { customersService } from '@/services/customers.service';
-import type { CustomerRecord, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
+import type { CustomerRecord, EvidenceFile, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
 
 const layingOptions: LmcLayingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
 const testingOptions: LmcTestingStatus[] = ['Pending', 'In Progress', 'Passed', 'Failed', 'Not Required', 'On Hold'];
@@ -58,6 +59,7 @@ export function usePipeEditForm(
   });
   const { ref: jointFittingRef, onFocus: jointFittingOnFocus } = useScrollIntoViewOnFocus();
   const { ref: remarksRef, onFocus: remarksOnFocus } = useScrollIntoViewOnFocus();
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(draftPipe.evidence);
 
   const save = async () => {
     await saveDraft();
@@ -76,6 +78,7 @@ export function usePipeEditForm(
         purgingStatus: values.purgingStatus,
         jointFittingDetails: values.jointFittingDetails,
         remarks: values.remarks,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
@@ -137,7 +140,13 @@ export function usePipeEditForm(
       </Card>
 
       <Card style={styles.formCard}>
-        <EvidenceUploader title={`${draftPipe.pipeSize} Evidence`} initialFiles={draftPipe.evidence} />
+        <EvidenceUploader
+          title={`${draftPipe.pipeSize} Evidence`}
+          initialFiles={draftPipe.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+        />
       </Card>
     </>
   );

@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient";
+import { resolveMediaUrl } from "./uploads.service";
 import type {
   BillingCompletion,
   CommissioningConversion,
@@ -6,6 +7,7 @@ import type {
   CustomerDocument,
   CustomerRecord,
   CustomerStatus,
+  EvidenceFile,
   FittingsAccessories,
   GiMeasurements,
   IsolationFittings,
@@ -157,6 +159,18 @@ type BackendCustomerDocument = {
   status: string;
 };
 
+function mapEvidenceFile(item: Record<string, unknown>, index: number, keyPrefix: string): EvidenceFile {
+  const fileName = String(item.fileName ?? item.label ?? `evidence-${index}`);
+  const fileUrl = typeof item.fileUrl === "string" ? item.fileUrl : undefined;
+  return {
+    id: typeof item.id === "string" && item.id ? item.id : `${keyPrefix}-evidence-${index}`,
+    fileName,
+    fileUrl,
+    uri: resolveMediaUrl(fileUrl),
+    status: "Uploaded",
+  };
+}
+
 function mapPipeRecord(raw: BackendLmcPipeRecord): LmcPipeRecord {
   return {
     id: raw.id,
@@ -170,11 +184,7 @@ function mapPipeRecord(raw: BackendLmcPipeRecord): LmcPipeRecord {
     purgingStatus: PURGING_TO_MOBILE[raw.purgingStatus] ?? "Pending",
     jointFittingDetails: raw.jointFittingDetails ?? "",
     remarks: raw.remarks ?? "",
-    evidence: (raw.evidence ?? []).map((item, index) => ({
-      id: `${raw.id}-evidence-${index}`,
-      fileName: String(item.fileName ?? item.label ?? `evidence-${index}`),
-      status: "Uploaded",
-    })),
+    evidence: (raw.evidence ?? []).map((item, index) => mapEvidenceFile(item, index, raw.id)),
   };
 }
 
@@ -366,7 +376,9 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
           gpsLocation:
             survey.latitude != null && survey.longitude != null ? `${survey.latitude}, ${survey.longitude}` : "",
           photos: [],
-          evidence: [],
+          evidence: Array.isArray(survey.evidence)
+            ? (survey.evidence as Record<string, unknown>[]).map((item, index) => mapEvidenceFile(item, index, "survey"))
+            : [],
         }
       : {
           surveyId: "",
@@ -430,6 +442,9 @@ export const customersService = {
           reason: survey.reason,
           recommendedAction: survey.recommendedAction,
           expectedResolutionDate: survey.expectedResolutionDate,
+          evidence: survey.evidence?.length
+            ? survey.evidence.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))
+            : undefined,
         },
       }),
     });
@@ -540,7 +555,7 @@ export const customersService = {
         jointFittingDetails: record.jointFittingDetails || undefined,
         remarks: record.remarks || undefined,
         evidence: record.evidence?.length
-          ? record.evidence.map((file) => ({ fileName: file.fileName }))
+          ? record.evidence.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))
           : undefined,
       }),
     });

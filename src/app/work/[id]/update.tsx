@@ -140,7 +140,7 @@ export default function WorkProgressUpdateScreen() {
       </Card>
 
       <Card style={styles.sectionCard}>
-        <EvidenceUploader title="Evidence / Photos" />
+        <EvidenceUploader title="Evidence / Photos" module="work" recordId={record.id} />
       </Card>
 
       <Card style={styles.sectionCard}>

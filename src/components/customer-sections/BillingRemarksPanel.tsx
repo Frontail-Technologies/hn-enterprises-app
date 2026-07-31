@@ -79,7 +79,7 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
       </Card>
 
       <Card style={styles.formCard}>
-        <EvidenceUploader title="Supporting Photo / Document" initialFiles={billing.evidence} />
+        <EvidenceUploader title="Supporting Photo / Document" initialFiles={billing.evidence} module="customers" recordId={customer.id} />
       </Card>
     </>
   );

@@ -103,7 +103,7 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
             textAlignVertical="top"
           />
         </View>
-        <EvidenceUploader title="Meter Photo / Installation Photos" initialFiles={meter.evidence} />
+        <EvidenceUploader title="Meter Photo / Installation Photos" initialFiles={meter.evidence} module="customers" recordId={customer.id} />
       </Card>
     </>
   );

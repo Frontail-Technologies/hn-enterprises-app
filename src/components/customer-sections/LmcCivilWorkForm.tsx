@@ -90,7 +90,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.civilRemarks} onChangeText={(value) => updateField('civilRemarks', value)} />
-        <EvidenceUploader title="Civil Work Photos" initialFiles={civil.civilEvidence} />
+        <EvidenceUploader title="Civil Work Photos" initialFiles={civil.civilEvidence} module="customers" recordId={customer.id} />
       </Card>
     </>
   );

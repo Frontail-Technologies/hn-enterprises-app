@@ -90,7 +90,7 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.remarks} onChangeText={(value) => updateField('remarks', value)} />
-        <EvidenceUploader title="Isolation / Regulator Photos" />
+        <EvidenceUploader title="Isolation / Regulator Photos" module="customers" recordId={customer.id} />
       </Card>
     </>
   );

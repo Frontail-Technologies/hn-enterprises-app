@@ -12,10 +12,14 @@ import { useTheme } from '@/context/ThemeContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import type { EvidenceFile } from '@/services/mockData';
+import { resolveMediaUrl, uploadFile, type UploadAsset } from '@/services/uploads.service';
 
 type EvidenceUploaderProps = {
   title?: string;
   initialFiles?: EvidenceFile[];
+  module: string;
+  recordId?: string;
+  onChange?: (files: EvidenceFile[]) => void;
 };
 
 type PendingAsset = {
@@ -25,7 +29,7 @@ type PendingAsset = {
   assetId?: string | null;
 };
 
-export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [] }: EvidenceUploaderProps) {
+export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [], module, recordId, onChange }: EvidenceUploaderProps) {
   const { colors } = useTheme();
   const { location, captureLocation } = useCurrentLocation();
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles);
@@ -104,25 +108,58 @@ export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [] 
     setPendingAssets((current) => current.filter((_, i) => i !== index));
   };
 
+  const updateFiles = (updater: (current: EvidenceFile[]) => EvidenceFile[]) => {
+    setFiles((current) => {
+      const next = updater(current);
+      onChange?.(next);
+      return next;
+    });
+  };
+
+  const runUpload = async (id: string, asset: UploadAsset) => {
+    try {
+      const uploaded = await uploadFile(asset, module, recordId);
+      updateFiles((current) =>
+        current.map((file) =>
+          file.id === id
+            ? {
+                ...file,
+                uri: resolveMediaUrl(uploaded.url) ?? uploaded.url,
+                fileUrl: uploaded.url,
+                fileName: uploaded.fileName,
+                status: 'Uploaded',
+              }
+            : file,
+        ),
+      );
+    } catch {
+      updateFiles((current) => current.map((file) => (file.id === id ? { ...file, status: 'Failed' } : file)));
+    }
+  };
+
   const confirmPending = () => {
     const capturedAt = new Date().toISOString();
     const gpsLocation = location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : undefined;
-    const nextFiles: EvidenceFile[] = pendingAssets.map((asset) => ({
+    const staged: EvidenceFile[] = pendingAssets.map((asset) => ({
       id: `${asset.assetId ?? asset.uri}-${Date.now()}`,
       fileName: asset.fileName,
       uri: asset.uri,
       mimeType: asset.mimeType ?? 'application/octet-stream',
-      status: 'Uploaded' as const,
+      status: 'Uploading' as const,
       capturedAt,
       gpsLocation,
     }));
 
-    setFiles((current) => [...current, ...nextFiles]);
+    updateFiles((current) => [...current, ...staged]);
     closeSheet();
+
+    staged.forEach((file) => {
+      void runUpload(file.id, { uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType });
+    });
   };
 
   const removeFile = (id: string) => {
-    setFiles((current) => current.filter((file) => file.id !== id));
+    updateFiles((current) => current.filter((file) => file.id !== id));
   };
 
   const replaceFile = async (id: string) => {
@@ -134,23 +171,32 @@ export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [] 
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    setFiles((current) =>
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    updateFiles((current) =>
       current.map((file) =>
         file.id === id
           ? {
               ...file,
               uri: asset.uri,
-              mimeType: asset.mimeType ?? file.mimeType,
-              status: 'Uploaded',
+              mimeType,
+              status: 'Uploading',
               capturedAt: new Date().toISOString(),
             }
           : file,
       ),
     );
+
+    const existingFileName = files.find((file) => file.id === id)?.fileName;
+    const fileName = existingFileName ?? `replacement-${id}.jpg`;
+    void runUpload(id, { uri: asset.uri, fileName, mimeType });
   };
 
   const retryFile = (id: string) => {
-    setFiles((current) => current.map((file) => (file.id === id ? { ...file, status: 'Uploaded' } : file)));
+    const file = files.find((item) => item.id === id);
+    if (!file?.uri) return;
+
+    updateFiles((current) => current.map((item) => (item.id === id ? { ...item, status: 'Uploading' } : item)));
+    void runUpload(id, { uri: file.uri, fileName: file.fileName, mimeType: file.mimeType });
   };
 
   return (

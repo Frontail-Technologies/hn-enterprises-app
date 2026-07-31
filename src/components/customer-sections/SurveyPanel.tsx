@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { AlertCircle, CheckCircle2, MapPin, XCircle } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -17,7 +18,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { customersService } from '@/services/customers.service';
-import type { CustomerRecord } from '@/services/mockData';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
 
@@ -53,12 +54,14 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     expectedResolutionDate: survey.expectedResolutionDate ?? '',
   });
   const { ref: obstaclesRef, onFocus: obstaclesOnFocus } = useScrollIntoViewOnFocus();
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(survey.evidence ?? []);
 
   const submit = async () => {
     try {
       await customersService.updateSurvey(customer.id, {
         ...survey,
         ...values,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
@@ -205,7 +208,13 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       </Card>
 
       <Card style={styles.formCard}>
-        <EvidenceUploader title="Site Photos" initialFiles={survey.evidence} />
+        <EvidenceUploader
+          title="Site Photos"
+          initialFiles={survey.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+        />
       </Card>
 
     </>

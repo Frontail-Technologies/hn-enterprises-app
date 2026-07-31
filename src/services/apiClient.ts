@@ -31,6 +31,10 @@ type ApiResponse<T> = {
   errors?: unknown;
 };
 
+export function getApiOrigin() {
+  return API_BASE_URL.replace(/\/api\/?$/, "");
+}
+
 export async function getAccessToken() {
   return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 }
@@ -60,12 +64,15 @@ export async function apiRequest<T>(
   const { auth = true, skipRefresh = false, headers, ...requestOptions } =
     options;
   const token = auth ? await getAccessToken() : null;
+  // FormData bodies must not get a manual Content-Type - the runtime sets the
+  // multipart boundary itself. Only default to JSON for plain/string bodies.
+  const isFormData = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
 
   const response = await requestWithTimeout(`${API_BASE_URL}${path}`, {
     ...requestOptions,
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },

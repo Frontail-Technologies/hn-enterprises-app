@@ -93,7 +93,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.remarks} onChangeText={(value) => updateField('remarks', value)} />
-        <EvidenceUploader title="GI Photos" />
+        <EvidenceUploader title="GI Photos" module="customers" recordId={customer.id} />
       </Card>
     </>
   );

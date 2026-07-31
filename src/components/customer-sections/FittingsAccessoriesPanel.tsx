@@ -138,7 +138,7 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.remarks ?? ''} onChangeText={(value) => updateField('remarks', value)} />
-        <EvidenceUploader title="Fittings Evidence" initialFiles={values.evidence} />
+        <EvidenceUploader title="Fittings Evidence" initialFiles={values.evidence} module="customers" recordId={customer.id} />
       </Card>
     </>
   );

@@ -46,6 +46,7 @@ export type EvidenceFile = {
   label?: string;
   fileName: string;
   uri?: string;
+  fileUrl?: string;
   mimeType?: string;
   caption?: string;
   status?: 'Pending' | 'Uploading' | 'Uploaded' | 'Failed';
