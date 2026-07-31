@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ArrowLeft, ClipboardList, Plus } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -12,16 +12,11 @@ import { Screen } from '@/components/ui/Screen';
 import { dprTaskTemplates } from '@/constants/dprTasks';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
-
-type PlanSite = {
-  id: string;
-  siteAddress: SiteAddress;
-  tasks: PlanTask[];
-};
-
-type SiteAddress = 'radha-nagar' | 'shyam-a' | 'shyam-b' | 'metro-stretch';
+import { planningApi, type PlanTaskPayload } from '@/services/planning.service';
+import { projectsApi, type ProjectOption, type ProjectSiteOption } from '@/services/projects.service';
 
 type PlanTask = {
   id: string;
@@ -30,34 +25,41 @@ type PlanTask = {
   worker: string;
 };
 
-const siteAddressOptions: { label: string; value: SiteAddress }[] = [
-  { label: 'Radha Nagar', value: 'radha-nagar' },
-  { label: 'Shyam Nagar Block A', value: 'shyam-a' },
-  { label: 'Shyam Nagar Block B', value: 'shyam-b' },
-  { label: 'Metro Corridor, Shyam Nagar', value: 'metro-stretch' },
-];
+type PlanSite = {
+  id: string;
+  projectId: string;
+  siteId: string;
+  tasks: PlanTask[];
+};
+
+function blankTasks(): PlanTask[] {
+  return dprTaskTemplates.map((task) => ({ ...task, qty: '', worker: '' }));
+}
 
 function createSitePlan(index: number): PlanSite {
   return {
     id: `site-plan-${index}`,
-    siteAddress: index === 1 ? 'radha-nagar' : 'shyam-a',
-    tasks: dprTaskTemplates.map((task) => ({
-      ...task,
-      qty: index === 1 ? '1' : '',
-      worker: index === 1 && task.id === 'survey'
-        ? 'Jabed'
-        : index === 1 && task.id === 'route'
-          ? 'Mukesh'
-          : '',
-    })),
+    projectId: '',
+    siteId: '',
+    tasks: blankTasks(),
   };
 }
 
 export default function PlanScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [date, setDate] = useState('2026-07-22');
   const [sitePlans, setSitePlans] = useState<PlanSite[]>([createSitePlan(1)]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    projectsApi
+      .list()
+      .then((rows) => setProjects(rows))
+      .catch(() => setProjects([]));
+  }, []);
 
   const totalQty = useMemo(
     () =>
@@ -70,11 +72,17 @@ export default function PlanScreen() {
     [sitePlans],
   );
 
-  const updateSite = (siteId: string, value: SiteAddress) => {
+  const updateSite = (siteId: string, patch: Partial<Pick<PlanSite, 'projectId' | 'siteId'>>) => {
     setSitePlans((current) =>
-      current.map((site) => (site.id === siteId ? { ...site, siteAddress: value } : site)),
+      current.map((site) => (site.id === siteId ? { ...site, ...patch } : site)),
     );
   };
+
+  const setSiteTasks = useCallback((siteId: string, tasks: PlanTask[]) => {
+    setSitePlans((current) =>
+      current.map((site) => (site.id === siteId ? { ...site, tasks } : site)),
+    );
+  }, []);
 
   const updateTask = (siteId: string, taskId: string, key: keyof Pick<PlanTask, 'qty' | 'worker'>, value: string) => {
     setSitePlans((current) =>
@@ -95,6 +103,32 @@ export default function PlanScreen() {
     setSitePlans((current) => [...current, createSitePlan(current.length + 1)]);
   };
 
+  const handleSave = async () => {
+    if (!user) return;
+    const readySites = sitePlans.filter((site) => site.projectId && site.siteId);
+    if (!readySites.length) {
+      showToast('Select a project and site for at least one plan', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      for (const site of readySites) {
+        const tasks: PlanTaskPayload[] = site.tasks.map((task) => ({
+          id: task.id as PlanTaskPayload['id'],
+          qty: task.qty || undefined,
+          worker: task.worker || undefined,
+        }));
+        await planningApi.upsertSitePlan({ projectId: site.projectId, siteId: site.siteId, date, tasks });
+      }
+      showToast('Plan saved', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save plan', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Screen
       scroll
@@ -103,7 +137,7 @@ export default function PlanScreen() {
       bottomAccessory={
         <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <Button label="Add Site" variant="outline" icon={<Plus size={17} color={colors.primary} />} onPress={addSitePlan} style={styles.footerButton} />
-          <Button label="Save Plan" onPress={() => showToast('Plan saved', 'success')} style={styles.footerButton} />
+          <Button label="Save Plan" onPress={() => void handleSave()} loading={saving} style={styles.footerButton} />
         </View>
       }
     >
@@ -130,7 +164,11 @@ export default function PlanScreen() {
             key={site.id}
             index={index + 1}
             site={site}
-            onChange={updateSite}
+            date={date}
+            supervisorId={user?.id}
+            projects={projects}
+            onChangeSite={updateSite}
+            onTasksLoaded={setSiteTasks}
             onTaskChange={updateTask}
           />
         ))}
@@ -150,12 +188,20 @@ function BackButton() {
 function SitePlanCard({
   index,
   site,
-  onChange,
+  date,
+  supervisorId,
+  projects,
+  onChangeSite,
+  onTasksLoaded,
   onTaskChange,
 }: {
   index: number;
   site: PlanSite;
-  onChange: (siteId: string, value: SiteAddress) => void;
+  date: string;
+  supervisorId?: string;
+  projects: ProjectOption[];
+  onChangeSite: (siteId: string, patch: Partial<Pick<PlanSite, 'projectId' | 'siteId'>>) => void;
+  onTasksLoaded: (siteId: string, tasks: PlanTask[]) => void;
   onTaskChange: (
     siteId: string,
     taskId: string,
@@ -164,18 +210,81 @@ function SitePlanCard({
   ) => void;
 }) {
   const { colors } = useTheme();
+  const [projectSelectOpen, setProjectSelectOpen] = useState(false);
   const [siteSelectOpen, setSiteSelectOpen] = useState(false);
+  const [siteOptions, setSiteOptions] = useState<ProjectSiteOption[]>([]);
+
+  const projectOptions = projects.map((project) => ({ label: project.name, value: project.id }));
+  const siteSelectOptions = siteOptions.map((option) => ({ label: option.name, value: option.id }));
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function bootstrap() {
+      if (!site.projectId) {
+        if (mounted) setSiteOptions([]);
+        return;
+      }
+
+      try {
+        const rows = await projectsApi.listSites(site.projectId);
+        if (mounted) setSiteOptions(rows);
+      } catch {
+        if (mounted) setSiteOptions([]);
+      }
+    }
+
+    bootstrap();
+
+    return () => {
+      mounted = false;
+    };
+  }, [site.projectId]);
+
+  useEffect(() => {
+    if (!site.siteId || !date || !supervisorId) return;
+
+    let mounted = true;
+    planningApi
+      .listSitePlans({ siteId: site.siteId, date, supervisorId })
+      .then((rows) => {
+        const existing = rows[0];
+        if (existing && mounted) {
+          onTasksLoaded(
+            site.id,
+            dprTaskTemplates.map((task) => {
+              const match = existing.tasks.find((item) => item.id === task.id);
+              return { ...task, qty: match?.qty ?? '', worker: match?.worker ?? '' };
+            }),
+          );
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [site.id, site.siteId, date, supervisorId, onTasksLoaded]);
 
   return (
     <Card style={styles.siteCard}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>Site Plan {index}</Text>
       <SimpleSelect
-        label="Site Address"
-        value={site.siteAddress}
-        options={siteAddressOptions}
+        label="Project"
+        value={site.projectId}
+        options={projectOptions}
+        open={projectSelectOpen}
+        onOpenChange={setProjectSelectOpen}
+        onChange={(value) => onChangeSite(site.id, { projectId: value, siteId: '' })}
+        searchable
+      />
+      <SimpleSelect
+        label="Site"
+        value={site.siteId}
+        options={siteSelectOptions}
         open={siteSelectOpen}
         onOpenChange={setSiteSelectOpen}
-        onChange={(value) => onChange(site.id, value)}
+        onChange={(value) => onChangeSite(site.id, { siteId: value })}
         searchable
       />
 

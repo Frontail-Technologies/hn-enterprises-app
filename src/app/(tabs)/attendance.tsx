@@ -38,8 +38,12 @@ export default function AttendanceScreen() {
       return;
     }
 
-    await checkIn(captured);
-    showToast('Checked in successfully', 'success');
+    try {
+      await checkIn(captured);
+      showToast('Checked in successfully', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to check in - try again', 'error');
+    }
   };
 
   const handleCheckOut = async () => {
@@ -49,8 +53,12 @@ export default function AttendanceScreen() {
       return;
     }
 
-    await checkOut(captured);
-    showToast('Checked out successfully', 'success');
+    try {
+      await checkOut(captured);
+      showToast('Checked out successfully', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to check out - try again', 'error');
+    }
   };
 
   return (

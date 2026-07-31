@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -9,30 +9,62 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { useAttendanceStatus } from '@/context/AttendanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { attendanceApi, type BackendAttendanceRecord } from '@/services/attendance.service';
 import { addMonths, startOfDay, toDateKey } from '@/utils/date';
 
-type AttendanceFilter = 'All' | 'Present' | 'Late' | 'Absent' | 'Not Marked';
+type AttendanceFilter = 'All' | 'Present' | 'Late' | 'Half Day' | 'Leave' | 'Absent' | 'Not Marked';
 type CalendarCell = null | {
   day: number;
   dateKey: string;
-  status: AttendanceFilter | 'Future' | 'Selected';
+  status: AttendanceFilter | 'Future';
   disabled: boolean;
+};
+
+const STATUS_TO_FILTER: Record<string, AttendanceFilter> = {
+  present: 'Present',
+  absent: 'Absent',
+  late: 'Late',
+  half_day: 'Half Day',
+  leave: 'Leave',
 };
 
 export default function AttendanceHistoryScreen() {
   const { colors } = useTheme();
-  const { isMarkedToday } = useAttendanceStatus();
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [filter, setFilter] = useState<AttendanceFilter>('All');
+  const [records, setRecords] = useState<BackendAttendanceRecord[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    attendanceApi
+      .getMonth(monthKey)
+      .then((rows) => {
+        if (mounted) setRecords(rows);
+      })
+      .catch(() => {
+        if (mounted) setRecords([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [monthDate]);
+
+  const recordsByDate = useMemo(() => {
+    const map = new Map<string, BackendAttendanceRecord>();
+    records.forEach((record) => map.set(record.date, record));
+    return map;
+  }, [records]);
 
   const calendarDays = useMemo(
-    () => buildCalendar(monthDate, filter, isMarkedToday),
-    [filter, isMarkedToday, monthDate],
+    () => buildCalendar(monthDate, filter, recordsByDate),
+    [filter, monthDate, recordsByDate],
   );
   const visibleDays = calendarDays.filter(Boolean) as Exclude<CalendarCell, null>[];
-  const presentCount = visibleDays.filter((item) => item.status === 'Present' || item.status === 'Selected').length;
+  const presentCount = visibleDays.filter((item) => item.status === 'Present').length;
   const lateCount = visibleDays.filter((item) => item.status === 'Late').length;
   const absentCount = visibleDays.filter((item) => item.status === 'Absent').length;
   const monthTitle = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(monthDate);
@@ -53,7 +85,7 @@ export default function AttendanceHistoryScreen() {
 
       <Card style={styles.calendarCard}>
         <View style={styles.chips}>
-          {(['All', 'Present', 'Late', 'Absent', 'Not Marked'] as AttendanceFilter[]).map((item) => (
+          {(['All', 'Present', 'Late', 'Half Day', 'Leave', 'Absent', 'Not Marked'] as AttendanceFilter[]).map((item) => (
             <FilterChip key={item} label={item} active={filter === item} onPress={() => setFilter(item)} />
           ))}
         </View>
@@ -95,6 +127,8 @@ export default function AttendanceHistoryScreen() {
         <View style={styles.legend}>
           <LegendDot label="Present" color={colors.green} />
           <LegendDot label="Late" color={colors.primary} />
+          <LegendDot label="Half Day" color={colors.amber} />
+          <LegendDot label="Leave" color={colors.blue} />
           <LegendDot label="Absent" color={colors.red} />
           <LegendDot label="Not Marked" color={colors.muted} />
         </View>
@@ -109,7 +143,11 @@ export default function AttendanceHistoryScreen() {
   );
 }
 
-function buildCalendar(monthDate: Date, filter: AttendanceFilter, marked: boolean): CalendarCell[] {
+function buildCalendar(
+  monthDate: Date,
+  filter: AttendanceFilter,
+  recordsByDate: Map<string, BackendAttendanceRecord>,
+): CalendarCell[] {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -122,25 +160,15 @@ function buildCalendar(monthDate: Date, filter: AttendanceFilter, marked: boolea
     const date = new Date(year, month, day);
     const dateKey = toDateKey(date);
     const isFuture = startOfDay(date).getTime() > startOfDay(today).getTime();
-    const baseStatus = getMockStatus(day, date, marked);
-    const status = isFuture ? 'Future' : baseStatus;
+    const record = recordsByDate.get(dateKey);
+    const baseStatus: AttendanceFilter = record ? (STATUS_TO_FILTER[record.status] ?? 'Not Marked') : 'Not Marked';
+    const status: AttendanceFilter | 'Future' = isFuture ? 'Future' : baseStatus;
     const matchesFilter = filter === 'All' || baseStatus === filter;
 
     cells.push(matchesFilter || isFuture ? { day, dateKey, status, disabled: isFuture } : null);
   }
 
   return cells;
-}
-
-function getMockStatus(day: number, date: Date, marked: boolean): AttendanceFilter | 'Selected' {
-  const today = new Date();
-  const isToday = toDateKey(date) === toDateKey(today);
-
-  if (isToday && marked) return 'Selected';
-  if ([3, 11, 25].includes(day)) return 'Absent';
-  if ([2, 20].includes(day)) return 'Late';
-  if ([4, 10, 17, 18, 24].includes(day)) return 'Not Marked';
-  return 'Present';
 }
 
 function BackButton() {
@@ -170,16 +198,17 @@ function SmallStat({ label, value, color }: { label: string; value: string; colo
 }
 
 function getDayStyle(status: string, colors: ReturnType<typeof useTheme>['colors']) {
-  if (status === 'Selected') return { backgroundColor: colors.accent };
   if (status === 'Present') return { backgroundColor: colors.green };
   if (status === 'Late') return { backgroundColor: colors.primary };
+  if (status === 'Half Day') return { backgroundColor: colors.amber };
+  if (status === 'Leave') return { backgroundColor: colors.blue };
   if (status === 'Absent') return { backgroundColor: colors.red };
   if (status === 'Future') return { backgroundColor: '#F1F5F9' };
   return { backgroundColor: 'transparent' };
 }
 
 function getDayTextColor(status: string, colors: ReturnType<typeof useTheme>['colors']) {
-  if (['Selected', 'Present', 'Late', 'Absent'].includes(status)) return '#FFFFFF';
+  if (['Present', 'Late', 'Half Day', 'Leave', 'Absent'].includes(status)) return '#FFFFFF';
   if (status === 'Future') return colors.muted;
   return colors.text;
 }

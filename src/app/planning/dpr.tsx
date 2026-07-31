@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { ArrowLeft, Camera, CheckCircle2, FileText } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, CheckCircle2, FileText } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -9,13 +9,18 @@ import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { AppHeader } from '@/components/shared/AppHeader';
+import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
-import { dprTaskTemplates, type DprTaskId } from '@/constants/dprTasks';
+import { dprTaskTemplates } from '@/constants/dprTasks';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
+import type { EvidenceFile } from '@/services/mockData';
+import { planningApi, type DprTaskPayload, type PlanningEvidenceFile } from '@/services/planning.service';
+import { projectsApi, type ProjectOption, type ProjectSiteOption } from '@/services/projects.service';
 
 type DprItem = {
   id: string;
@@ -26,43 +31,130 @@ type DprItem = {
   delayReason: string;
 };
 
-type SiteAddress = 'radha-nagar' | 'shyam-a' | 'shyam-b' | 'metro-stretch';
-
-const siteAddressOptions: { label: string; value: SiteAddress }[] = [
-  { label: 'Radha Nagar', value: 'radha-nagar' },
-  { label: 'Shyam Nagar Block A', value: 'shyam-a' },
-  { label: 'Shyam Nagar Block B', value: 'shyam-b' },
-  { label: 'Metro Corridor, Shyam Nagar', value: 'metro-stretch' },
-];
-
-const siteAddressLabels = Object.fromEntries(
-  siteAddressOptions.map((option) => [option.value, option.label]),
-) as Record<SiteAddress, string>;
-
-const seededItemValues: Partial<Record<DprTaskId, Partial<Omit<DprItem, 'id' | 'label'>>>> = {
-  survey: { completedQty: '1', worker: 'Jabed' },
-  route: { worker: 'Mukesh' },
-};
-
 const initialItems: DprItem[] = dprTaskTemplates.map((task) => ({
   id: task.id,
   label: task.label,
-  plannedQty: '1',
+  plannedQty: '',
   completedQty: '',
   worker: '',
   delayReason: '',
-  ...seededItemValues[task.id],
 }));
+
+function toPlanningEvidence(files: EvidenceFile[]): PlanningEvidenceFile[] {
+  return files
+    .filter((file) => Boolean(file.fileUrl))
+    .map((file) => ({
+      id: file.id,
+      fileName: file.fileName,
+      fileUrl: file.fileUrl as string,
+      mimeType: file.mimeType,
+      capturedAt: file.capturedAt,
+    }));
+}
+
+function fromPlanningEvidence(files: PlanningEvidenceFile[]): EvidenceFile[] {
+  return files.map((file) => ({
+    id: file.id,
+    fileName: file.fileName,
+    fileUrl: file.fileUrl,
+    uri: file.fileUrl,
+    mimeType: file.mimeType,
+    capturedAt: file.capturedAt,
+    status: 'Uploaded',
+  }));
+}
 
 export default function DprScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [date, setDate] = useState('2026-07-22');
-  const [siteAddress, setSiteAddress] = useState<SiteAddress>('radha-nagar');
+  const [projectId, setProjectId] = useState('');
+  const [siteId, setSiteId] = useState('');
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [siteOptions, setSiteOptions] = useState<ProjectSiteOption[]>([]);
+  const [projectSelectOpen, setProjectSelectOpen] = useState(false);
   const [siteSelectOpen, setSiteSelectOpen] = useState(false);
   const [remarks, setRemarks] = useState('');
-  const [photoCount, setPhotoCount] = useState(0);
+  const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
+  const [evidenceLoadToken, setEvidenceLoadToken] = useState(0);
   const [items, setItems] = useState(initialItems);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    projectsApi
+      .list()
+      .then((rows) => setProjects(rows))
+      .catch(() => setProjects([]));
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function bootstrap() {
+      if (!projectId) {
+        if (mounted) {
+          setSiteOptions([]);
+          setSiteId('');
+        }
+        return;
+      }
+
+      try {
+        const rows = await projectsApi.listSites(projectId);
+        if (mounted) setSiteOptions(rows);
+      } catch {
+        if (mounted) setSiteOptions([]);
+      }
+    }
+
+    bootstrap();
+
+    return () => {
+      mounted = false;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!siteId || !date || !user?.id) return;
+
+    let mounted = true;
+    planningApi
+      .listDprRecords({ siteId, date, supervisorId: user.id })
+      .then((rows) => {
+        if (!mounted) return;
+        const existing = rows[0];
+
+        if (existing) {
+          setItems(
+            dprTaskTemplates.map((task) => {
+              const match = existing.tasks.find((item) => item.id === task.id);
+              return {
+                ...task,
+                plannedQty: match?.plannedQty ?? '',
+                completedQty: match?.completedQty ?? '',
+                worker: match?.worker ?? '',
+                delayReason: match?.delayReason ?? '',
+              };
+            }),
+          );
+          setRemarks(existing.remarks ?? '');
+          setEvidence(fromPlanningEvidence(existing.evidence ?? []));
+        } else {
+          setItems(initialItems);
+          setRemarks('');
+          setEvidence([]);
+        }
+        setEvidenceLoadToken((token) => token + 1);
+      })
+      .catch(() => {
+        if (mounted) setEvidenceLoadToken((token) => token + 1);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [siteId, date, user?.id]);
 
   const totalCompleted = useMemo(
     () => items.reduce((sum, item) => sum + (Number(item.completedQty) || 0), 0),
@@ -75,6 +167,43 @@ export default function DprScreen() {
     );
   };
 
+  const projectOptions = projects.map((project) => ({ label: project.name, value: project.id }));
+  const siteSelectOptions = siteOptions.map((option) => ({ label: option.name, value: option.id }));
+  const siteLabel = siteOptions.find((option) => option.id === siteId)?.name ?? 'Select a site';
+
+  const handleSubmit = async () => {
+    if (!projectId || !siteId) {
+      showToast('Select a project and site first', 'error');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const tasks: DprTaskPayload[] = items.map((item) => ({
+        id: item.id as DprTaskPayload['id'],
+        plannedQty: item.plannedQty || undefined,
+        completedQty: item.completedQty || undefined,
+        worker: item.worker || undefined,
+        delayReason: item.delayReason || undefined,
+      }));
+
+      await planningApi.upsertDprRecord({
+        projectId,
+        siteId,
+        date,
+        status: 'submitted',
+        remarks: remarks || undefined,
+        tasks,
+        evidence: toPlanningEvidence(evidence),
+      });
+      showToast('DPR submitted', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to submit DPR', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <Screen
       scroll
@@ -83,19 +212,10 @@ export default function DprScreen() {
       bottomAccessory={
         <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <Button
-            label={photoCount ? `${photoCount} Photos` : 'Add Photos'}
-            variant="outline"
-            icon={<Camera size={17} color={colors.primary} />}
-            onPress={() => {
-              setPhotoCount((count) => count + 1);
-              showToast('Photo added', 'success');
-            }}
-            style={styles.footerButton}
-          />
-          <Button
             label="Submit DPR"
             icon={<CheckCircle2 size={17} color="#FFFFFF" />}
-            onPress={() => showToast('DPR submitted', 'success')}
+            onPress={() => void handleSubmit()}
+            loading={submitting}
             style={styles.footerButton}
           />
         </View>
@@ -109,9 +229,7 @@ export default function DprScreen() {
         </View>
         <View style={styles.summaryCopy}>
           <Text style={[styles.summaryTitle, { color: colors.text }]}>Completed Qty</Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>
-            {siteAddressLabels[siteAddress]}
-          </Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>{siteLabel}</Text>
         </View>
         <Text style={[styles.totalText, { color: colors.primary }]}>{totalCompleted}</Text>
       </Card>
@@ -119,21 +237,32 @@ export default function DprScreen() {
       <Card style={styles.contextCard}>
         <DateField label="DPR Date" value={date} onChangeText={setDate} />
         <SimpleSelect
-          label="Site Address"
-          value={siteAddress}
-          options={siteAddressOptions}
-          open={siteSelectOpen}
-          onOpenChange={setSiteSelectOpen}
-          onChange={setSiteAddress}
+          label="Project"
+          value={projectId}
+          options={projectOptions}
+          open={projectSelectOpen}
+          onOpenChange={setProjectSelectOpen}
+          onChange={setProjectId}
           searchable
         />
-        <View style={[styles.photoStatus, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <Camera size={16} color={colors.primary} />
-          <Text style={[styles.photoStatusText, { color: colors.text }]}>
-            Photos added: {photoCount}
-          </Text>
-        </View>
+        <SimpleSelect
+          label="Site"
+          value={siteId}
+          options={siteSelectOptions}
+          open={siteSelectOpen}
+          onOpenChange={setSiteSelectOpen}
+          onChange={setSiteId}
+          searchable
+        />
       </Card>
+
+      <EvidenceUploader
+        key={`dpr-evidence-${evidenceLoadToken}`}
+        title="DPR Photos"
+        initialFiles={evidence}
+        module="dpr"
+        onChange={setEvidence}
+      />
 
       <View style={styles.tablePanel}>
         <ScrollableTable
@@ -155,7 +284,17 @@ export default function DprScreen() {
                 </Text>
               </View>
               <View style={[styles.bodyCell, styles.plannedCell, { borderColor: colors.border }]}>
-                <Text style={[styles.bodyText, { color: colors.text }]}>{item.plannedQty || '-'}</Text>
+                <TextInput
+                  value={item.plannedQty}
+                  onChangeText={(value) => updateItem(item.id, 'plannedQty', value)}
+                  keyboardType="numeric"
+                  placeholder="-"
+                  placeholderTextColor={colors.muted}
+                  style={[
+                    styles.cellInput,
+                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                  ]}
+                />
               </View>
               <View style={[styles.bodyCell, styles.completedCell, { borderColor: colors.border }]}>
                 <TextInput
@@ -260,19 +399,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.sm,
-  },
-  photoStatus: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-  },
-  photoStatusText: {
-    ...typography.bodyMedium,
-    fontSize: 13,
   },
   tablePanel: {
     gap: spacing.sm,

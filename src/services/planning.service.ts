@@ -1,0 +1,123 @@
+import { apiRequest } from "./apiClient";
+
+export type PlanningTaskId =
+  | "survey"
+  | "gi"
+  | "gc"
+  | "laying"
+  | "valve"
+  | "pre"
+  | "conversion"
+  | "jmr"
+  | "testing"
+  | "route"
+  | "commissioning";
+
+export type DprStatus = "draft" | "submitted" | "approved";
+
+export type PlanTaskPayload = {
+  id: PlanningTaskId;
+  qty?: string;
+  worker?: string;
+};
+
+export type DprTaskPayload = {
+  id: PlanningTaskId;
+  plannedQty?: string;
+  completedQty?: string;
+  worker?: string;
+  delayReason?: string;
+};
+
+export type PlanningEvidenceFile = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string;
+  capturedAt?: string;
+};
+
+export type BackendSitePlan = {
+  id: string;
+  projectId: string;
+  siteId: string;
+  date: string;
+  supervisorId: string;
+  tasks: PlanTaskPayload[];
+  supervisor: { id: string; name: string } | null;
+  site: { id: string; name: string; address: string | null } | null;
+  project: { id: string; name: string } | null;
+};
+
+export type BackendDprRecord = {
+  id: string;
+  projectId: string;
+  siteId: string;
+  date: string;
+  supervisorId: string;
+  status: DprStatus;
+  remarks: string | null;
+  tasks: DprTaskPayload[];
+  evidence: PlanningEvidenceFile[] | null;
+  submittedAt: string | null;
+  supervisor: { id: string; name: string } | null;
+  site: { id: string; name: string; address: string | null } | null;
+  project: { id: string; name: string } | null;
+};
+
+export const planningApi = {
+  async listSitePlans(params: {
+    siteId?: string;
+    date?: string;
+    supervisorId?: string;
+    projectId?: string;
+  }): Promise<BackendSitePlan[]> {
+    const query = new URLSearchParams();
+    if (params.projectId) query.set("projectId", params.projectId);
+    if (params.siteId) query.set("siteId", params.siteId);
+    if (params.date) query.set("date", params.date);
+    if (params.supervisorId) query.set("supervisorId", params.supervisorId);
+    return apiRequest<BackendSitePlan[]>(`/planning/site-plans?${query.toString()}`);
+  },
+
+  async upsertSitePlan(body: {
+    projectId: string;
+    siteId: string;
+    date: string;
+    tasks: PlanTaskPayload[];
+  }): Promise<BackendSitePlan> {
+    return apiRequest<BackendSitePlan>("/planning/site-plans", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+
+  async listDprRecords(params: {
+    siteId?: string;
+    date?: string;
+    supervisorId?: string;
+    projectId?: string;
+  }): Promise<BackendDprRecord[]> {
+    const query = new URLSearchParams();
+    if (params.projectId) query.set("projectId", params.projectId);
+    if (params.siteId) query.set("siteId", params.siteId);
+    if (params.date) query.set("date", params.date);
+    if (params.supervisorId) query.set("supervisorId", params.supervisorId);
+    return apiRequest<BackendDprRecord[]>(`/planning/dpr-records?${query.toString()}`);
+  },
+
+  async upsertDprRecord(body: {
+    projectId: string;
+    siteId: string;
+    date: string;
+    status?: DprStatus;
+    remarks?: string;
+    tasks: DprTaskPayload[];
+    evidence?: PlanningEvidenceFile[];
+  }): Promise<BackendDprRecord> {
+    return apiRequest<BackendDprRecord>("/planning/dpr-records", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+};
