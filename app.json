@@ -52,6 +52,13 @@
         {
           "photosPermission": "Allow HN Enterprises to select field photos and upload evidence."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/logo.png",
+          "color": "#FF7A00"
+        }
       ]
     ],
     "experiments": {

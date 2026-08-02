@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { NotificationsProvider } from '@/context/NotificationsContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,6 +65,8 @@ function AuthRedirector() {
   const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  usePushRegistration(isAuthenticated);
 
   useEffect(() => {
     if (isLoading) return;
