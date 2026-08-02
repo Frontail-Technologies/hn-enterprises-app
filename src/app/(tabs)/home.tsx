@@ -20,12 +20,10 @@ import { useAttendanceStatus } from "@/context/AttendanceContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useSupervisorStats } from "@/hooks/useMobileStats";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
 import type { ActivityLogEntry } from "@/services/mockData";
-import {
-  getSupervisorStats,
-  type SupervisorStatTone,
-} from "@/services/mobileStats";
+import type { SupervisorStatTone } from "@/services/mobileStats";
 import { toDateKey } from "@/utils/date";
 import { formatTime } from "@/utils/format";
 
@@ -101,7 +99,8 @@ export default function HomeScreen() {
     supervisorId: user?.id,
   });
 
-  const summaryCards = getSupervisorStats()
+  const { stats } = useSupervisorStats();
+  const summaryCards = stats
     .slice(0, 6)
     .map((stat) => ({
       ...stat,

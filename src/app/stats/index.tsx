@@ -4,19 +4,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Screen } from "@/components/ui/Screen";
 import { radius, spacing } from "@/constants/spacing";
 import { statIcons } from "@/constants/statIcons";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
-import {
-  getSupervisorStats,
-  type SupervisorStat,
-  type SupervisorStatTone,
-} from "@/services/mobileStats";
+import { useSupervisorStats } from "@/hooks/useMobileStats";
+import type { SupervisorStat, SupervisorStatTone } from "@/services/mobileStats";
 
 export default function AllStatsScreen() {
-  const stats = getSupervisorStats();
+  const { stats, isLoading } = useSupervisorStats();
 
   return (
     <Screen scroll edges={["bottom"]} contentStyle={styles.screen}>
@@ -25,6 +23,9 @@ export default function AllStatsScreen() {
         subtitle="Supervisor work progress summary"
         left={<BackButton />}
       />
+      {!isLoading && !stats.length ? (
+        <EmptyState title="No stats available" />
+      ) : (
       <View style={styles.grid}>
         {stats.map((stat) => (
           <Pressable
@@ -44,6 +45,7 @@ export default function AllStatsScreen() {
           </Pressable>
         ))}
       </View>
+      )}
     </Screen>
   );
 }

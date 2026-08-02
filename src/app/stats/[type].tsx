@@ -12,11 +12,8 @@ import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import {
-  getSupervisorStatById,
-  getSupervisorStatDetails,
-  type SupervisorStatDetailRow,
-} from '@/services/mobileStats';
+import { useSupervisorStatDetails, useSupervisorStats } from '@/hooks/useMobileStats';
+import type { SupervisorStatDetailRow } from '@/services/mobileStats';
 
 type DetailStatus = SupervisorStatDetailRow['status'] | 'All';
 
@@ -36,8 +33,9 @@ const statusOptions: DetailStatus[] = [
 export default function StatDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const { colors } = useTheme();
-  const stat = getSupervisorStatById(String(type));
-  const rows = getSupervisorStatDetails(String(type));
+  const { stats } = useSupervisorStats();
+  const stat = stats.find((item) => item.id === type) ?? null;
+  const { rows, isLoading } = useSupervisorStatDetails(type ? String(type) : undefined);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DetailStatus>('All');
@@ -93,7 +91,7 @@ export default function StatDetailScreen() {
 
       <View style={styles.tablePanel}>
         <Text style={[styles.resultText, { color: colors.muted }]}>
-          Showing {filteredRows.length} of {rows.length} records
+          {isLoading ? 'Loading...' : `Showing ${filteredRows.length} of ${rows.length} records`}
         </Text>
         <ScrollableTable
           header={
