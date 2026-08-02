@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
@@ -8,34 +9,43 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { useAttendanceStatus } from '@/context/AttendanceContext';
-import { getRecentActivity, type ActivityLogEntry } from '@/services/mockData';
+import { useAuth } from '@/context/AuthContext';
+import { useRecentActivity } from '@/hooks/useRecentActivity';
+import type { ActivityLogEntry } from '@/services/mockData';
 
 export default function ActivityScreen() {
+  const { user } = useAuth();
   const { checkInAt, checkOutAt, checkInLocation, checkOutLocation } = useAttendanceStatus();
-  const extra: ActivityLogEntry[] = [];
 
-  if (checkInAt) {
-    extra.push({
-      id: 'activity-attendance-check-in',
-      title: 'Checked In',
-      description: checkInLocation?.address ?? 'Today check-in captured with location.',
-      category: 'Attendance',
-      timestamp: checkInAt,
-      route: { pathname: '/attendance' },
-    });
-  }
+  const extra = useMemo<ActivityLogEntry[]>(() => {
+    const activity: ActivityLogEntry[] = [];
 
-  if (checkOutAt) {
-    extra.push({
-      id: 'activity-attendance-check-out',
-      title: 'Checked Out',
-      description: checkOutLocation?.address ?? 'Today checkout captured with location.',
-      category: 'Attendance',
-      timestamp: checkOutAt,
-      route: { pathname: '/attendance' },
-    });
-  }
-  const activity = getRecentActivity({ extra, limit: 50 });
+    if (checkInAt) {
+      activity.push({
+        id: 'activity-attendance-check-in',
+        title: 'Checked In',
+        description: checkInLocation?.address ?? 'Today check-in captured with location.',
+        category: 'Attendance',
+        timestamp: checkInAt,
+        route: { pathname: '/attendance' },
+      });
+    }
+
+    if (checkOutAt) {
+      activity.push({
+        id: 'activity-attendance-check-out',
+        title: 'Checked Out',
+        description: checkOutLocation?.address ?? 'Today checkout captured with location.',
+        category: 'Attendance',
+        timestamp: checkOutAt,
+        route: { pathname: '/attendance' },
+      });
+    }
+
+    return activity;
+  }, [checkInAt, checkInLocation?.address, checkOutAt, checkOutLocation?.address]);
+
+  const { items: activity } = useRecentActivity({ extra, limit: 50, supervisorId: user?.id });
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen}>

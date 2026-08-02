@@ -7,25 +7,28 @@ import { AppHeader } from '@/components/shared/AppHeader';
 import { FilterChip } from '@/components/shared/FilterChip';
 import { WorkProgressCard } from '@/components/shared/WorkProgressCard';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { workProgressRecords, type WorkProgressStatus } from '@/services/mockData';
+import { useWorkQueue } from '@/hooks/useWorkProgress';
+import type { WorkProgressStatus } from '@/services/mockData';
 
 type WorkFilter = 'All' | WorkProgressStatus;
 
 export default function WorkQueueScreen() {
   const { colors } = useTheme();
+  const { items: workProgressRecords, isLoading } = useWorkQueue();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<WorkFilter>('All');
   const [projectFilter, setProjectFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
   const [stageFilter, setStageFilter] = useState('All');
-  const projectOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.projectName)))], []);
-  const siteOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.siteArea)))], []);
-  const stageOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.currentStage)))], []);
+  const projectOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.projectName)))], [workProgressRecords]);
+  const siteOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.siteArea)))], [workProgressRecords]);
+  const stageOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.currentStage)))], [workProgressRecords]);
 
   const records = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -54,7 +57,7 @@ export default function WorkQueueScreen() {
         .toLowerCase()
         .includes(query),
     );
-  }, [filter, projectFilter, search, siteFilter, stageFilter]);
+  }, [filter, projectFilter, search, siteFilter, stageFilter, workProgressRecords]);
 
   const inProgressCount = workProgressRecords.filter((record) => record.status === 'In Progress').length;
   const sentBackCount = workProgressRecords.filter((record) => record.status === 'Sent Back').length;
@@ -100,11 +103,18 @@ export default function WorkQueueScreen() {
         <Text style={[typography.label, { color: colors.muted }]}>{records.length} records</Text>
       </View>
 
-      <View style={styles.list}>
-        {records.map((record) => (
-          <WorkProgressCard key={record.id} record={record} />
-        ))}
-      </View>
+      {records.length ? (
+        <View style={styles.list}>
+          {records.map((record) => (
+            <WorkProgressCard key={record.id} record={record} />
+          ))}
+        </View>
+      ) : (
+        <EmptyState
+          title={isLoading ? 'Loading work queue...' : 'No work-progress records'}
+          description={isLoading ? undefined : 'Try changing the filters or check back after a survey is assigned.'}
+        />
+      )}
     </Screen>
   );
 }

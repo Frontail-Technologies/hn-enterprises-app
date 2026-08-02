@@ -12,12 +12,48 @@ import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { getWorkProgressById } from '@/services/mockData';
+import { useCustomerRecord } from '@/hooks/useCustomerRecord';
+import { useWorkProgressHistory } from '@/hooks/useWorkProgress';
+import { STAGE_TO_MOBILE, STATUS_TO_MOBILE, buildDetailRecord, fromWorkProgressEvidence } from '@/services/workProgress.service';
 
 export default function WorkProgressDetailScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ id?: string }>();
-  const record = getWorkProgressById(params.id ?? '');
+  const customerId = params.id ?? '';
+  const { customer, isLoading: customerLoading } = useCustomerRecord(customerId);
+  const { history, isLoading: historyLoading } = useWorkProgressHistory(customerId);
+  const latest = history[0];
+  const record = customer
+    ? buildDetailRecord(
+        {
+          id: customer.id,
+          customerName: customer.customerConnection.customerName,
+          mobileNumber: customer.customerConnection.mobileNo,
+          bpTrNumber: customer.customerConnection.trBpNo,
+          siteArea: customer.siteArea,
+          supervisor: customer.customerConnection.supervisorName,
+        },
+        latest,
+      )
+    : null;
+
+  if (customerLoading || historyLoading) {
+    return (
+      <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+        <AppHeader
+          title="Work Detail"
+          left={
+            <Pressable onPress={() => router.back()} style={styles.headerAction}>
+              <ArrowLeft size={22} color="#FFFFFF" />
+            </Pressable>
+          }
+        />
+        <View style={styles.emptyState}>
+          <Text style={[typography.bodyMedium, { color: colors.text }]}>Loading...</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   if (!record) {
     return (
@@ -92,13 +128,28 @@ export default function WorkProgressDetailScreen() {
       />
 
       <Card style={styles.sectionCard}>
-        <EvidenceUploader module="work" recordId={record.id} />
+        <EvidenceUploader
+          title="Latest Evidence"
+          initialFiles={fromWorkProgressEvidence(latest?.evidence ?? [])}
+          module="work"
+          recordId={record.id}
+          readOnly
+        />
       </Card>
 
       <Card style={styles.sectionCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Stage History</Text>
-        <TimelineRow title="Stage opened" subtitle={`${record.updatedBy} : ${record.stageDate}`} />
-        <TimelineRow title={record.nextRequiredAction} subtitle={`${record.supervisor} : latest field action`} />
+        {history.length ? (
+          history.map((update) => (
+            <TimelineRow
+              key={update.id}
+              title={`${STAGE_TO_MOBILE[update.stage]} : ${STATUS_TO_MOBILE[update.status]}`}
+              subtitle={`${update.supervisor?.name ?? '-'} : ${new Date(update.createdAt).toLocaleString()}`}
+            />
+          ))
+        ) : (
+          <Text style={[typography.caption, { color: colors.muted }]}>No updates recorded yet.</Text>
+        )}
       </Card>
 
       <Button

@@ -20,7 +20,8 @@ import { useAttendanceStatus } from "@/context/AttendanceContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getRecentActivity, type ActivityLogEntry } from "@/services/mockData";
+import { useRecentActivity } from "@/hooks/useRecentActivity";
+import type { ActivityLogEntry } from "@/services/mockData";
 import {
   getSupervisorStats,
   type SupervisorStatTone,
@@ -94,10 +95,11 @@ export default function HomeScreen() {
     ? colors.green
     : colors.primary;
 
-  const recentActivity = useMemo(
-    () => getRecentActivity({ extra: attendanceActivity, limit: 4 }),
-    [attendanceActivity],
-  );
+  const { items: recentActivity } = useRecentActivity({
+    extra: attendanceActivity,
+    limit: 4,
+    supervisorId: user?.id,
+  });
 
   const summaryCards = getSupervisorStats()
     .slice(0, 6)

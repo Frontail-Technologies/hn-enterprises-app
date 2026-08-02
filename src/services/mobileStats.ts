@@ -1,4 +1,4 @@
-import { customers, planningDprRecords, workProgressRecords } from '@/services/mockData';
+import { customers, planningDprRecords } from '@/services/mockData';
 
 export type SupervisorStatTone = 'blue' | 'orange' | 'green' | 'red';
 
@@ -73,7 +73,10 @@ export function getSupervisorStats(): SupervisorStat[] {
   const conversionDone = doneCount((customer) => Boolean(customer.commissioningConversion.conversionDate));
   const jmrDone = doneCount((customer) => customer.billingCompletion.jmrDone);
   const siteExpensesDone = doneCount((customer) => customer.billingCompletion.paymentStatus === 'Paid');
-  const flushingTestingDone = workProgressRecords.filter((record) => record.currentStage === 'GC').length;
+  // Work progress is now backed by a real API (see services/workProgress.service.ts); this
+  // synchronous mock-data stats helper doesn't fetch it, so this stays 0 rather than fabricating
+  // a count. Real aggregation lands in Phase 8.
+  const flushingTestingDone = 0;
   const commissioningDone = doneCount((customer) => Boolean(customer.commissioningConversion.commissioningDate));
   const dprDone = planningDprRecords.filter((record) => record.status === 'Completed').length;
   const planningDone = planningDprRecords.length;
@@ -158,18 +161,9 @@ export function getSupervisorStatDetails(statId: string): SupervisorStatDetailRo
   }
 
   if (statId === 'flushing-testing') {
-    return workProgressRecords
-      .filter((record) => record.currentStage === 'GC' || record.nextRequiredAction.toLowerCase().includes('testing'))
-      .map((record) => ({
-        id: record.id,
-        customerId: record.customerId,
-        title: record.customerName,
-        reference: record.bpTrNumber,
-        site: record.siteArea,
-        status: record.status === 'Completed' ? 'Done' : record.status,
-        updatedOn: record.lastUpdated,
-        helper: record.nextRequiredAction,
-      }));
+    // Work progress is now backed by a real API (see services/workProgress.service.ts); this
+    // synchronous mock-data stats helper doesn't fetch it, so no rows are fabricated here.
+    return [];
   }
 
   return customers.map((customer) => {

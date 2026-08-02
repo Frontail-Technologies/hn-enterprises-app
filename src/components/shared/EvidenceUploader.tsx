@@ -20,6 +20,7 @@ type EvidenceUploaderProps = {
   module: string;
   recordId?: string;
   onChange?: (files: EvidenceFile[]) => void;
+  readOnly?: boolean;
 };
 
 type PendingAsset = {
@@ -29,7 +30,14 @@ type PendingAsset = {
   assetId?: string | null;
 };
 
-export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [], module, recordId, onChange }: EvidenceUploaderProps) {
+export function EvidenceUploader({
+  title = 'Evidence Photos',
+  initialFiles = [],
+  module,
+  recordId,
+  onChange,
+  readOnly = false,
+}: EvidenceUploaderProps) {
   const { colors } = useTheme();
   const { location, captureLocation } = useCurrentLocation();
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles);
@@ -208,17 +216,19 @@ export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [],
         </Text>
       </View>
 
-      <Pressable
-        onPress={openSheet}
-        style={({ pressed }) => [
-          styles.addButton,
-          { borderColor: colors.border, backgroundColor: colors.card },
-          pressed && { opacity: 0.84 },
-        ]}
-      >
-        <Plus size={16} color={colors.primary} />
-        <Text style={[styles.addButtonText, { color: colors.primary }]}>Add Photo / Document</Text>
-      </Pressable>
+      {readOnly ? null : (
+        <Pressable
+          onPress={openSheet}
+          style={({ pressed }) => [
+            styles.addButton,
+            { borderColor: colors.border, backgroundColor: colors.card },
+            pressed && { opacity: 0.84 },
+          ]}
+        >
+          <Plus size={16} color={colors.primary} />
+          <Text style={[styles.addButtonText, { color: colors.primary }]}>Add Photo / Document</Text>
+        </Pressable>
+      )}
 
       {files.length ? (
         <View style={styles.fileList}>
@@ -245,25 +255,28 @@ export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [],
                     <Text style={[typography.label, { color: colors.muted }]}>GPS: {file.gpsLocation}</Text>
                   ) : null}
                 </View>
-                <View style={styles.fileActions}>
-                  <Pressable onPress={() => replaceFile(file.id)}>
-                    <RefreshCcw size={16} color={colors.primary} />
-                  </Pressable>
-                  {file.status === 'Failed' ? (
-                    <Pressable onPress={() => retryFile(file.id)}>
-                      <RotateCcw size={16} color={colors.red} />
+                {readOnly ? null : (
+                  <View style={styles.fileActions}>
+                    <Pressable onPress={() => replaceFile(file.id)}>
+                      <RefreshCcw size={16} color={colors.primary} />
                     </Pressable>
-                  ) : null}
-                  <Pressable onPress={() => removeFile(file.id)}>
-                    <X size={16} color={colors.red} />
-                  </Pressable>
-                </View>
+                    {file.status === 'Failed' ? (
+                      <Pressable onPress={() => retryFile(file.id)}>
+                        <RotateCcw size={16} color={colors.red} />
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={() => removeFile(file.id)}>
+                      <X size={16} color={colors.red} />
+                    </Pressable>
+                  </View>
+                )}
               </View>
             );
           })}
         </View>
       ) : null}
 
+      {readOnly ? null : (
       <Sheet visible={sheetOpen} onClose={closeSheet} title={title}>
         {pendingAssets.length === 0 ? (
           <>
@@ -306,6 +319,7 @@ export function EvidenceUploader({ title = 'Evidence Photos', initialFiles = [],
           </>
         )}
       </Sheet>
+      )}
 
       <Modal visible={Boolean(previewFile)} transparent animationType="fade" onRequestClose={() => setPreviewFile(null)}>
         <Pressable style={styles.previewBackdrop} onPress={() => setPreviewFile(null)}>

@@ -833,66 +833,6 @@ export const customers: CustomerRecord[] = [
   },
 ];
 
-export const workProgressRecords: WorkProgressRecord[] = [
-  {
-    id: 'wp-001',
-    customerId: 'cust-001',
-    customerName: 'Rajesh Kumar',
-    mobileNumber: '9876543210',
-    bpTrNumber: 'BP-100245',
-    projectName: 'Shyam Nagar CGD Project',
-    siteArea: 'Shyam Nagar Block A',
-    supervisor: 'Amit Rathore',
-    currentStage: 'Commissioning',
-    expectedNextStage: 'Conversion',
-    nextRequiredAction: 'Schedule conversion visit',
-    stageDate: '2025-02-15',
-    ageDays: 4,
-    evidenceCount: 3,
-    lastUpdated: '2025-02-15',
-    updatedBy: 'Amit Rathore',
-    status: 'In Progress',
-  },
-  {
-    id: 'wp-002',
-    customerId: 'cust-002',
-    customerName: 'Meena Sharma',
-    mobileNumber: '9823411122',
-    bpTrNumber: 'TR-553901',
-    projectName: 'Shyam Nagar CGD Project',
-    siteArea: 'Shyam Nagar Block B',
-    supervisor: 'Amit Rathore',
-    currentStage: 'GC',
-    expectedNextStage: 'GC',
-    nextRequiredAction: 'Resubmit GC evidence',
-    stageDate: '2025-02-18',
-    ageDays: 7,
-    evidenceCount: 2,
-    lastUpdated: '2025-02-18',
-    updatedBy: 'Amit Rathore',
-    status: 'Sent Back',
-  },
-  {
-    id: 'wp-003',
-    customerId: 'cust-003',
-    customerName: 'Green Mart Store',
-    mobileNumber: '9988776655',
-    bpTrNumber: 'BP-220118',
-    projectName: 'Green City Phase 1',
-    siteArea: 'Commercial Block',
-    supervisor: 'Amit Rathore',
-    currentStage: 'Conversion',
-    expectedNextStage: 'Conversion',
-    nextRequiredAction: 'No action pending',
-    stageDate: '2025-03-04',
-    ageDays: 1,
-    evidenceCount: 5,
-    lastUpdated: '2025-03-04',
-    updatedBy: 'Amit Rathore',
-    status: 'Completed',
-  },
-];
-
 export const planningDprRecords: PlanningDprRecord[] = [
   {
     id: 'dpr-001',
@@ -929,55 +869,6 @@ export const todayAttendance: AttendanceDay = {
 
 export function getCustomerById(customerId: string) {
   return customers.find((customer) => customer.id === customerId) ?? null;
-}
-
-export function getWorkProgressById(recordId: string) {
-  return workProgressRecords.find((record) => record.id === recordId) ?? null;
-}
-
-export function getWorkProgressForCustomer(customerId: string) {
-  return workProgressRecords.filter((record) => record.customerId === customerId);
-}
-
-export function getRecentActivity({
-  extra = [],
-  limit = 10,
-}: {
-  extra?: ActivityLogEntry[];
-  limit?: number;
-} = {}) {
-  const workEntries: ActivityLogEntry[] = workProgressRecords.map((record) => ({
-    id: `activity-work-${record.id}`,
-    title: `${record.currentStage} updated`,
-    description: `${record.customerName} : ${record.nextRequiredAction}`,
-    category: 'Work',
-    timestamp: record.lastUpdated,
-    route: { pathname: '/work/[id]', params: { id: record.id } },
-  }));
-
-  const surveyEntries: ActivityLogEntry[] = customers.flatMap((customer) =>
-    (customer.survey.revisions ?? []).map((revision) => ({
-      id: `activity-survey-${customer.id}-${revision.revisionNo}`,
-      title: `Survey ${revision.status}`,
-      description: `${customer.customerConnection.customerName} : ${revision.remarks}`,
-      category: 'Survey' as const,
-      timestamp: revision.date,
-      route: { pathname: '/customers/[id]/survey', params: { id: customer.id } },
-    })),
-  );
-
-  const dprEntries: ActivityLogEntry[] = planningDprRecords.map((record) => ({
-    id: `activity-dpr-${record.id}`,
-    title: `DPR ${record.status}`,
-    description: `${record.activity} : ${record.completedQty} completed`,
-    category: 'Work',
-    timestamp: record.date,
-    route: { pathname: '/work' },
-  }));
-
-  return [...extra, ...workEntries, ...surveyEntries, ...dprEntries]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, limit);
 }
 
 export function requestPasswordReset(identifier: string) {
