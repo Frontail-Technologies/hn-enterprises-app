@@ -1,6 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle2, ListChecks, Upload } from 'lucide-react-native';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -12,21 +11,14 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
+import { editableWorkProgressStatuses } from '@/constants/workProgress';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { useToast } from '@/context/ToastContext';
 import { useCustomerRecord } from '@/hooks/useCustomerRecord';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useWorkProgressHistory } from '@/hooks/useWorkProgress';
-import type { EvidenceFile, WorkProgressStatus, WorkStage } from '@/services/mockData';
-import {
-  WORK_STAGE_ORDER,
-  buildDetailRecord,
-  toWorkProgressEvidence,
-  workProgressApi,
-} from '@/services/workProgress.service';
-
-const editableStatuses: WorkProgressStatus[] = ['Pending', 'In Progress', 'Completed', 'Sent Back', 'On Hold'];
+import { useWorkProgressUpdateForm } from '@/hooks/useWorkProgressUpdateForm';
+import { WORK_STAGE_ORDER, buildDetailRecord } from '@/services/workProgress.service';
 
 export default function WorkProgressUpdateScreen() {
   const { colors } = useTheme();
@@ -101,37 +93,22 @@ function WorkProgressUpdateForm({
   record: ReturnType<typeof buildDetailRecord>;
 }) {
   const { colors } = useTheme();
-  const { showToast } = useToast();
-  const [stage, setStage] = useState<WorkStage>(record.currentStage);
-  const [status, setStatus] = useState<WorkProgressStatus>(record.status === 'Not Started' ? 'In Progress' : record.status);
-  const [nextRequiredAction, setNextRequiredAction] = useState(record.nextRequiredAction);
-  const [remarks, setRemarks] = useState(mode === 'evidence' ? 'Evidence uploaded from field visit.' : '');
-  const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const {
+    stage,
+    setStage,
+    status,
+    setStatus,
+    nextRequiredAction,
+    setNextRequiredAction,
+    remarks,
+    setRemarks,
+    evidence,
+    setEvidence,
+    isSubmitting,
+    handleSubmit,
+  } = useWorkProgressUpdateForm({ customerId, mode, record });
   const { ref: remarksRef, onFocus: remarksOnFocus } = useScrollIntoViewOnFocus();
   const { ref: actionRef, onFocus: actionOnFocus } = useScrollIntoViewOnFocus();
-
-  const handleSubmit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-
-    try {
-      await workProgressApi.createUpdate({
-        customerId,
-        stage,
-        status,
-        nextRequiredAction: nextRequiredAction.trim() || undefined,
-        remarks: remarks.trim() || undefined,
-        evidence: toWorkProgressEvidence(evidence),
-      });
-      showToast(record.status === 'Sent Back' ? 'Work update resubmitted' : 'Work progress submitted', 'success');
-      router.back();
-    } catch {
-      showToast('Unable to submit work update', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <Screen
@@ -144,7 +121,7 @@ function WorkProgressUpdateForm({
             label={record.status === 'Sent Back' ? 'Resubmit Update' : 'Submit Update'}
             icon={<Upload size={18} color="#FFFFFF" />}
             onPress={() => void handleSubmit()}
-            disabled={submitting}
+            loading={isSubmitting}
           />
         </StickyFooter>
       }
@@ -217,7 +194,7 @@ function WorkProgressUpdateForm({
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Update Status</Text>
         </View>
         <View style={styles.statusGrid}>
-          {editableStatuses.map((item) => (
+          {editableWorkProgressStatuses.map((item) => (
             <Pressable
               key={item}
               onPress={() => setStatus(item)}

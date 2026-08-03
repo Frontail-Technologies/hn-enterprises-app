@@ -24,10 +24,10 @@ export const attendanceApi = {
     });
   },
 
-  async checkOut(date: string, location: CapturedLocation): Promise<BackendAttendanceRecord> {
+  async checkOut(date: string, location: CapturedLocation, remarks?: string): Promise<BackendAttendanceRecord> {
     return apiRequest<BackendAttendanceRecord>("/attendance/check-out", {
       method: "POST",
-      body: JSON.stringify({ date, location }),
+      body: JSON.stringify({ date, location, remarks: remarks || undefined }),
     });
   },
 

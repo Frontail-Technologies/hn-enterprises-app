@@ -12,12 +12,13 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateBillingMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateBillingMutation = useUpdateBillingMutation(customer.id);
   const billing = customer.billingCompletion ?? {
     paymentStatus: '',
     paymentMode: '',
@@ -30,15 +31,11 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
     remark: '',
     evidence: [],
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:billing`, billing);
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:billing`, billing);
 
-  const save = async () => {
-    await saveDraft();
-    showToast('Billing remarks draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateBilling(customer.id, {
+      await updateBillingMutation.mutateAsync( {
         paymentStatus: values.paymentStatus,
         paymentMode: values.paymentMode,
         initialAmount: values.initialAmount,
@@ -84,7 +81,9 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateBillingMutation.isPending} />
+  );
 
   return { content, footer };
 }

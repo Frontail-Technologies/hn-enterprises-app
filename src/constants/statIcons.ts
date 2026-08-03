@@ -1,17 +1,25 @@
 import {
+  ArrowLeftRight,
   BadgeCheck,
   Box,
   Cable,
   CalendarDays,
+  CheckCheck,
   ClipboardCheck,
   Construction,
   Droplets,
   FileCheck2,
   FileText,
   IndianRupee,
+  Link,
   ListChecks,
+  MapPin,
+  MessageSquare,
+  MessageSquareWarning,
   RefreshCcw,
   Ruler,
+  Signpost,
+  UserCheck,
 } from 'lucide-react-native';
 
 import type { SupervisorStatId } from '@/services/mobileStats';
@@ -30,4 +38,12 @@ export const statIcons: Record<SupervisorStatId, typeof ClipboardCheck> = {
   commissioning: BadgeCheck,
   dpr: FileText,
   planning: CalendarDays,
+  'pole-marker': Signpost,
+  'route-marker': MapPin,
+  'complaint-customer': MessageSquareWarning,
+  'total-pbg-assignment': UserCheck,
+  'total-connection-done': Link,
+  'total-connection-remark': MessageSquare,
+  'total-conversion-done': ArrowLeftRight,
+  'customer-resolve': CheckCheck,
 };

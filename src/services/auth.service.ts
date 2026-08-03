@@ -16,6 +16,10 @@ type LoginResponse = {
   refreshToken: string;
 };
 
+type PasswordResetRequestResponse = {
+  resetOtp?: string | null;
+};
+
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthSession> {
     const data = await apiRequest<LoginResponse>("/auth/login", {
@@ -68,10 +72,25 @@ export const authService = {
   },
 
   async requestPasswordReset(identifier: string) {
-    await apiRequest<void>("/auth/request-password-reset", {
+    return apiRequest<PasswordResetRequestResponse>("/auth/request-password-reset", {
       method: "POST",
       auth: false,
       body: JSON.stringify({ identifier }),
+    });
+  },
+
+  async resetPassword(input: { identifier: string; otp: string; newPassword: string }) {
+    await apiRequest<void>("/auth/reset-password", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify(input),
+    });
+  },
+
+  async changePassword(input: { currentPassword: string; newPassword: string }) {
+    await apiRequest<void>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   },
 
@@ -86,4 +105,3 @@ async function persistSession(session: AuthSession) {
     SecureStore.setItemAsync(USER_KEY, JSON.stringify(session.user)),
   ]);
 }
-

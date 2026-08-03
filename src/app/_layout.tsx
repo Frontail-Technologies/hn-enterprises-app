@@ -17,6 +17,7 @@ import { NotificationsProvider } from '@/context/NotificationsContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
+import { AppQueryProvider } from '@/queries';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,15 +41,17 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <ToastProvider>
-          <AuthProvider>
-            <NotificationsProvider>
-              <AttendanceProvider>
-                <AuthRedirector />
-                <ThemedStatusBar />
-                <Stack screenOptions={{ headerShown: false }} />
-              </AttendanceProvider>
-            </NotificationsProvider>
-          </AuthProvider>
+          <AppQueryProvider>
+            <AuthProvider>
+              <NotificationsProvider>
+                <AttendanceProvider>
+                  <AuthRedirector />
+                  <ThemedStatusBar />
+                  <Stack screenOptions={{ headerShown: false }} />
+                </AttendanceProvider>
+              </NotificationsProvider>
+            </AuthProvider>
+          </AppQueryProvider>
         </ToastProvider>
       </ThemeProvider>
     </SafeAreaProvider>

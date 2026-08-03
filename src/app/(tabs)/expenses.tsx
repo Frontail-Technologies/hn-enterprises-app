@@ -1,5 +1,4 @@
 import { Edit3, Filter, IndianRupee, Plus, Search } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -14,235 +13,59 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
+import { expenseGridColumns, expenseModeOptions, expenseStatusLabels } from '@/constants/expenses';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { useToast } from '@/context/ToastContext';
-import { useColumnFilters, type FilterableColumn } from '@/hooks/useColumnFilters';
-import {
-  expenseCategoryOptions,
-  expensesApi,
-  type ExpenseCategory,
-  type ExpenseMode,
-  type ExpenseRecord,
-  type ExpenseStatus,
-  type SiteOption,
-} from '@/services/expenses.service';
-import type { EvidenceFile } from '@/services/mockData';
-
-type StatusFilter = 'All' | ExpenseStatus;
-
-const statusOptions: { label: string; value: StatusFilter }[] = [
-  { label: 'All Status', value: 'All' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Submitted', value: 'submitted' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Rejected', value: 'rejected' },
-];
-
-const draftStatusOptions = statusOptions.filter(
-  (option): option is { label: string; value: ExpenseStatus } => option.value !== 'All',
-);
-
-const modeOptions: { label: string; value: ExpenseMode }[] = [
-  { label: 'Cash', value: 'cash' },
-  { label: 'UPI', value: 'upi' },
-  { label: 'NEFT', value: 'neft' },
-  { label: 'Bank Transfer', value: 'bank_transfer' },
-  { label: 'Cheque', value: 'cheque' },
-  { label: 'Other', value: 'other' },
-];
-
-const STATUS_LABEL: Record<ExpenseStatus, string> = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-type Row = ExpenseRecord & { site: string };
-
-type ExpenseColumnKey = 'purpose' | 'paidTo' | 'site' | 'amount' | 'date' | 'status';
-
-const columns: FilterableColumn<ExpenseColumnKey>[] = [
-  { key: 'purpose', label: 'Purpose' },
-  { key: 'paidTo', label: 'Paid To' },
-  { key: 'site', label: 'Site' },
-  { key: 'amount', label: 'Amount' },
-  { key: 'date', label: 'Date' },
-  { key: 'status', label: 'Status' },
-];
-
-type Draft = {
-  category: ExpenseCategory;
-  purpose: string;
-  paidTo: string;
-  siteId: string;
-  amount: string;
-  date: string;
-  paymentMode: ExpenseMode;
-  status: ExpenseStatus;
-  remarks: string;
-  evidence: EvidenceFile[];
-};
-
-function emptyDraft(): Draft {
-  return {
-    category: 'other_expense',
-    purpose: '',
-    paidTo: '',
-    siteId: '',
-    amount: '',
-    date: new Date().toISOString().slice(0, 10),
-    paymentMode: 'cash',
-    status: 'draft',
-    remarks: '',
-    evidence: [],
-  };
-}
+import { draftStatusOptions, useExpensesScreen } from '@/hooks/useExpensesScreen';
+import { expenseCategoryOptions, type ExpenseStatus } from '@/services/expenses.service';
+import type { ExpenseColumnKey } from '@/types/expenses';
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();
-  const { showToast } = useToast();
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
-  const [sites, setSites] = useState<SiteOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [draftCategoryOpen, setDraftCategoryOpen] = useState(false);
-  const [draftSiteOpen, setDraftSiteOpen] = useState(false);
-  const [draftModeOpen, setDraftModeOpen] = useState(false);
-  const [draftStatusOpen, setDraftStatusOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft>(emptyDraft());
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      try {
-        const [expenseRows, siteRows] = await Promise.all([expensesApi.list(), expensesApi.listSiteOptions()]);
-        if (!mounted) return;
-        setExpenses(expenseRows);
-        setSites(siteRows);
-      } catch {
-        if (mounted) showToast('Unable to load expenses', 'error');
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    }
-
-    bootstrap();
-    return () => {
-      mounted = false;
-    };
-  }, [showToast]);
-
-  const siteNameById = useMemo(() => new Map(sites.map((site) => [site.id, site.name])), [sites]);
-  const siteSelectOptions = useMemo(
-    () => sites.map((site) => ({ label: site.name, value: site.id })),
-    [sites],
-  );
-
-  const rows = useMemo<Row[]>(
-    () => expenses.map((expense) => ({ ...expense, site: siteNameById.get(expense.siteId) ?? '' })),
-    [expenses, siteNameById],
-  );
-
   const {
+    isLoading,
+    isSaving,
+    expenses,
+    filteredExpenses,
+    total,
+    siteSelectOptions,
+    search,
+    setSearch,
+    fromDate,
+    setFromDate,
+    toDate,
+    setToDate,
+    filterSheetOpen,
+    setFilterSheetOpen,
+    sheetOpen,
+    setSheetOpen,
+    draftCategoryOpen,
+    setDraftCategoryOpen,
+    draftSiteOpen,
+    setDraftSiteOpen,
+    draftModeOpen,
+    setDraftModeOpen,
+    draftStatusOpen,
+    setDraftStatusOpen,
+    editingId,
+    draft,
+    openAdd,
+    openEdit,
+    saveExpense,
+    updateDraft,
+    resetFilters,
     activeColumn,
     pendingValues,
     filterSearch,
     setFilterSearch,
     activeValues,
-    matchesFilters,
     isColumnActive,
     openFilter,
     closeFilter,
     togglePendingValue,
     applyFilter,
     clearFilter,
-  } = useColumnFilters<Row, ExpenseColumnKey>(columns, rows);
-
-  const filteredExpenses = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return rows.filter((expense) => {
-      const matchesFromDate = fromDate ? expense.date >= fromDate : true;
-      const matchesToDate = toDate ? expense.date <= toDate : true;
-      const matchesSearch =
-        !query ||
-        [expense.purpose, expense.paidTo, expense.site, expense.paymentMode, expense.status]
-          .join(' ')
-          .toLowerCase()
-          .includes(query);
-
-      return matchesFromDate && matchesToDate && matchesSearch && matchesFilters(expense);
-    });
-  }, [rows, fromDate, matchesFilters, search, toDate]);
-
-  const total = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-
-  const openAdd = () => {
-    setEditingId(null);
-    setDraft(emptyDraft());
-    setSheetOpen(true);
-  };
-
-  const openEdit = (expense: ExpenseRecord) => {
-    setEditingId(expense.id);
-    setDraft({
-      category: expense.category,
-      purpose: expense.purpose,
-      paidTo: expense.paidTo,
-      siteId: expense.siteId,
-      amount: expense.amount,
-      date: expense.date,
-      paymentMode: expense.paymentMode,
-      status: expense.status,
-      remarks: expense.remarks,
-      evidence: expense.evidence,
-    });
-    setSheetOpen(true);
-  };
-
-  const saveExpense = async () => {
-    if (!draft.purpose.trim() || !draft.amount.trim()) {
-      showToast('Purpose and amount are required', 'error');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      if (editingId) {
-        const updated = await expensesApi.update(editingId, draft);
-        setExpenses((current) => current.map((expense) => (expense.id === editingId ? updated : expense)));
-        showToast('Expense updated', 'success');
-      } else {
-        const created = await expensesApi.create(draft);
-        setExpenses((current) => [created, ...current]);
-        showToast('Expense added', 'success');
-      }
-      setSheetOpen(false);
-    } catch {
-      showToast('Unable to save expense', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const updateDraft = <K extends keyof Draft>(key: K, value: Draft[K]) => {
-    setDraft((current) => ({ ...current, [key]: value }));
-  };
-
-  const resetFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setFilterSheetOpen(false);
-  };
+  } = useExpensesScreen();
 
   return (
     <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
@@ -285,7 +108,7 @@ export default function ExpensesScreen() {
         <ScrollableTable
           header={
             <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              {columns.map((column) => {
+              {expenseGridColumns.map((column) => {
                 const active = isColumnActive(column.key);
                 return (
                   <Pressable
@@ -313,7 +136,7 @@ export default function ExpensesScreen() {
               onPress={() => openEdit(expense)}
               style={({ pressed }) => [
                 styles.tableRow,
-                { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
+                { borderColor: colors.border, backgroundColor: '#FFFFFF', opacity: pressed ? 0.62 : 1 },
               ]}
             >
               <View style={[styles.purposeCell, { borderColor: colors.border }]}>
@@ -374,9 +197,9 @@ export default function ExpensesScreen() {
               style={styles.footerButton}
             />
             <Button
-              label={isSaving ? 'Saving...' : editingId ? 'Save' : 'Add'}
+              label={editingId ? 'Save' : 'Add'}
               onPress={saveExpense}
-              disabled={isSaving}
+              loading={isSaving}
               style={styles.footerButton}
             />
           </View>
@@ -423,7 +246,7 @@ export default function ExpensesScreen() {
           <SimpleSelect
             label="Payment Mode"
             value={draft.paymentMode}
-            options={modeOptions}
+            options={expenseModeOptions}
             open={draftModeOpen}
             onOpenChange={setDraftModeOpen}
             onChange={(value) => updateDraft('paymentMode', value)}
@@ -489,7 +312,7 @@ function StatusPill({ status }: { status: ExpenseStatus }) {
 
   return (
     <View style={[styles.pill, { backgroundColor: tint }]}>
-      <Text style={[styles.pillText, { color: textColor }]}>{STATUS_LABEL[status]}</Text>
+      <Text style={[styles.pillText, { color: textColor }]}>{expenseStatusLabels[status]}</Text>
     </View>
   );
 }
@@ -550,11 +373,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
+    borderLeftWidth: 1,
   },
   tableHeader: {
     minHeight: 38,
     borderTopWidth: 1,
-    borderLeftWidth: 1,
   },
   headerCell: {
     ...typography.caption,

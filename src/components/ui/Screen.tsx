@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Children, PropsWithChildren, ReactNode, isValidElement, useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { spacing } from '@/constants/spacing';
 import { ScrollIntoViewProvider } from '@/context/ScrollIntoViewContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -25,6 +27,7 @@ type ScreenProps = PropsWithChildren<{
   contentStyle?: StyleProp<ViewStyle>;
   refreshable?: boolean;
   tabBarAware?: boolean;
+  stickyHeader?: boolean;
   bottomAccessory?: ReactNode;
 }>;
 
@@ -35,23 +38,37 @@ export function Screen({
   contentStyle,
   refreshable = true,
   tabBarAware,
+  stickyHeader = true,
   bottomAccessory,
 }: ScreenProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const tabBarPadding = 16 + Math.max(insets.bottom, 0);
   const safeEdges = tabBarAware ? edges.filter((edge) => edge !== 'bottom') : edges;
   const contentChildren = useMemo(() => Children.toArray(children), [children]);
-  const shouldStickFirstChild = isHeaderLike(contentChildren[0]);
+  // bottomAccessory renders as a real flex sibling below the content (not an overlay), so it
+  // already reserves its own height. Adding footerHeight again here would double-count that
+  // space. In scroll mode the extra padding is just harmless scroll-past breathing room, but in
+  // the fixed (non-scroll) layout it directly shrinks the visible content area, so only the
+  // tab-bar-awareness padding applies there.
+  const tabBarAwarePadding = tabBarAware ? tabBarPadding : 0;
+  const scrollBottomPadding = Math.max(tabBarAwarePadding, bottomAccessory ? footerHeight + spacing.lg : 0);
+  const bottomPadding = scroll ? scrollBottomPadding : tabBarAwarePadding;
+  const shouldStickFirstChild = stickyHeader && isHeaderLike(contentChildren[0]);
   const stickyHeaderIndices = shouldStickFirstChild ? [0] : undefined;
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 650);
-  }, []);
+    try {
+      await queryClient.refetchQueries({ type: 'active' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
     setFooterHeight(event.nativeEvent.layout.height);
@@ -77,7 +94,7 @@ export function Screen({
             <ScrollView
               ref={scrollViewRef}
               style={styles.flex}
-              contentContainerStyle={[styles.content, contentStyle, tabBarAware && { paddingBottom: tabBarPadding }]}
+              contentContainerStyle={[styles.content, contentStyle, bottomPadding > 0 && { paddingBottom: bottomPadding }]}
               stickyHeaderIndices={stickyHeaderIndices}
               refreshControl={
                 refreshable ? (
@@ -96,7 +113,7 @@ export function Screen({
               {contentChildren}
             </ScrollView>
           ) : (
-            <View style={[styles.content, styles.flex, contentStyle, tabBarAware && { paddingBottom: tabBarPadding }]}>
+            <View style={[styles.content, styles.flex, contentStyle, bottomPadding > 0 && { paddingBottom: bottomPadding }]}>
               {children}
             </View>
           )}
@@ -127,3 +144,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 });
+
+
+

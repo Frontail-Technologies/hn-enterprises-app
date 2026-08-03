@@ -75,7 +75,7 @@ export function Sheet({ visible, onClose, title, footer, children }: SheetProps)
           <ScrollIntoViewProvider value={scrollIntoView}>
             <ScrollView
               ref={scrollViewRef}
-              contentContainerStyle={[styles.content, footer ? styles.contentWithFooter : undefined]}
+              contentContainerStyle={[styles.content, footer ? { paddingBottom: footerHeight + spacing.lg } : undefined]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -88,8 +88,9 @@ export function Sheet({ visible, onClose, title, footer, children }: SheetProps)
                 style={[
                   styles.footerWrap,
                   {
-                    paddingBottom: Math.max(insets.bottom + spacing.sm, spacing.lg),
+                    paddingBottom: Math.max(insets.bottom + spacing.lg, spacing.xxl),
                     borderTopColor: colors.border,
+                    backgroundColor: colors.card,
                   },
                 ]}
               >
@@ -149,12 +150,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  contentWithFooter: {
-    paddingBottom: 96,
-  },
   footerWrap: {
     borderTopWidth: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
 });
+
+

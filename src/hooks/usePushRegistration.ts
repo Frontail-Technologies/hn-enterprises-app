@@ -4,9 +4,11 @@ import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-import { notificationsApi } from '@/services/notifications.service';
+import { useRegisterPushTokenMutation } from '@/queries';
 
 export function usePushRegistration(enabled: boolean) {
+  const registerPushTokenMutation = useRegisterPushTokenMutation();
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -37,7 +39,7 @@ export function usePushRegistration(enabled: boolean) {
         const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
         if (cancelled || !token) return;
 
-        await notificationsApi.registerPushToken(token);
+        await registerPushTokenMutation.mutateAsync(token);
       } catch {
         // Push isn't set up until an EAS project is linked (`eas init`); the in-app
         // notifications list works fine without it, so this no-ops silently until then.
@@ -49,5 +51,5 @@ export function usePushRegistration(enabled: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, registerPushTokenMutation]);
 }

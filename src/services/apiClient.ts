@@ -22,6 +22,7 @@ export class ApiError extends Error {
 type ApiRequestOptions = RequestInit & {
   auth?: boolean;
   skipRefresh?: boolean;
+  timeoutMs?: number;
 };
 
 type ApiResponse<T> = {
@@ -30,6 +31,8 @@ type ApiResponse<T> = {
   data?: T;
   errors?: unknown;
 };
+
+let refreshPromise: Promise<boolean> | null = null;
 
 export function getApiOrigin() {
   return API_BASE_URL.replace(/\/api\/?$/, "");
@@ -61,22 +64,26 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const { auth = true, skipRefresh = false, headers, ...requestOptions } =
+  const { auth = true, skipRefresh = false, timeoutMs, headers, ...requestOptions } =
     options;
   const token = auth ? await getAccessToken() : null;
   // FormData bodies must not get a manual Content-Type - the runtime sets the
   // multipart boundary itself. Only default to JSON for plain/string bodies.
   const isFormData = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
 
-  const response = await requestWithTimeout(`${API_BASE_URL}${path}`, {
-    ...requestOptions,
-    headers: {
-      Accept: "application/json",
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
+  const response = await requestWithTimeout(
+    `${API_BASE_URL}${path}`,
+    {
+      ...requestOptions,
+      headers: {
+        Accept: "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
     },
-  });
+    timeoutMs,
+  );
 
   if (response.status === 401 && auth && !skipRefresh) {
     const refreshed = await refreshAccessToken();
@@ -89,6 +96,16 @@ export async function apiRequest<T>(
 }
 
 async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = performRefreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
+async function performRefreshAccessToken() {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return false;
 
@@ -116,9 +133,9 @@ async function refreshAccessToken() {
   }
 }
 
-async function requestWithTimeout(url: string, options: RequestInit) {
+async function requestWithTimeout(url: string, options: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });

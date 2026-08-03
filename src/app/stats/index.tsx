@@ -26,25 +26,25 @@ export default function AllStatsScreen() {
       {!isLoading && !stats.length ? (
         <EmptyState title="No stats available" />
       ) : (
-      <View style={styles.grid}>
-        {stats.map((stat) => (
-          <Pressable
-            key={stat.label}
-            onPress={() =>
-              router.push({
-                pathname: "/stats/[type]",
-                params: { type: stat.id },
-              })
-            }
-            style={({ pressed }) => [
-              styles.cardPressable,
-              pressed && { opacity: 0.72 },
-            ]}
-          >
-            <StatCard stat={stat} icon={statIcons[stat.id] ?? ClipboardCheck} />
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.grid}>
+          {stats.map((stat) => (
+            <Pressable
+              key={stat.id}
+              onPress={() =>
+                router.push({
+                  pathname: "/stats/[type]",
+                  params: { type: stat.id },
+                })
+              }
+              style={({ pressed }) => [
+                styles.cardPressable,
+                pressed && { opacity: 0.72 },
+              ]}
+            >
+              <StatCard stat={stat} icon={statIcons[stat.id] ?? ClipboardCheck} />
+            </Pressable>
+          ))}
+        </View>
       )}
     </Screen>
   );

@@ -12,12 +12,13 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateIsolationRegulatorsMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateIsolationRegulatorsMutation = useUpdateIsolationRegulatorsMutation(customer.id);
   const source = customer.isolationFittings ?? {
     isolationValveHalfInch: '',
     isolationValveThreeQuarterInch: '',
@@ -34,18 +35,14 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
     teeHalfInch: '',
     extraGiAbove10Metres: '',
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:isolation`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:isolation`, {
     ...source,
     remarks: '',
   });
 
-  const save = async () => {
-    await saveDraft();
-    showToast('Isolation draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateIsolationRegulators(customer.id, {
+      await updateIsolationRegulatorsMutation.mutateAsync({
         isolationValveHalfInch: values.isolationValveHalfInch,
         isolationValveThreeQuarterInch: values.isolationValveThreeQuarterInch,
         isolationValveOneInch: values.isolationValveOneInch,
@@ -56,6 +53,10 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
         regulator6BarTo21Mbar: values.regulator6BarTo21Mbar,
         regulator100MbarTo21Mbar: values.regulator100MbarTo21Mbar,
         warningPlate: values.warningPlate,
+        clampHalfInch: values.clampHalfInch,
+        elbowHalfInch: values.elbowHalfInch,
+        teeHalfInch: values.teeHalfInch,
+        extraGiAbove10Metres: values.extraGiAbove10Metres,
       });
       await clearDraft();
       await onRefetch?.();
@@ -95,7 +96,9 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateIsolationRegulatorsMutation.isPending} />
+  );
 
   return { content, footer };
 }

@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { ArrowLeft, CheckCircle2, FileText } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -12,197 +11,38 @@ import { AppHeader } from '@/components/shared/AppHeader';
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
-import { dprTaskTemplates } from '@/constants/dprTasks';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useToast } from '@/context/ToastContext';
-import type { EvidenceFile } from '@/services/mockData';
-import { planningApi, type DprTaskPayload, type PlanningEvidenceFile } from '@/services/planning.service';
-import { projectsApi, type ProjectOption, type ProjectSiteOption } from '@/services/projects.service';
-
-type DprItem = {
-  id: string;
-  label: string;
-  plannedQty: string;
-  completedQty: string;
-  worker: string;
-  delayReason: string;
-};
-
-const initialItems: DprItem[] = dprTaskTemplates.map((task) => ({
-  id: task.id,
-  label: task.label,
-  plannedQty: '',
-  completedQty: '',
-  worker: '',
-  delayReason: '',
-}));
-
-function toPlanningEvidence(files: EvidenceFile[]): PlanningEvidenceFile[] {
-  return files
-    .filter((file) => Boolean(file.fileUrl))
-    .map((file) => ({
-      id: file.id,
-      fileName: file.fileName,
-      fileUrl: file.fileUrl as string,
-      mimeType: file.mimeType,
-      capturedAt: file.capturedAt,
-    }));
-}
-
-function fromPlanningEvidence(files: PlanningEvidenceFile[]): EvidenceFile[] {
-  return files.map((file) => ({
-    id: file.id,
-    fileName: file.fileName,
-    fileUrl: file.fileUrl,
-    uri: file.fileUrl,
-    mimeType: file.mimeType,
-    capturedAt: file.capturedAt,
-    status: 'Uploaded',
-  }));
-}
+import { useDprForm } from '@/hooks/useDprForm';
 
 export default function DprScreen() {
   const { colors } = useTheme();
-  const { showToast } = useToast();
-  const { user } = useAuth();
-  const [date, setDate] = useState('2026-07-22');
-  const [projectId, setProjectId] = useState('');
-  const [siteId, setSiteId] = useState('');
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [siteOptions, setSiteOptions] = useState<ProjectSiteOption[]>([]);
-  const [projectSelectOpen, setProjectSelectOpen] = useState(false);
-  const [siteSelectOpen, setSiteSelectOpen] = useState(false);
-  const [remarks, setRemarks] = useState('');
-  const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
-  const [evidenceLoadToken, setEvidenceLoadToken] = useState(0);
-  const [items, setItems] = useState(initialItems);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    projectsApi
-      .list()
-      .then((rows) => setProjects(rows))
-      .catch(() => setProjects([]));
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      if (!projectId) {
-        if (mounted) {
-          setSiteOptions([]);
-          setSiteId('');
-        }
-        return;
-      }
-
-      try {
-        const rows = await projectsApi.listSites(projectId);
-        if (mounted) setSiteOptions(rows);
-      } catch {
-        if (mounted) setSiteOptions([]);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!siteId || !date || !user?.id) return;
-
-    let mounted = true;
-    planningApi
-      .listDprRecords({ siteId, date, supervisorId: user.id })
-      .then((rows) => {
-        if (!mounted) return;
-        const existing = rows[0];
-
-        if (existing) {
-          setItems(
-            dprTaskTemplates.map((task) => {
-              const match = existing.tasks.find((item) => item.id === task.id);
-              return {
-                ...task,
-                plannedQty: match?.plannedQty ?? '',
-                completedQty: match?.completedQty ?? '',
-                worker: match?.worker ?? '',
-                delayReason: match?.delayReason ?? '',
-              };
-            }),
-          );
-          setRemarks(existing.remarks ?? '');
-          setEvidence(fromPlanningEvidence(existing.evidence ?? []));
-        } else {
-          setItems(initialItems);
-          setRemarks('');
-          setEvidence([]);
-        }
-        setEvidenceLoadToken((token) => token + 1);
-      })
-      .catch(() => {
-        if (mounted) setEvidenceLoadToken((token) => token + 1);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [siteId, date, user?.id]);
-
-  const totalCompleted = useMemo(
-    () => items.reduce((sum, item) => sum + (Number(item.completedQty) || 0), 0),
-    [items],
-  );
-
-  const updateItem = (id: string, field: keyof DprItem, value: string) => {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
-    );
-  };
-
-  const projectOptions = projects.map((project) => ({ label: project.name, value: project.id }));
-  const siteSelectOptions = siteOptions.map((option) => ({ label: option.name, value: option.id }));
-  const siteLabel = siteOptions.find((option) => option.id === siteId)?.name ?? 'Select a site';
-
-  const handleSubmit = async () => {
-    if (!projectId || !siteId) {
-      showToast('Select a project and site first', 'error');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const tasks: DprTaskPayload[] = items.map((item) => ({
-        id: item.id as DprTaskPayload['id'],
-        plannedQty: item.plannedQty || undefined,
-        completedQty: item.completedQty || undefined,
-        worker: item.worker || undefined,
-        delayReason: item.delayReason || undefined,
-      }));
-
-      await planningApi.upsertDprRecord({
-        projectId,
-        siteId,
-        date,
-        status: 'submitted',
-        remarks: remarks || undefined,
-        tasks,
-        evidence: toPlanningEvidence(evidence),
-      });
-      showToast('DPR submitted', 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to submit DPR', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const {
+    date,
+    setDate,
+    projectId,
+    handleProjectChange,
+    siteId,
+    setSiteId,
+    projectSelectOpen,
+    setProjectSelectOpen,
+    siteSelectOpen,
+    setSiteSelectOpen,
+    remarks,
+    setRemarks,
+    evidence,
+    setEvidence,
+    evidenceLoadToken,
+    items,
+    updateItem,
+    totalCompleted,
+    projectOptions,
+    siteSelectOptions,
+    siteLabel,
+    submitting,
+    handleSubmit,
+  } = useDprForm();
 
   return (
     <Screen
@@ -242,7 +82,7 @@ export default function DprScreen() {
           options={projectOptions}
           open={projectSelectOpen}
           onOpenChange={setProjectSelectOpen}
-          onChange={setProjectId}
+          onChange={handleProjectChange}
           searchable
         />
         <SimpleSelect
@@ -277,7 +117,7 @@ export default function DprScreen() {
           }
         >
           {items.map((item) => (
-            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: '#FFFFFF' }]}>
               <View style={[styles.bodyCell, styles.taskCell, { borderColor: colors.border }]}>
                 <Text style={[styles.taskText, { color: colors.text }]} numberOfLines={2}>
                   {item.label}
@@ -292,7 +132,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -305,7 +145,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -317,7 +157,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInputWide,
-                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -329,7 +169,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInputWide,
-                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -408,11 +248,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
+    borderLeftWidth: 1,
   },
   tableHeaderRow: {
     minHeight: 36,
     borderTopWidth: 1,
-    borderLeftWidth: 1,
   },
   headerCell: {
     ...typography.caption,

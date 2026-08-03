@@ -15,8 +15,9 @@ import { typography } from '@/constants/typography';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
-import { planningApi, type PlanTaskPayload } from '@/services/planning.service';
-import { projectsApi, type ProjectOption, type ProjectSiteOption } from '@/services/projects.service';
+import { useProjectSitesQuery, useProjectsQuery, useSitePlansQuery, useUpsertSitePlanMutation } from '@/queries';
+import type { PlanTaskPayload } from '@/services/planning.service';
+import type { ProjectOption } from '@/services/projects.service';
 
 type PlanTask = {
   id: string;
@@ -51,15 +52,9 @@ export default function PlanScreen() {
   const { user } = useAuth();
   const [date, setDate] = useState('2026-07-22');
   const [sitePlans, setSitePlans] = useState<PlanSite[]>([createSitePlan(1)]);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    projectsApi
-      .list()
-      .then((rows) => setProjects(rows))
-      .catch(() => setProjects([]));
-  }, []);
+  const projectsQuery = useProjectsQuery();
+  const upsertSitePlanMutation = useUpsertSitePlanMutation();
+  const projects = projectsQuery.data ?? [];
 
   const totalQty = useMemo(
     () =>
@@ -111,7 +106,6 @@ export default function PlanScreen() {
       return;
     }
 
-    setSaving(true);
     try {
       for (const site of readySites) {
         const tasks: PlanTaskPayload[] = site.tasks.map((task) => ({
@@ -119,13 +113,11 @@ export default function PlanScreen() {
           qty: task.qty || undefined,
           worker: task.worker || undefined,
         }));
-        await planningApi.upsertSitePlan({ projectId: site.projectId, siteId: site.siteId, date, tasks });
+        await upsertSitePlanMutation.mutateAsync({ projectId: site.projectId, siteId: site.siteId, date, tasks });
       }
       showToast('Plan saved', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to save plan', 'error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -137,7 +129,7 @@ export default function PlanScreen() {
       bottomAccessory={
         <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <Button label="Add Site" variant="outline" icon={<Plus size={17} color={colors.primary} />} onPress={addSitePlan} style={styles.footerButton} />
-          <Button label="Save Plan" onPress={() => void handleSave()} loading={saving} style={styles.footerButton} />
+          <Button label="Save Plan" onPress={() => void handleSave()} loading={upsertSitePlanMutation.isPending} style={styles.footerButton} />
         </View>
       }
     >
@@ -212,59 +204,28 @@ function SitePlanCard({
   const { colors } = useTheme();
   const [projectSelectOpen, setProjectSelectOpen] = useState(false);
   const [siteSelectOpen, setSiteSelectOpen] = useState(false);
-  const [siteOptions, setSiteOptions] = useState<ProjectSiteOption[]>([]);
-
+  const siteOptionsQuery = useProjectSitesQuery(site.projectId);
   const projectOptions = projects.map((project) => ({ label: project.name, value: project.id }));
+  const siteOptions = siteOptionsQuery.data ?? [];
   const siteSelectOptions = siteOptions.map((option) => ({ label: option.name, value: option.id }));
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      if (!site.projectId) {
-        if (mounted) setSiteOptions([]);
-        return;
-      }
-
-      try {
-        const rows = await projectsApi.listSites(site.projectId);
-        if (mounted) setSiteOptions(rows);
-      } catch {
-        if (mounted) setSiteOptions([]);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, [site.projectId]);
+  const sitePlansQuery = useSitePlansQuery(
+    { siteId: site.siteId, date, supervisorId },
+    { enabled: Boolean(site.siteId && date && supervisorId) },
+  );
 
   useEffect(() => {
-    if (!site.siteId || !date || !supervisorId) return;
+    const existing = sitePlansQuery.data?.[0];
+    if (!existing) return;
 
-    let mounted = true;
-    planningApi
-      .listSitePlans({ siteId: site.siteId, date, supervisorId })
-      .then((rows) => {
-        const existing = rows[0];
-        if (existing && mounted) {
-          onTasksLoaded(
-            site.id,
-            dprTaskTemplates.map((task) => {
-              const match = existing.tasks.find((item) => item.id === task.id);
-              return { ...task, qty: match?.qty ?? '', worker: match?.worker ?? '' };
-            }),
-          );
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      mounted = false;
-    };
-  }, [site.id, site.siteId, date, supervisorId, onTasksLoaded]);
+    onTasksLoaded(
+      site.id,
+      dprTaskTemplates.map((task) => {
+        const match = existing.tasks.find((item) => item.id === task.id);
+        return { ...task, qty: match?.qty ?? '', worker: match?.worker ?? '' };
+      }),
+    );
+  }, [site.id, sitePlansQuery.data, onTasksLoaded]);
 
   return (
     <Card style={styles.siteCard}>

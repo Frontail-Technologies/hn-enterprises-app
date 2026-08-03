@@ -10,7 +10,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateMdpeFittingsMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 const mdpeFields = [
@@ -32,7 +32,8 @@ const mdpeFields = [
 export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(
+  const updateMdpeFittingsMutation = useUpdateMdpeFittingsMutation(customer.id);
+  const { values, updateField, clearDraft, draftState } = useDraftForm(
     `customer:${customer.id}:mdpe`,
     customer.mdpeFittings ?? {
       saddle90To32Mm: '',
@@ -51,13 +52,9 @@ export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () =>
     },
   );
 
-  const save = async () => {
-    await saveDraft();
-    showToast('MDPE draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateMdpeFittings(customer.id, values);
+      await updateMdpeFittingsMutation.mutateAsync(values);
       await clearDraft();
       await onRefetch?.();
       showToast('MDPE fittings submitted', 'success');
@@ -85,7 +82,9 @@ export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () =>
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateMdpeFittingsMutation.isPending} />
+  );
 
   return { content, footer };
 }

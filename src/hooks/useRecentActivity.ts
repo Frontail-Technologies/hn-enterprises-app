@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-
-import { getRecentActivity } from "@/services/activity.service";
+import { useRecentActivityQuery } from "@/queries";
 import type { ActivityLogEntry } from "@/services/mockData";
 
 export function useRecentActivity({
@@ -12,29 +10,10 @@ export function useRecentActivity({
   limit?: number;
   supervisorId?: string;
 }) {
-  const [items, setItems] = useState<ActivityLogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const query = useRecentActivityQuery({ extra, limit, supervisorId });
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      if (mounted) setIsLoading(true);
-
-      try {
-        const result = await getRecentActivity({ extra, limit, supervisorId });
-        if (mounted) setItems(result);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, [extra, limit, supervisorId]);
-
-  return { items, isLoading };
+  return {
+    items: query.data ?? [],
+    isLoading: query.isLoading,
+  };
 }

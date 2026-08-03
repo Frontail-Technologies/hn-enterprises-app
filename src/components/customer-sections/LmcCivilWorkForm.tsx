@@ -12,12 +12,13 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateCivilWorkMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateCivilWorkMutation = useUpdateCivilWorkMutation(customer.id);
   const civil = customer.lmcPipelineWork ?? {
     pipeRecords: [],
     fourMetresUnderGc: '',
@@ -32,7 +33,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
     civilRemarks: '',
     civilEvidence: [],
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:lmc-civil`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:lmc-civil`, {
     fourMetresUnderGc: civil.fourMetresUnderGc,
     fourMetresAboveGc: civil.fourMetresAboveGc,
     tfHalfInch: civil.tfHalfInch,
@@ -45,13 +46,9 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
     civilRemarks: civil.civilRemarks ?? '',
   });
 
-  const save = async () => {
-    await saveDraft();
-    showToast('Civil work draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateCivilWork(customer.id, {
+      await updateCivilWorkMutation.mutateAsync( {
         fourMetresUnderGc: values.fourMetresUnderGc,
         fourMetresAboveGc: values.fourMetresAboveGc,
         tfHalfInch: values.tfHalfInch,
@@ -95,7 +92,9 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateCivilWorkMutation.isPending} />
+  );
 
   return { content, footer };
 }

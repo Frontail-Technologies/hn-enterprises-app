@@ -24,7 +24,7 @@ type AttendanceState = {
 
 type AttendanceContextValue = AttendanceState & {
   checkIn: (location: CapturedLocation) => Promise<void>;
-  checkOut: (location: CapturedLocation) => Promise<void>;
+  checkOut: (location: CapturedLocation, remarks?: string) => Promise<void>;
 };
 
 const AttendanceContext = createContext<AttendanceContextValue | null>(null);
@@ -112,7 +112,7 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
   );
 
   const checkOut = useCallback(
-    async (location: CapturedLocation) => {
+    async (location: CapturedLocation, remarks?: string) => {
       const rollback = state;
       const todayKey = toDateKey(new Date());
       setState((current) => ({
@@ -123,7 +123,7 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
       }));
 
       try {
-        const record = await attendanceApi.checkOut(todayKey, location);
+        const record = await attendanceApi.checkOut(todayKey, location, remarks);
         setState({ loading: false, ...toState(record) });
         await cacheRecord(todayKey, record);
       } catch (error) {

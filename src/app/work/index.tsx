@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Search } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -12,52 +11,30 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { workQueueStatusFilters } from '@/constants/workProgress';
 import { useTheme } from '@/context/ThemeContext';
+import { useWorkQueueFilters } from '@/hooks/useWorkQueueFilters';
 import { useWorkQueue } from '@/hooks/useWorkProgress';
-import type { WorkProgressStatus } from '@/services/mockData';
-
-type WorkFilter = 'All' | WorkProgressStatus;
 
 export default function WorkQueueScreen() {
   const { colors } = useTheme();
   const { items: workProgressRecords, isLoading } = useWorkQueue();
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<WorkFilter>('All');
-  const [projectFilter, setProjectFilter] = useState('All');
-  const [siteFilter, setSiteFilter] = useState('All');
-  const [stageFilter, setStageFilter] = useState('All');
-  const projectOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.projectName)))], [workProgressRecords]);
-  const siteOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.siteArea)))], [workProgressRecords]);
-  const stageOptions = useMemo(() => ['All', ...Array.from(new Set(workProgressRecords.map((record) => record.currentStage)))], [workProgressRecords]);
-
-  const records = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const statusFiltered = workProgressRecords.filter((record) => {
-      const matchesStatus = filter === 'All' || record.status === filter;
-      const matchesProject = projectFilter === 'All' || record.projectName === projectFilter;
-      const matchesSite = siteFilter === 'All' || record.siteArea === siteFilter;
-      const matchesStage = stageFilter === 'All' || record.currentStage === stageFilter;
-
-      return matchesStatus && matchesProject && matchesSite && matchesStage;
-    });
-
-    if (!query) return statusFiltered;
-
-    return statusFiltered.filter((record) =>
-      [
-        record.customerName,
-        record.bpTrNumber,
-        record.mobileNumber,
-        record.projectName,
-        record.siteArea,
-        record.currentStage,
-        record.nextRequiredAction,
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [filter, projectFilter, search, siteFilter, stageFilter, workProgressRecords]);
+  const {
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    projectFilter,
+    setProjectFilter,
+    siteFilter,
+    setSiteFilter,
+    stageFilter,
+    setStageFilter,
+    projectOptions,
+    siteOptions,
+    stageOptions,
+    records,
+  } = useWorkQueueFilters(workProgressRecords);
 
   const inProgressCount = workProgressRecords.filter((record) => record.status === 'In Progress').length;
   const sentBackCount = workProgressRecords.filter((record) => record.status === 'Sent Back').length;
@@ -89,8 +66,8 @@ export default function WorkQueueScreen() {
       />
 
       <View style={styles.chips}>
-        {(['All', 'In Progress', 'Sent Back', 'On Hold', 'Completed'] as WorkFilter[]).map((item) => (
-          <FilterChip key={item} label={item} active={filter === item} onPress={() => setFilter(item)} />
+        {workQueueStatusFilters.map((item) => (
+          <FilterChip key={item} label={item} active={statusFilter === item} onPress={() => setStatusFilter(item)} />
         ))}
       </View>
 

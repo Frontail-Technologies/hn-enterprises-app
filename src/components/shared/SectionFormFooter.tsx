@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Upload } from 'lucide-react-native';
 import { View, StyleSheet } from 'react-native';
 
@@ -6,20 +7,29 @@ import { Button } from '@/components/ui/Button';
 import { spacing } from '@/constants/spacing';
 
 type SectionFormFooterProps = {
-  onSaveDraft: () => void;
   onSubmit: () => void;
   submitLabel?: string;
+  isSubmitting?: boolean;
 };
 
-export function SectionFormFooter({ onSaveDraft, onSubmit, submitLabel = 'Submit' }: SectionFormFooterProps) {
+export function SectionFormFooter({
+  onSubmit,
+  submitLabel = 'Submit',
+  isSubmitting = false,
+}: SectionFormFooterProps) {
   return (
     <StickyFooter>
       <View style={styles.row}>
         <View style={styles.secondary}>
-          <Button label="Save Draft" variant="outline" onPress={onSaveDraft} />
+          <Button label="Back" variant="outline" onPress={() => router.back()} disabled={isSubmitting} />
         </View>
         <View style={styles.primary}>
-          <Button label={submitLabel} icon={<Upload size={18} color="#FFFFFF" />} onPress={onSubmit} />
+          <Button
+            label={submitLabel}
+            icon={<Upload size={18} color="#FFFFFF" />}
+            onPress={onSubmit}
+            loading={isSubmitting}
+          />
         </View>
       </View>
     </StickyFooter>

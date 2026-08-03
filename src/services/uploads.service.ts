@@ -26,6 +26,9 @@ export async function uploadFile(asset: UploadAsset, module: string, recordId?: 
   return apiRequest<UploadedFile>("/uploads", {
     method: "POST",
     body: formData,
+    // Camera photos can be several MB - the default request timeout is tuned for
+    // quick JSON calls and is too short for a real upload over a mobile network.
+    timeoutMs: 60000,
   });
 }
 

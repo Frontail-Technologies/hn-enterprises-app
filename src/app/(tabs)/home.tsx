@@ -11,6 +11,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ActivityListItem } from "@/components/shared/ActivityListItem";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { AttendanceReminderSheet } from "@/components/shared/AttendanceReminderSheet";
+import { ComplaintBoxSkeleton } from "@/components/shared/ComplaintBoxSkeleton";
+import { ComplaintListItem } from "@/components/shared/ComplaintListItem";
+import { RecentActivitySkeleton } from "@/components/shared/RecentActivitySkeleton";
+import { StatsGridSkeleton } from "@/components/shared/StatsGridSkeleton";
+import { ComplaintUpdateSheet } from "@/components/complaints/ComplaintUpdateSheet";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { radius, spacing } from "@/constants/spacing";
@@ -22,8 +27,10 @@ import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useSupervisorStats } from "@/hooks/useMobileStats";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
+import { useComplaintsQuery } from "@/queries";
 import type { ActivityLogEntry } from "@/services/mockData";
 import type { SupervisorStatTone } from "@/services/mobileStats";
+import type { ComplaintRecord } from "@/services/complaints.service";
 import { toDateKey } from "@/utils/date";
 import { formatTime } from "@/utils/format";
 
@@ -33,6 +40,7 @@ export default function HomeScreen() {
   const { unreadCount } = useNotifications();
   const attendance = useAttendanceStatus();
   const [reminderVisible, setReminderVisible] = useState(false);
+  const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
 
   useEffect(() => {
     if (attendance.loading || attendance.isCheckedInToday) return;
@@ -93,19 +101,26 @@ export default function HomeScreen() {
     ? colors.green
     : colors.primary;
 
-  const { items: recentActivity } = useRecentActivity({
+  const { items: recentActivity, isLoading: activityLoading } = useRecentActivity({
     extra: attendanceActivity,
     limit: 4,
     supervisorId: user?.id,
   });
 
-  const { stats } = useSupervisorStats();
+  const { stats, isLoading: statsLoading } = useSupervisorStats();
   const summaryCards = stats
     .slice(0, 6)
     .map((stat) => ({
       ...stat,
       icon: statIcons[stat.id] ?? ClipboardCheck,
     }));
+
+  const { data: complaints = [], isLoading: complaintsLoading } = useComplaintsQuery({
+    supervisorId: user?.id,
+  });
+  const openComplaints = complaints
+    .filter((complaint) => complaint.status === "open" || complaint.status === "in_progress")
+    .slice(0, 3);
 
   return (
     <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
@@ -200,17 +215,49 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Work Stats
             </Text>
-            <Pressable onPress={() => router.push("/stats/index")}>
+            <Pressable onPress={() => router.push("/stats")}>
               <Text style={[typography.label, { color: colors.primary }]}>
                 View more
               </Text>
             </Pressable>
           </View>
-          <View style={styles.statsGrid}>
-            {summaryCards.map((item) => (
-              <SummaryCard key={item.label} {...item} />
-            ))}
+          {statsLoading ? (
+            <StatsGridSkeleton />
+          ) : (
+            <View style={styles.statsGrid}>
+              {summaryCards.map((item) => (
+                <SummaryCard key={item.label} {...item} />
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.quickSection}>
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Complaints
+            </Text>
+            <Pressable onPress={() => router.push("/complaints")}>
+              <Text style={[typography.label, { color: colors.primary }]}>
+                View all
+              </Text>
+            </Pressable>
           </View>
+          {complaintsLoading ? (
+            <ComplaintBoxSkeleton />
+          ) : openComplaints.length ? (
+            <View style={styles.activityList}>
+              {openComplaints.map((complaint) => (
+                <ComplaintListItem
+                  key={complaint.id}
+                  complaint={complaint}
+                  onPress={() => setActiveComplaint(complaint)}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={[typography.caption, { color: colors.muted }]}>No open complaints.</Text>
+          )}
         </View>
 
         <View style={styles.quickSection}>
@@ -224,11 +271,15 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           </View>
-          <View style={styles.activityList}>
-            {recentActivity.map((item) => (
-              <ActivityListItem key={item.id} item={item} />
-            ))}
-          </View>
+          {activityLoading ? (
+            <RecentActivitySkeleton />
+          ) : (
+            <View style={styles.activityList}>
+              {recentActivity.map((item) => (
+                <ActivityListItem key={item.id} item={item} />
+              ))}
+            </View>
+          )}
         </View>
       </View>
 
@@ -236,6 +287,7 @@ export default function HomeScreen() {
         visible={reminderVisible}
         onClose={() => setReminderVisible(false)}
       />
+      <ComplaintUpdateSheet complaint={activeComplaint} onClose={() => setActiveComplaint(null)} />
     </Screen>
   );
 }

@@ -1,6 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CalendarDays, Clock3, ClipboardList, MapPin } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -9,7 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { attendanceApi, type BackendAttendanceRecord } from '@/services/attendance.service';
+import { useAttendanceDayQuery } from '@/queries';
 import { formatDate } from '@/utils/format';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,36 +23,7 @@ export default function AttendanceDayDetailScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ day?: string; date?: string; status?: string }>();
   const day = Number(params.day ?? 28);
-  const [record, setRecord] = useState<BackendAttendanceRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      if (!params.date) {
-        if (mounted) setLoading(false);
-        return;
-      }
-
-      if (mounted) setLoading(true);
-
-      try {
-        const result = await attendanceApi.getDay(params.date);
-        if (mounted) setRecord(result);
-      } catch {
-        if (mounted) setRecord(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, [params.date]);
+  const { data: record = null, isLoading: loading } = useAttendanceDayQuery(params.date);
 
   const status = record ? (STATUS_LABEL[record.status] ?? 'Not Marked') : 'Not Marked';
   const isAbsent = status === 'Absent' || status === 'Not Marked';

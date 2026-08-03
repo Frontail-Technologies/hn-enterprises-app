@@ -1,9 +1,11 @@
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   Bell,
   ChevronRight,
   CircleHelp,
   Info,
+  LockKeyhole,
   LogOut,
   Moon,
   Sun,
@@ -11,6 +13,7 @@ import {
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { ChangePasswordSheet } from "@/components/auth/ChangePasswordSheet";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
@@ -24,6 +27,7 @@ export default function MoreScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -110,6 +114,10 @@ export default function MoreScreen() {
           <View
             style={[styles.menuDivider, { backgroundColor: colors.border }]}
           />
+          <MenuRow icon={LockKeyhole} label="Change Password" onPress={() => setChangePasswordOpen(true)} />
+          <View
+            style={[styles.menuDivider, { backgroundColor: colors.border }]}
+          />
           <MenuRow icon={CircleHelp} label="Support & Help" />
           <View
             style={[styles.menuDivider, { backgroundColor: colors.border }]}
@@ -128,6 +136,8 @@ export default function MoreScreen() {
           <Text style={[styles.logoutText, { color: colors.red }]}>Logout</Text>
         </Pressable>
       </View>
+
+      <ChangePasswordSheet visible={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </Screen>
   );
 }
@@ -140,13 +150,14 @@ function formatRole(role?: string) {
 type MenuRowProps = {
   icon: typeof CircleHelp;
   label: string;
+  onPress?: () => void;
 };
 
-function MenuRow({ icon: Icon, label }: MenuRowProps) {
+function MenuRow({ icon: Icon, label, onPress }: MenuRowProps) {
   const { colors } = useTheme();
 
   return (
-    <Pressable style={styles.menuRow}>
+    <Pressable style={styles.menuRow} onPress={onPress}>
       <Icon size={17} color={colors.muted} />
       <Text style={[styles.menuLabel, { color: colors.text }]}>{label}</Text>
       <ChevronRight size={17} color={colors.muted} />

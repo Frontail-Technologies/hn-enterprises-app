@@ -37,6 +37,8 @@ export function SectionTabBar({
   const viewportWidthRef = useRef(0);
   const scrollOffsetRef = useRef(0);
   const tabLayoutsRef = useRef<Map<string, { x: number; width: number }>>(new Map());
+  const isDraggingRef = useRef(false);
+  const dragEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleViewportLayout = (event: LayoutChangeEvent) => {
     viewportWidthRef.current = event.nativeEvent.layout.width;
@@ -44,6 +46,20 @@ export function SectionTabBar({
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollOffsetRef.current = event.nativeEvent.contentOffset.x;
+  };
+
+  const handleScrollBeginDrag = () => {
+    if (dragEndTimerRef.current) clearTimeout(dragEndTimerRef.current);
+    isDraggingRef.current = true;
+  };
+
+  const handleScrollEndDrag = () => {
+    // Keep the drag guard up briefly after release - the tap that ends a swipe
+    // still fires onPress on whichever tab the finger lands on otherwise.
+    if (dragEndTimerRef.current) clearTimeout(dragEndTimerRef.current);
+    dragEndTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 150);
   };
 
   const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
@@ -74,6 +90,7 @@ export function SectionTabBar({
   }, [tabs]);
 
   const handlePress = (key: string) => {
+    if (isDraggingRef.current) return;
     onChange(key);
     scrollTabIntoView(key);
   };
@@ -83,15 +100,26 @@ export function SectionTabBar({
     return () => clearTimeout(timer);
   }, [activeKey, scrollTabIntoView]);
 
+  useEffect(() => {
+    return () => {
+      if (dragEndTimerRef.current) clearTimeout(dragEndTimerRef.current);
+    };
+  }, []);
+
   return (
     <ScrollView
       ref={scrollViewRef}
       horizontal
       showsHorizontalScrollIndicator={false}
+      nestedScrollEnabled
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.scrollContent}
       onLayout={handleViewportLayout}
       onScroll={handleScroll}
+      onScrollBeginDrag={handleScrollBeginDrag}
+      onScrollEndDrag={handleScrollEndDrag}
+      onMomentumScrollBegin={handleScrollBeginDrag}
+      onMomentumScrollEnd={handleScrollEndDrag}
       scrollEventThrottle={16}
     >
       <View style={[styles.row, { borderBottomColor: colors.border }]}>

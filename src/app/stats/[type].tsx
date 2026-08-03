@@ -1,6 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, Filter, Search } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -10,25 +9,12 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
+import { statDetailStatusOptions } from '@/constants/stats';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { useStatDetailFilters } from '@/hooks/useStatDetailFilters';
 import { useSupervisorStatDetails, useSupervisorStats } from '@/hooks/useMobileStats';
 import type { SupervisorStatDetailRow } from '@/services/mobileStats';
-
-type DetailStatus = SupervisorStatDetailRow['status'] | 'All';
-
-const statusOptions: DetailStatus[] = [
-  'All',
-  'Done',
-  'Pending',
-  'In Progress',
-  'Sent Back',
-  'Not Started',
-  'On Hold',
-  'Planned',
-  'Delayed',
-  'Not Required',
-];
 
 export default function StatDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
@@ -36,45 +22,21 @@ export default function StatDetailScreen() {
   const { stats } = useSupervisorStats();
   const stat = stats.find((item) => item.id === type) ?? null;
   const { rows, isLoading } = useSupervisorStatDetails(type ? String(type) : undefined);
-  const [search, setSearch] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<DetailStatus>('All');
-  const [siteFilter, setSiteFilter] = useState('All');
-  const [siteSearch, setSiteSearch] = useState('');
-
-  const siteOptions = useMemo(
-    () => ['All', ...Array.from(new Set(rows.map((row) => row.site))).filter(Boolean)],
-    [rows],
-  );
-
-  const visibleSiteOptions = useMemo(() => {
-    const query = siteSearch.trim().toLowerCase();
-    if (!query) return siteOptions;
-    return siteOptions.filter((site) => site.toLowerCase().includes(query));
-  }, [siteOptions, siteSearch]);
-
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      const matchesSearch =
-        !query ||
-        [row.title, row.reference, row.site, row.status, row.helper]
-          .join(' ')
-          .toLowerCase()
-          .includes(query);
-      const matchesStatus = statusFilter === 'All' || row.status === statusFilter;
-      const matchesSite = siteFilter === 'All' || row.site === siteFilter;
-
-      return matchesSearch && matchesStatus && matchesSite;
-    });
-  }, [rows, search, siteFilter, statusFilter]);
-
-  const resetFilters = () => {
-    setStatusFilter('All');
-    setSiteFilter('All');
-    setSiteSearch('');
-    setFilterOpen(false);
-  };
+  const {
+    search,
+    setSearch,
+    filterOpen,
+    setFilterOpen,
+    statusFilter,
+    setStatusFilter,
+    siteFilter,
+    setSiteFilter,
+    siteSearch,
+    setSiteSearch,
+    visibleSiteOptions,
+    filteredRows,
+    resetFilters,
+  } = useStatDetailFilters(rows);
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
@@ -124,7 +86,7 @@ export default function StatDetailScreen() {
       >
         <View style={styles.filterGroup}>
           <Text style={[styles.filterTitle, { color: colors.text }]}>Status</Text>
-          {statusOptions.map((status) => (
+          {statDetailStatusOptions.map((status) => (
             <FilterOption
               key={status}
               label={status}
@@ -176,7 +138,7 @@ function StatTableRow({ row }: { row: SupervisorStatDetailRow }) {
       }}
       style={({ pressed }) => pressed && canOpen && { opacity: 0.72 }}
     >
-      <View style={[styles.tableRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.tableRow, { backgroundColor: '#FFFFFF', borderColor: colors.border }]}>
         <View style={[styles.nameCell, styles.bodyCell, { borderColor: colors.border }]}>
           <Text style={[styles.primaryCellText, { color: colors.text }]} numberOfLines={1}>
             {row.title}
@@ -265,11 +227,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
+    borderLeftWidth: 1,
   },
   tableHeader: {
     minHeight: 38,
     borderTopWidth: 1,
-    borderLeftWidth: 1,
   },
   headerCell: {
     ...typography.caption,

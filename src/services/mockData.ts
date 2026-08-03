@@ -50,6 +50,7 @@ export type EvidenceFile = {
   mimeType?: string;
   caption?: string;
   status?: 'Pending' | 'Uploading' | 'Uploaded' | 'Failed';
+  errorMessage?: string;
   uploadedOn?: string;
   capturedAt?: string;
   gpsLocation?: string;

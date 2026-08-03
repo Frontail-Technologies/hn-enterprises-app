@@ -11,6 +11,21 @@ import {
 import { authService } from "@/services/auth.service";
 import type { AuthUser, LoginCredentials } from "@/types/auth";
 
+type PasswordResetResult = {
+  resetOtp?: string | null;
+};
+
+type ResetPasswordInput = {
+  identifier: string;
+  otp: string;
+  newPassword: string;
+};
+
+type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
@@ -18,7 +33,9 @@ type AuthContextValue = {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  requestPasswordReset: (identifier: string) => Promise<void>;
+  requestPasswordReset: (identifier: string) => Promise<PasswordResetResult>;
+  resetPassword: (input: ResetPasswordInput) => Promise<void>;
+  changePassword: (input: ChangePasswordInput) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,7 +86,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const requestPasswordReset = useCallback(async (identifier: string) => {
-    await authService.requestPasswordReset(identifier);
+    return authService.requestPasswordReset(identifier);
+  }, []);
+
+  const resetPassword = useCallback(async (input: ResetPasswordInput) => {
+    await authService.resetPassword(input);
+  }, []);
+
+  const changePassword = useCallback(async (input: ChangePasswordInput) => {
+    await authService.changePassword(input);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -81,8 +106,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logout,
       refreshUser,
       requestPasswordReset,
+      resetPassword,
+      changePassword,
     }),
-    [isLoading, login, logout, refreshUser, requestPasswordReset, user],
+    [changePassword, isLoading, login, logout, refreshUser, requestPasswordReset, resetPassword, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -96,4 +123,3 @@ export function useAuth() {
 
   return value;
 }
-

@@ -17,7 +17,7 @@ import { useToast } from '@/context/ToastContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
-import { customersService } from '@/services/customers.service';
+import { useUpdateSurveyMutation } from '@/queries';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
@@ -25,6 +25,7 @@ const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as co
 export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateSurveyMutation = useUpdateSurveyMutation(customer.id);
   const { location, captureLocation, loading } = useCurrentLocation();
   const survey = customer.survey ?? {
     surveyId: '',
@@ -37,7 +38,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     gpsLocation: '',
     photos: [],
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:survey`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:survey`, {
     surveyDate: survey.surveyDate,
     assignedSurveyor: survey.assignedSurveyor,
     gpsLocation: survey.gpsLocation,
@@ -58,7 +59,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
 
   const submit = async () => {
     try {
-      await customersService.updateSurvey(customer.id, {
+      await updateSurveyMutation.mutateAsync( {
         ...survey,
         ...values,
         evidence,
@@ -70,11 +71,6 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     } catch {
       showToast('Unable to submit survey', 'error');
     }
-  };
-
-  const save = async () => {
-    await saveDraft();
-    showToast('Survey draft saved', 'success');
   };
 
   const captureGps = async () => {
@@ -222,9 +218,9 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
 
   const footer = (
     <SectionFormFooter
-      onSaveDraft={save}
       onSubmit={submit}
       submitLabel={survey.approvalStatus === 'Sent Back' ? 'Resubmit' : 'Submit'}
+      isSubmitting={updateSurveyMutation.isPending}
     />
   );
 

@@ -1,162 +1,37 @@
-import { router } from 'expo-router';
 import { Filter, Search } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
+import { customerGridColumns } from '@/constants/customers';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { useColumnFilters } from '@/hooks/useColumnFilters';
-import { useCustomerList } from '@/hooks/useCustomerRecord';
-
-type CustomerGridRow = {
-  id: string;
-  trBpNo: string;
-  customerName: string;
-  fullAddress: string;
-  mobileNo: string;
-  projectName: string;
-  siteArea: string;
-  status: string;
-  canOpen: boolean;
-};
-
-type ColumnKey = keyof Pick<
-  CustomerGridRow,
-  'trBpNo' | 'customerName' | 'fullAddress' | 'mobileNo' | 'siteArea' | 'status'
->;
-
-type GridColumn = {
-  key: ColumnKey;
-  label: string;
-  width: number;
-};
-
-const columns: GridColumn[] = [
-  { key: 'trBpNo', label: 'BP / TR', width: 116 },
-  { key: 'customerName', label: 'Name', width: 150 },
-  { key: 'fullAddress', label: 'Address', width: 260 },
-  { key: 'mobileNo', label: 'Phone', width: 126 },
-  { key: 'siteArea', label: 'Site', width: 150 },
-  { key: 'status', label: 'Status', width: 116 },
-];
-
-const demoMasterRows: CustomerGridRow[] = [
-  {
-    id: 'demo-master-001',
-    trBpNo: 'T23D007585',
-    customerName: 'HIMANGSHU DUTTA',
-    fullAddress: 'GANESH MANDIR PATH NOONMATI',
-    mobileNo: '9864054318',
-    projectName: 'Demo CGD Project',
-    siteArea: 'Noonmati',
-    status: 'Active',
-    canOpen: false,
-  },
-  {
-    id: 'demo-master-002',
-    trBpNo: 'T23D007588',
-    customerName: 'HIMANGSHU DUTTA',
-    fullAddress: 'GANESH MANDIR PATH NOONMATI',
-    mobileNo: '9508450514',
-    projectName: 'Demo CGD Project',
-    siteArea: 'Noonmati',
-    status: 'Pending',
-    canOpen: false,
-  },
-  {
-    id: 'demo-master-003',
-    trBpNo: 'T23D005962',
-    customerName: 'MAHADEB PASOWAN',
-    fullAddress: '05 NEW GUWAHATI RAILWAY COLONY BAMUNIMAIDAN RAILWAY COLONY ROAD',
-    mobileNo: '6001987369',
-    projectName: 'Demo CGD Project',
-    siteArea: 'Bamunimaidan',
-    status: 'Active',
-    canOpen: false,
-  },
-  {
-    id: 'demo-master-004',
-    trBpNo: '3106000096',
-    customerName: 'ASWINI SARMA',
-    fullAddress: 'NEAR GATE HOSPITAL, ADARANI PATH, GEETA NAGAR',
-    mobileNo: '9101094721',
-    projectName: 'Demo CGD Project',
-    siteArea: 'Geeta Nagar',
-    status: 'On Hold',
-    canOpen: false,
-  },
-];
+import { useCustomersGrid } from '@/hooks/useCustomersGrid';
 
 export default function CustomersScreen() {
   const { colors } = useTheme();
-  const [search, setSearch] = useState('');
-  const openingRowRef = useRef<string | null>(null);
-  const { customers, isLoading } = useCustomerList();
-
-  const rows = useMemo<CustomerGridRow[]>(
-    () => [
-      ...customers.map((customer) => ({
-        id: customer.id,
-        trBpNo: customer.customerConnection.trBpNo,
-        customerName: customer.customerConnection.customerName,
-        fullAddress: customer.customerConnection.fullAddress,
-        mobileNo: customer.customerConnection.mobileNo,
-        projectName: customer.projectName,
-        siteArea: customer.siteArea,
-        status: customer.status,
-        canOpen: true,
-      })),
-      ...demoMasterRows,
-    ],
-    [customers],
-  );
-
   const {
+    search,
+    setSearch,
+    isLoading,
+    rows,
+    filteredRows,
+    openCustomer,
     activeColumn,
     pendingValues,
     filterSearch,
     setFilterSearch,
     activeValues,
-    matchesFilters,
     isColumnActive,
     openFilter,
     closeFilter,
     togglePendingValue,
     applyFilter,
     clearFilter,
-  } = useColumnFilters<CustomerGridRow, ColumnKey>(columns, rows);
-
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return rows.filter((row) => {
-      const matchesSearch = query
-        ? columns.some((column) => String(row[column.key]).toLowerCase().includes(query))
-        : true;
-
-      return matchesSearch && matchesFilters(row);
-    });
-  }, [matchesFilters, rows, search]);
-
-  const openCustomer = (row: CustomerGridRow) => {
-    if (!row.canOpen) return;
-
-    if (openingRowRef.current === row.id) return;
-
-    openingRowRef.current = row.id;
-    router.push({
-      pathname: '/customers/[id]',
-      params: { id: row.id },
-    });
-    setTimeout(() => {
-      if (openingRowRef.current === row.id) openingRowRef.current = null;
-    }, 900);
-  };
+  } = useCustomersGrid();
 
   return (
     <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
@@ -172,10 +47,10 @@ export default function CustomersScreen() {
         <Text style={[styles.resultText, { color: colors.muted }]}>
           {isLoading ? 'Loading customers...' : `Showing ${filteredRows.length} of ${rows.length} records`}
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator>
+        <ScrollView horizontal showsHorizontalScrollIndicator nestedScrollEnabled>
           <View style={styles.table}>
             <View style={[styles.headerRow, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              {columns.map((column) => {
+              {customerGridColumns.map((column) => {
                 const active = isColumnActive(column.key);
                 return (
                   <Pressable
@@ -193,7 +68,7 @@ export default function CustomersScreen() {
             </View>
 
             <ScrollView style={styles.bodyScroll} nestedScrollEnabled showsVerticalScrollIndicator>
-              {filteredRows.map((row, index) => (
+              {filteredRows.map((row) => (
                 <Pressable
                   key={row.id}
                   disabled={!row.canOpen}
@@ -201,13 +76,13 @@ export default function CustomersScreen() {
                   style={({ pressed }) => [
                     styles.dataRow,
                     {
-                      backgroundColor: index % 2 === 0 ? colors.card : colors.background,
+                      backgroundColor: '#FFFFFF',
                       borderColor: colors.border,
                       opacity: !row.canOpen ? 0.72 : pressed ? 0.62 : 1,
                     },
                   ]}
                 >
-                  {columns.map((column) => (
+                  {customerGridColumns.map((column) => (
                     <View key={column.key} style={[styles.dataCell, { width: column.width, borderColor: colors.border }]}>
                       <Text style={[styles.cellText, { color: colors.text }]} numberOfLines={2}>
                         {String(row[column.key]) || '-'}
@@ -252,7 +127,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   table: {
-    minWidth: columns.reduce((total, column) => total + column.width, 0),
+    minWidth: customerGridColumns.reduce((total, column) => total + column.width, 0),
     flex: 1,
   },
   headerRow: {

@@ -134,6 +134,8 @@ type BackendCustomer = {
   billingCompletion: Record<string, unknown> | null;
   lmcPipeRecords?: BackendLmcPipeRecord[];
   documents?: BackendCustomerDocument[];
+  project?: { id: string; name: string } | null;
+  site?: { id: string; name: string } | null;
 };
 
 type BackendLmcPipeRecord = {
@@ -158,6 +160,29 @@ type BackendCustomerDocument = {
   fileName: string;
   status: string;
 };
+
+export type CustomerNote = {
+  id: string;
+  note: string;
+  createdAt: string;
+  authorName: string;
+};
+
+type BackendCustomerNote = {
+  id: string;
+  note: string;
+  createdAt: string;
+  author: { id: string; name: string } | null;
+};
+
+function mapNote(raw: BackendCustomerNote): CustomerNote {
+  return {
+    id: raw.id,
+    note: raw.note,
+    createdAt: raw.createdAt,
+    authorName: raw.author?.name ?? "Unknown",
+  };
+}
 
 function mapEvidenceFile(item: Record<string, unknown>, index: number, keyPrefix: string): EvidenceFile {
   const fileName = String(item.fileName ?? item.label ?? `evidence-${index}`);
@@ -350,8 +375,8 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
   return {
     id: raw.id,
     status: STATUS_TO_MOBILE[raw.status] ?? "Pending",
-    projectName: "",
-    siteArea: raw.city ?? "",
+    projectName: raw.project?.name ?? "",
+    siteArea: raw.site?.name ?? "",
     city: raw.city ?? "",
     createdDate: toDateOnly(raw.createdAt),
     customerConnection: connection,
@@ -560,5 +585,18 @@ export const customersService = {
       }),
     });
     return mapPipeRecord(raw);
+  },
+
+  async listNotes(id: string): Promise<CustomerNote[]> {
+    const rows = await apiRequest<BackendCustomerNote[]>(`/customers/${id}/notes`);
+    return rows.map(mapNote);
+  },
+
+  async createNote(id: string, note: string): Promise<CustomerNote> {
+    const raw = await apiRequest<BackendCustomerNote>(`/customers/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    });
+    return mapNote(raw);
   },
 };

@@ -8,8 +8,13 @@ type ScrollableTableProps = PropsWithChildren<{
 
 export function ScrollableTable({ header, minWidth, children }: ScrollableTableProps) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator style={styles.horizontalScroll}>
-      <View style={minWidth ? { minWidth } : undefined}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator
+      style={styles.horizontalScroll}
+      nestedScrollEnabled
+    >
+      <View style={[styles.content, minWidth ? { minWidth } : undefined]}>
         {header}
         {children}
       </View>
@@ -20,5 +25,9 @@ export function ScrollableTable({ header, minWidth, children }: ScrollableTableP
 const styles = StyleSheet.create({
   horizontalScroll: {
     flexGrow: 0,
+    backgroundColor: '#FFFFFF',
+  },
+  content: {
+    backgroundColor: '#FFFFFF',
   },
 });

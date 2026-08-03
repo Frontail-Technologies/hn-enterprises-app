@@ -1,91 +1,48 @@
-import { router } from 'expo-router';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { FilterChip } from '@/components/shared/FilterChip';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { attendanceHistoryFilters } from '@/constants/attendance';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { attendanceApi, type BackendAttendanceRecord } from '@/services/attendance.service';
-import { addMonths, startOfDay, toDateKey } from '@/utils/date';
-
-type AttendanceFilter = 'All' | 'Present' | 'Late' | 'Half Day' | 'Leave' | 'Absent' | 'Not Marked';
-type CalendarCell = null | {
-  day: number;
-  dateKey: string;
-  status: AttendanceFilter | 'Future';
-  disabled: boolean;
-};
-
-const STATUS_TO_FILTER: Record<string, AttendanceFilter> = {
-  present: 'Present',
-  absent: 'Absent',
-  late: 'Late',
-  half_day: 'Half Day',
-  leave: 'Leave',
-};
+import { useAttendanceCalendar } from '@/hooks/useAttendanceCalendar';
 
 export default function AttendanceHistoryScreen() {
   const { colors } = useTheme();
-  const [monthDate, setMonthDate] = useState(() => new Date());
-  const [filter, setFilter] = useState<AttendanceFilter>('All');
-  const [records, setRecords] = useState<BackendAttendanceRecord[]>([]);
-
-  useEffect(() => {
-    let mounted = true;
-    const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
-
-    attendanceApi
-      .getMonth(monthKey)
-      .then((rows) => {
-        if (mounted) setRecords(rows);
-      })
-      .catch(() => {
-        if (mounted) setRecords([]);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [monthDate]);
-
-  const recordsByDate = useMemo(() => {
-    const map = new Map<string, BackendAttendanceRecord>();
-    records.forEach((record) => map.set(record.date, record));
-    return map;
-  }, [records]);
-
-  const calendarDays = useMemo(
-    () => buildCalendar(monthDate, filter, recordsByDate),
-    [filter, monthDate, recordsByDate],
-  );
-  const visibleDays = calendarDays.filter(Boolean) as Exclude<CalendarCell, null>[];
-  const presentCount = visibleDays.filter((item) => item.status === 'Present').length;
-  const lateCount = visibleDays.filter((item) => item.status === 'Late').length;
-  const absentCount = visibleDays.filter((item) => item.status === 'Absent').length;
-  const monthTitle = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(monthDate);
+  const {
+    goToPreviousMonth,
+    goToNextMonth,
+    monthTitle,
+    filter,
+    setFilter,
+    calendarDays,
+    presentCount,
+    lateCount,
+    absentCount,
+  } = useAttendanceCalendar();
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
       <AppHeader title="Attendance History" left={<BackButton />} />
 
       <View style={styles.monthRow}>
-        <Pressable onPress={() => setMonthDate((value) => addMonths(value, -1))} style={[styles.monthButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Pressable onPress={goToPreviousMonth} style={[styles.monthButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <ChevronLeft size={20} color={colors.accent} />
         </Pressable>
         <Text style={[styles.monthTitle, { color: colors.text }]}>{monthTitle}</Text>
-        <Pressable onPress={() => setMonthDate((value) => addMonths(value, 1))} style={[styles.monthButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Pressable onPress={goToNextMonth} style={[styles.monthButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <ChevronRight size={20} color={colors.accent} />
         </Pressable>
       </View>
 
       <Card style={styles.calendarCard}>
         <View style={styles.chips}>
-          {(['All', 'Present', 'Late', 'Half Day', 'Leave', 'Absent', 'Not Marked'] as AttendanceFilter[]).map((item) => (
+          {attendanceHistoryFilters.map((item) => (
             <FilterChip key={item} label={item} active={filter === item} onPress={() => setFilter(item)} />
           ))}
         </View>
@@ -141,34 +98,6 @@ export default function AttendanceHistoryScreen() {
       </View>
     </Screen>
   );
-}
-
-function buildCalendar(
-  monthDate: Date,
-  filter: AttendanceFilter,
-  recordsByDate: Map<string, BackendAttendanceRecord>,
-): CalendarCell[] {
-  const year = monthDate.getFullYear();
-  const month = monthDate.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const mondayIndex = (firstDay.getDay() + 6) % 7;
-  const today = new Date();
-  const cells: CalendarCell[] = Array.from({ length: mondayIndex }, () => null);
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = new Date(year, month, day);
-    const dateKey = toDateKey(date);
-    const isFuture = startOfDay(date).getTime() > startOfDay(today).getTime();
-    const record = recordsByDate.get(dateKey);
-    const baseStatus: AttendanceFilter = record ? (STATUS_TO_FILTER[record.status] ?? 'Not Marked') : 'Not Marked';
-    const status: AttendanceFilter | 'Future' = isFuture ? 'Future' : baseStatus;
-    const matchesFilter = filter === 'All' || baseStatus === filter;
-
-    cells.push(matchesFilter || isFuture ? { day, dateKey, status, disabled: isFuture } : null);
-  }
-
-  return cells;
 }
 
 function BackButton() {

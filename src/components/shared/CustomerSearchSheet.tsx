@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/Input';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import { customers, type CustomerRecord } from '@/services/mockData';
+import { useCustomerList } from '@/hooks/useCustomerRecord';
+import type { CustomerRecord } from '@/services/mockData';
 
 type CustomerSearchSheetProps = {
   title?: string;
@@ -25,19 +26,20 @@ export function CustomerSearchSheet({
   onSelect,
 }: CustomerSearchSheetProps) {
   const { colors } = useTheme();
+  const { customers, isLoading } = useCustomerList();
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState('All');
   const [siteFilter, setSiteFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const projectOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.projectName)))], []);
-  const siteOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.siteArea)))], []);
+  const projectOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.projectName)))], [customers]);
+  const siteOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.siteArea)))], [customers]);
   const typeOptions = useMemo(
     () => ['All', ...Array.from(new Set(customers.map((customer) => customer.customerConnection.connectionType)))],
-    [],
+    [customers],
   );
-  const statusOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.status)))], []);
+  const statusOptions = useMemo(() => ['All', ...Array.from(new Set(customers.map((customer) => customer.status)))], [customers]);
 
   const filteredCustomers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -63,7 +65,7 @@ export function CustomerSearchSheet({
 
       return matchesProject && matchesSite && matchesType && matchesStatus && matchesSearch;
     });
-  }, [projectFilter, search, siteFilter, statusFilter, typeFilter]);
+  }, [customers, projectFilter, search, siteFilter, statusFilter, typeFilter]);
 
   const handleSelect = (customer: CustomerRecord) => {
     if (onSelect) {
@@ -141,7 +143,17 @@ export function CustomerSearchSheet({
       </Modal>
 
       <View style={styles.list}>
-        {filteredCustomers.map((customer) => {
+        {isLoading ? (
+          <Card style={styles.customerCard}>
+            <Text style={[typography.bodyMedium, { color: colors.muted }]}>Loading customers...</Text>
+          </Card>
+        ) : null}
+        {!isLoading && filteredCustomers.length === 0 ? (
+          <Card style={styles.customerCard}>
+            <Text style={[typography.bodyMedium, { color: colors.muted }]}>No customers found</Text>
+          </Card>
+        ) : null}
+        {!isLoading && filteredCustomers.map((customer) => {
           const connection = customer.customerConnection;
           return (
             <Pressable

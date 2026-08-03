@@ -1,24 +1,34 @@
 import { router } from 'expo-router';
 import { CalendarDays, CheckCircle2, MapPin, Navigation } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { LocationMapView } from '@/components/shared/LocationMapView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { Screen } from '@/components/ui/Screen';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useAttendanceStatus } from '@/context/AttendanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
+import type { CapturedLocation } from '@/hooks/useCurrentLocation';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDate, formatTime } from '@/utils/format';
+
+const SHORT_SHIFT_WARNING_MINUTES = 5;
 
 export default function AttendanceScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { loading: captureLoading, captureLocation } = useCurrentLocation();
+  const [remarks, setRemarks] = useState('');
+  const [shortShiftConfirm, setShortShiftConfirm] = useState<{
+    captured: CapturedLocation;
+    minutes: number;
+  } | null>(null);
   const {
     loading,
     isCheckedInToday,
@@ -46,6 +56,16 @@ export default function AttendanceScreen() {
     }
   };
 
+  const submitCheckOut = async (captured: CapturedLocation) => {
+    try {
+      await checkOut(captured, remarks.trim() || undefined);
+      setRemarks('');
+      showToast('Checked out successfully', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to check out - try again', 'error');
+    }
+  };
+
   const handleCheckOut = async () => {
     const captured = await captureLocation();
     if (!captured) {
@@ -53,12 +73,22 @@ export default function AttendanceScreen() {
       return;
     }
 
-    try {
-      await checkOut(captured);
-      showToast('Checked out successfully', 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to check out - try again', 'error');
+    const minutesSinceCheckIn = checkInAt
+      ? (new Date(captured.capturedAt).getTime() - new Date(checkInAt).getTime()) / 60000
+      : null;
+
+    if (minutesSinceCheckIn != null && minutesSinceCheckIn < SHORT_SHIFT_WARNING_MINUTES) {
+      setShortShiftConfirm({ captured, minutes: Math.max(0, Math.round(minutesSinceCheckIn)) });
+      return;
     }
+
+    await submitCheckOut(captured);
+  };
+
+  const confirmShortShiftCheckOut = () => {
+    const pending = shortShiftConfirm;
+    setShortShiftConfirm(null);
+    if (pending) void submitCheckOut(pending.captured);
   };
 
   return (
@@ -111,12 +141,25 @@ export default function AttendanceScreen() {
           />
 
           {!isCheckedOutToday ? (
-            <Button
-              label="Check Out"
-              loading={captureLoading}
-              onPress={handleCheckOut}
-              icon={<Navigation size={18} color="#FFFFFF" />}
-            />
+            <>
+              <TextInput
+                value={remarks}
+                onChangeText={setRemarks}
+                placeholder="Add a remark for check-out (optional)"
+                placeholderTextColor={colors.muted}
+                multiline
+                style={[
+                  styles.remarksInput,
+                  { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
+                ]}
+              />
+              <Button
+                label="Check Out"
+                loading={captureLoading}
+                onPress={handleCheckOut}
+                icon={<Navigation size={18} color="#FFFFFF" />}
+              />
+            </>
           ) : null}
         </View>
       ) : (
@@ -142,6 +185,16 @@ export default function AttendanceScreen() {
           />
         </View>
       )}
+
+      <ConfirmSheet
+        visible={Boolean(shortShiftConfirm)}
+        title="Check out already?"
+        message={`You checked in only ${shortShiftConfirm?.minutes ?? 0} minute(s) ago. Are you sure you want to check out now?`}
+        confirmLabel="Check Out Anyway"
+        cancelLabel="Cancel"
+        onConfirm={confirmShortShiftCheckOut}
+        onCancel={() => setShortShiftConfirm(null)}
+      />
     </Screen>
   );
 }
@@ -164,6 +217,14 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.lg,
+  },
+  remarksInput: {
+    minHeight: 72,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    ...typography.body,
+    textAlignVertical: 'top',
   },
   markCard: {
     alignItems: 'center',

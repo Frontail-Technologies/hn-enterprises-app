@@ -12,12 +12,13 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateGiMeasurementsMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateGiMeasurementsMutation = useUpdateGiMeasurementsMutation(customer.id);
   const gi = customer.giMeasurements ?? {
     tfToRegulator: '',
     inlet: '',
@@ -28,7 +29,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     giPipeOneAndHalfInch: '',
     giPipeTwoInch: '',
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:gi`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:gi`, {
     tfToRegulator: gi.tfToRegulator,
     inlet: gi.inlet,
     outlet: gi.outlet,
@@ -41,13 +42,9 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     remarks: '',
   });
 
-  const save = async () => {
-    await saveDraft();
-    showToast('GI draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateGiMeasurements(customer.id, {
+      await updateGiMeasurementsMutation.mutateAsync( {
         tfToRegulator: values.tfToRegulator,
         inlet: values.inlet,
         outlet: values.outlet,
@@ -98,7 +95,9 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateGiMeasurementsMutation.isPending} />
+  );
 
   return { content, footer };
 }

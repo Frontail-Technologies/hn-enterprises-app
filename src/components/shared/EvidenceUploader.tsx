@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, FileText, ImageIcon, MapPin, Plus, RefreshCcw, RotateCcw, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Sheet } from '@/components/ui/Sheet';
@@ -11,6 +11,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { ApiError } from '@/services/apiClient';
 import type { EvidenceFile } from '@/services/mockData';
 import { resolveMediaUrl, uploadFile, type UploadAsset } from '@/services/uploads.service';
 
@@ -59,7 +60,7 @@ export function EvidenceUploader({
     if (!permission.granted) return;
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
     });
     if (result.canceled) return;
@@ -72,7 +73,7 @@ export function EvidenceUploader({
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsMultipleSelection: true,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
     });
     if (result.canceled) return;
@@ -116,12 +117,15 @@ export function EvidenceUploader({
     setPendingAssets((current) => current.filter((_, i) => i !== index));
   };
 
+  useEffect(() => {
+    onChange?.(files);
+    // onChange intentionally excluded: it should fire when `files` changes, not when the
+    // caller passes a new function reference (e.g. an inline callback re-created on render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
   const updateFiles = (updater: (current: EvidenceFile[]) => EvidenceFile[]) => {
-    setFiles((current) => {
-      const next = updater(current);
-      onChange?.(next);
-      return next;
-    });
+    setFiles(updater);
   };
 
   const runUpload = async (id: string, asset: UploadAsset) => {
@@ -136,12 +140,23 @@ export function EvidenceUploader({
                 fileUrl: uploaded.url,
                 fileName: uploaded.fileName,
                 status: 'Uploaded',
+                errorMessage: undefined,
               }
             : file,
         ),
       );
-    } catch {
-      updateFiles((current) => current.map((file) => (file.id === id ? { ...file, status: 'Failed' } : file)));
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Unable to upload file';
+      console.error('[EvidenceUploader] upload failed', {
+        module,
+        recordId,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+        error,
+      });
+      updateFiles((current) =>
+        current.map((file) => (file.id === id ? { ...file, status: 'Failed', errorMessage: message } : file)),
+      );
     }
   };
 
@@ -172,7 +187,7 @@ export function EvidenceUploader({
 
   const replaceFile = async (id: string) => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
     });
 
@@ -251,6 +266,11 @@ export function EvidenceUploader({
                   <Text style={[typography.label, { color: colors.muted }]}>
                     {file.status ?? 'Uploaded'} : {file.capturedAt ? new Date(file.capturedAt).toLocaleString() : '-'}
                   </Text>
+                  {file.status === 'Failed' && file.errorMessage ? (
+                    <Text style={[typography.label, { color: colors.red }]} numberOfLines={2}>
+                      {file.errorMessage}
+                    </Text>
+                  ) : null}
                   {file.gpsLocation ? (
                     <Text style={[typography.label, { color: colors.muted }]}>GPS: {file.gpsLocation}</Text>
                   ) : null}

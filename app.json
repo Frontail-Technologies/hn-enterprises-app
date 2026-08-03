@@ -7,6 +7,16 @@
     "icon": "./assets/images/logo.png",
     "scheme": "hnenterprises",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.hnenterprises.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow HN Enterprises to capture field evidence photos.",
+        "NSPhotoLibraryUsageDescription": "Allow HN Enterprises to select field photos and upload evidence.",
+        "NSLocationWhenInUseUsageDescription": "Allow HN Enterprises to capture location when marking attendance and submitting field evidence.",
+        "NSUserNotificationsUsageDescription": "Allow HN Enterprises to send work, attendance, and announcement notifications."
+      }
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFF7ED",

@@ -15,7 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
-import { customersService } from '@/services/customers.service';
+import { useUpsertLmcPipeMutation } from '@/queries';
 import type { CustomerRecord, EvidenceFile, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
 
 const layingOptions: LmcLayingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
@@ -30,6 +30,7 @@ export function usePipeEditForm(
 ) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const upsertLmcPipeMutation = useUpsertLmcPipeMutation(customer.id);
   const pipe = customer.lmcPipelineWork.pipeRecords.find((item) => item.id === pipeId);
   const draftPipe = pipe ?? {
     id: pipeId,
@@ -46,7 +47,7 @@ export function usePipeEditForm(
     evidence: [],
   };
 
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:pipe:${draftPipe.id}`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:pipe:${draftPipe.id}`, {
     lengthMetres: draftPipe.lengthMetres,
     layingDate: draftPipe.layingDate,
     testingDate: draftPipe.testingDate,
@@ -61,13 +62,9 @@ export function usePipeEditForm(
   const { ref: remarksRef, onFocus: remarksOnFocus } = useScrollIntoViewOnFocus();
   const [evidence, setEvidence] = useState<EvidenceFile[]>(draftPipe.evidence);
 
-  const save = async () => {
-    await saveDraft();
-    showToast(`${draftPipe.pipeSize} pipe draft saved`, 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.upsertLmcPipeRecord(customer.id, {
+      await upsertLmcPipeMutation.mutateAsync( {
         ...draftPipe,
         lengthMetres: values.lengthMetres,
         layingDate: values.layingDate,
@@ -151,7 +148,9 @@ export function usePipeEditForm(
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={upsertLmcPipeMutation.isPending} />
+  );
 
   return { pipe, content, footer };
 }

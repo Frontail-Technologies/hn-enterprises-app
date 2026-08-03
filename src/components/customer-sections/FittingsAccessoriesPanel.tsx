@@ -13,7 +13,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { customersService } from '@/services/customers.service';
+import { useUpdateFittingsAccessoriesMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 const groups = [
@@ -25,6 +25,7 @@ const groups = [
 export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateFittingsAccessoriesMutation = useUpdateFittingsAccessoriesMutation(customer.id);
   const [activeGroup, setActiveGroup] = useState<(typeof groups)[number]['key']>('clamps');
   const fallback = customer.fittingsAccessories ?? {
     clampHalfInch: customer.isolationFittings.clampHalfInch ?? '',
@@ -45,15 +46,11 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
     remarks: '',
     evidence: [],
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:fittings`, fallback);
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:fittings`, fallback);
 
-  const save = async () => {
-    await saveDraft();
-    showToast('Fittings draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateFittingsAccessories(customer.id, {
+      await updateFittingsAccessoriesMutation.mutateAsync( {
         clampHalfInch: values.clampHalfInch,
         clampThreeInchToHalfInch: values.clampThreeInchToHalfInch,
         elbowHalfInch: values.elbowHalfInch,
@@ -143,7 +140,9 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateFittingsAccessoriesMutation.isPending} />
+  );
 
   return { content, footer };
 }

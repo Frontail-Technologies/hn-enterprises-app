@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Navigation, Phone, StickyNote } from "lucide-react-native";
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import PagerView from "react-native-pager-view";
 
 import { useBillingRemarksPanel } from "@/components/customer-sections/BillingRemarksPanel";
 import { useCustomerInfoPanel } from "@/components/customer-sections/CustomerInfoPanel";
@@ -20,30 +30,35 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Sheet } from "@/components/ui/Sheet";
-import { StickyHeaderGroup } from "@/components/ui/StickyHeaderGroup";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { useCustomerRecord } from "@/hooks/useCustomerRecord";
+import { useSwipeableTabs } from "@/hooks/useSwipeableTabs";
+import { useCreateCustomerNoteMutation, useCustomerNotesQuery } from "@/queries";
 import type { CustomerRecord } from "@/services/mockData";
+import { formatDate, formatTime } from "@/utils/format";
 
 export default function CustomerWorkspaceScreen() {
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ id?: string }>();
   const { customer, isLoading, error, refetch } = useCustomerRecord(params.id);
 
   if (isLoading) {
     return (
-      <Screen tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
+      <Screen edges={["bottom"]} contentStyle={styles.screen}>
         <AppHeader title="Customer" left={<BackButton />} />
-        <Text style={typography.body}>Loading customer...</Text>
+        <View style={[styles.emptyState, styles.loadingState]}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
       </Screen>
     );
   }
 
   if (error || !customer) {
     return (
-      <Screen tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
+      <Screen edges={["bottom"]} contentStyle={styles.screen}>
         <AppHeader title="Customer" left={<BackButton />} />
         <EmptyCustomer onRetry={refetch} />
       </Screen>
@@ -106,18 +121,30 @@ function CustomerWorkspaceContent({
     { key: "documents", label: "Photos / Documents", panel: documentsPanel },
   ];
 
-  const [activeSection, setActiveSection] = useState(tabs[0].key);
+  // The set of tab keys never actually changes across renders (only each
+  // tab's panel content/footer does), so this is safe to compute once and
+  // reuse in the pager hook below without it churning every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tabKeys = useMemo(() => tabs.map((tab) => tab.key), []);
+
+  const {
+    activeKey: activeSection,
+    pagerRef,
+    initialIndex,
+    onPageSelected,
+    isMounted,
+    selectTab: handleTabChange,
+  } = useSwipeableTabs(tabKeys);
+
   const activeTab = tabs.find((tab) => tab.key === activeSection) ?? tabs[0];
 
   return (
     <Screen
-      scroll
-      tabBarAware
       edges={["bottom"]}
       contentStyle={styles.screen}
       bottomAccessory={activeTab.panel.footer}
     >
-      <StickyHeaderGroup>
+      <View>
         <AppHeader
           title={connection.customerName}
           subtitle={`${connection.trBpNo} : ${customer.siteArea}`}
@@ -128,13 +155,27 @@ function CustomerWorkspaceContent({
         <SectionTabBar
           tabs={tabs.map((tab) => ({ key: tab.key, label: tab.label }))}
           activeKey={activeSection}
-          onChange={setActiveSection}
+          onChange={handleTabChange}
         />
-      </StickyHeaderGroup>
+      </View>
 
-      {activeSection === "customer" ? <CustomerQuickActions customer={customer} /> : null}
-
-      <View style={styles.section}>{activeTab.panel.content}</View>
+      <PagerView ref={pagerRef} style={styles.pager} initialPage={initialIndex} onPageSelected={onPageSelected}>
+        {tabs.map((tab) => (
+          <View key={tab.key} style={styles.page}>
+            {isMounted(tab.key) ? (
+              <ScrollView
+                style={styles.pageScroll}
+                contentContainerStyle={styles.pageContent}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+              >
+                {tab.key === "customer" ? <CustomerQuickActions customer={customer} /> : null}
+                {tab.panel.content}
+              </ScrollView>
+            ) : null}
+          </View>
+        ))}
+      </PagerView>
     </Screen>
   );
 }
@@ -149,6 +190,8 @@ function CustomerQuickActions({
   const connection = customer.customerConnection;
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
+  const { data: notes = [], isLoading: notesLoading } = useCustomerNotesQuery(noteOpen ? customer.id : undefined);
+  const createNoteMutation = useCreateCustomerNoteMutation(customer.id);
 
   const actions = [
     {
@@ -216,10 +259,15 @@ function CustomerQuickActions({
             />
             <Button
               label="Save Note"
-              onPress={() => {
-                setNote("");
-                setNoteOpen(false);
-                showToast("Note saved", "success");
+              loading={createNoteMutation.isPending}
+              onPress={async () => {
+                try {
+                  await createNoteMutation.mutateAsync(note.trim());
+                  setNote("");
+                  showToast("Note saved", "success");
+                } catch {
+                  showToast("Unable to save note", "error");
+                }
               }}
               disabled={!note.trim()}
               style={styles.noteFooterButton}
@@ -253,6 +301,27 @@ function CustomerQuickActions({
               ]}
             />
           </View>
+
+          <View style={styles.noteHistory}>
+            <Text style={[typography.label, { color: colors.text }]}>Previous Notes</Text>
+            {notesLoading ? (
+              <Text style={[typography.caption, { color: colors.muted }]}>Loading notes...</Text>
+            ) : notes.length ? (
+              notes.map((item) => (
+                <View
+                  key={item.id}
+                  style={[styles.noteHistoryRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <Text style={[typography.body, { color: colors.text }]}>{item.note}</Text>
+                  <Text style={[typography.caption, { color: colors.muted }]}>
+                    {item.authorName} : {formatDate(item.createdAt)} {formatTime(item.createdAt)}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={[typography.caption, { color: colors.muted }]}>No notes yet.</Text>
+            )}
+          </View>
         </View>
       </Sheet>
     </>
@@ -283,10 +352,22 @@ function BackButton() {
 const styles = StyleSheet.create({
   screen: {
     gap: spacing.lg,
-    paddingBottom: 104,
   },
   header: {
     marginBottom: 0,
+  },
+  pager: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+  },
+  pageScroll: {
+    flex: 1,
+  },
+  pageContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   headerAction: {
     width: 36,
@@ -299,8 +380,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.lg,
   },
-  section: {
-    gap: spacing.md,
+  loadingState: {
+    alignItems: "center",
   },
   quickCard: {
     gap: spacing.md,
@@ -361,6 +442,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.md,
     ...typography.body,
+  },
+  noteHistory: {
+    gap: spacing.sm,
+  },
+  noteHistoryRow: {
+    gap: 2,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: spacing.md,
   },
   noteFooter: {
     flexDirection: "row",

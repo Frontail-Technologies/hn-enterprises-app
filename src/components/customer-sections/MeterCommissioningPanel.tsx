@@ -15,12 +15,13 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
-import { customersService } from '@/services/customers.service';
+import { useUpdateCommissioningConversionMutation } from '@/queries';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const updateCommissioningMutation = useUpdateCommissioningConversionMutation(customer.id);
   const meter = customer.commissioningConversion ?? {
     meterNo: '',
     installationDate: '',
@@ -33,19 +34,15 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
     nonConversionRemark: '',
     evidence: [],
   };
-  const { values, updateField, saveDraft, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:meter`, {
+  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:meter`, {
     ...meter,
     meterReading: meter.meterReading.replace(/\D/g, ''),
   });
   const { ref: remarkRef, onFocus: remarkOnFocus } = useScrollIntoViewOnFocus();
 
-  const save = async () => {
-    await saveDraft();
-    showToast('Meter draft saved', 'success');
-  };
   const submit = async () => {
     try {
-      await customersService.updateCommissioningConversion(customer.id, {
+      await updateCommissioningMutation.mutateAsync( {
         meterNo: values.meterNo,
         installationDate: values.installationDate,
         commissioningDate: values.commissioningDate,
@@ -108,7 +105,9 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
     </>
   );
 
-  const footer = <SectionFormFooter onSaveDraft={save} onSubmit={submit} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateCommissioningMutation.isPending} />
+  );
 
   return { content, footer };
 }

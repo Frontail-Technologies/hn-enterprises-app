@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -9,47 +8,30 @@ import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
+import { notificationDateFilters, notificationTypeFilters } from '@/constants/notifications';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useNotifications } from '@/context/NotificationsContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { Notification, NotificationCategory } from '@/services/mockData';
+import { useNotificationsList } from '@/hooks/useNotificationsList';
 import { formatDate, formatTime } from '@/utils/format';
-
-type DateFilter = 'All' | 'Today' | 'Last 7 Days';
-type TypeFilter = 'All' | NotificationCategory;
-
-const dateFilters: { label: string; value: DateFilter }[] = [
-  { label: 'All Dates', value: 'All' },
-  { label: 'Today', value: 'Today' },
-  { label: 'Last 7 Days', value: 'Last 7 Days' },
-];
-const typeFilters: { label: string; value: TypeFilter }[] = [
-  { label: 'All Types', value: 'All' },
-  { label: 'Work', value: 'Work' },
-  { label: 'Attendance', value: 'Attendance' },
-  { label: 'Survey', value: 'Survey' },
-  { label: 'System', value: 'System' },
-];
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
-  const { notifications, markAllAsRead } = useNotifications();
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [dateFilter, setDateFilter] = useState<DateFilter>('All');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
-  const [dateSelectOpen, setDateSelectOpen] = useState(false);
-  const [typeSelectOpen, setTypeSelectOpen] = useState(false);
-
-  const filteredNotifications = notifications.filter((item) => {
-    const matchesType = typeFilter === 'All' || item.category === typeFilter;
-    const matchesDate = matchesDateFilter(item.createdAt, dateFilter);
-    return matchesType && matchesDate;
-  });
-
-  const sortedNotifications = [...filteredNotifications].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const { notifications: allNotifications, markAllAsRead } = useNotifications();
+  const {
+    notifications,
+    selectedNotification,
+    setSelectedNotification,
+    dateFilter,
+    setDateFilter,
+    typeFilter,
+    setTypeFilter,
+    dateSelectOpen,
+    setDateSelectOpen,
+    typeSelectOpen,
+    setTypeSelectOpen,
+  } = useNotificationsList(allNotifications);
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
@@ -67,7 +49,7 @@ export default function NotificationsScreen() {
         <SimpleSelect
           label="Date"
           value={dateFilter}
-          options={dateFilters}
+          options={notificationDateFilters}
           open={dateSelectOpen}
           onOpenChange={setDateSelectOpen}
           onChange={setDateFilter}
@@ -75,16 +57,16 @@ export default function NotificationsScreen() {
         <SimpleSelect
           label="Type"
           value={typeFilter}
-          options={typeFilters}
+          options={notificationTypeFilters}
           open={typeSelectOpen}
           onOpenChange={setTypeSelectOpen}
           onChange={setTypeFilter}
         />
       </View>
 
-      {sortedNotifications.length ? (
+      {notifications.length ? (
         <View style={styles.list}>
-          {sortedNotifications.map((item) => (
+          {notifications.map((item) => (
             <NotificationListItem key={item.id} item={item} onPress={setSelectedNotification} />
           ))}
         </View>
@@ -121,22 +103,6 @@ export default function NotificationsScreen() {
       </Sheet>
     </Screen>
   );
-}
-
-function matchesDateFilter(value: string, filter: DateFilter) {
-  if (filter === 'All') return true;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-
-  if (filter === 'Today') return itemDay === startOfToday;
-
-  const sevenDaysAgo = startOfToday - 6 * 24 * 60 * 60 * 1000;
-  return itemDay >= sevenDaysAgo && itemDay <= startOfToday;
 }
 
 function BackButton() {

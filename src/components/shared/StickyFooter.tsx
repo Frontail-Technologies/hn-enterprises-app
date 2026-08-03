@@ -10,7 +10,7 @@ export function StickyFooter({ children }: PropsWithChildren) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.card, borderTopColor: colors.border }]}>
+    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + spacing.lg, spacing.xxl), backgroundColor: colors.card, borderTopColor: colors.border }]}>
       {children}
     </View>
   );
@@ -23,3 +23,4 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
 });
+
