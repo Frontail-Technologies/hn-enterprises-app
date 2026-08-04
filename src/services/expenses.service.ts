@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest, apiRequestFormData } from "./apiClient";
 import { resolveMediaUrl } from "./uploads.service";
 import { projectsApi } from "./projects.service";
 import type { EvidenceFile } from "./mockData";
@@ -81,7 +81,7 @@ function mapExpense(raw: BackendPayment): ExpenseRecord {
   };
 }
 
-function mapExpenseToBody(input: {
+type ExpenseInput = {
   category: ExpenseCategory;
   purpose: string;
   paidTo: string;
@@ -92,21 +92,43 @@ function mapExpenseToBody(input: {
   status: ExpenseStatus;
   remarks: string;
   evidence: EvidenceFile[];
-}) {
-  return {
-    category: input.category,
-    purpose: input.purpose || undefined,
-    paidTo: input.paidTo || undefined,
-    siteId: input.siteId || undefined,
-    amount: Number(input.amount) || 0,
-    paymentDate: input.date,
-    mode: input.paymentMode,
-    status: input.status,
-    remarks: input.remarks || undefined,
-    evidence: input.evidence.length
-      ? input.evidence.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))
-      : undefined,
-  };
+};
+
+// Attachments are embedded directly in this multipart request instead of
+// uploaded separately beforehand - a photo the user picks but never actually
+// saves (e.g. backs out of the form) never reaches storage at all.
+function buildExpenseFormData(input: ExpenseInput) {
+  const formData = new FormData();
+  formData.append("category", input.category);
+  if (input.paidTo) formData.append("paidTo", input.paidTo);
+  if (input.siteId) formData.append("siteId", input.siteId);
+  if (input.purpose) formData.append("purpose", input.purpose);
+  formData.append("amount", String(Number(input.amount) || 0));
+  formData.append("paymentDate", input.date);
+  formData.append("mode", input.paymentMode);
+  formData.append("status", input.status);
+  if (input.remarks) formData.append("remarks", input.remarks);
+
+  // Always append evidence, even when empty - omitting the field entirely
+  // (vs. sending an empty array) reads as "leave it alone" on the backend,
+  // which would silently un-delete any photos the user just removed.
+  const alreadyUploaded = input.evidence.filter((file) => file.fileUrl);
+  formData.append(
+    "evidence",
+    JSON.stringify(alreadyUploaded.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))),
+  );
+
+  input.evidence
+    .filter((file) => !file.fileUrl && file.uri)
+    .forEach((file) => {
+      formData.append("files", {
+        uri: file.uri!,
+        name: file.fileName,
+        type: file.mimeType || "application/octet-stream",
+      } as unknown as Blob);
+    });
+
+  return formData;
 }
 
 export const expensesApi = {
@@ -115,18 +137,18 @@ export const expensesApi = {
     return rows.map(mapExpense);
   },
 
-  async create(input: Parameters<typeof mapExpenseToBody>[0]): Promise<ExpenseRecord> {
-    const raw = await apiRequest<BackendPayment>("/payments", {
+  async create(input: ExpenseInput): Promise<ExpenseRecord> {
+    const raw = await apiRequestFormData<BackendPayment>("/payments", buildExpenseFormData(input), {
       method: "POST",
-      body: JSON.stringify(mapExpenseToBody(input)),
+      timeoutMs: 60000,
     });
     return mapExpense(raw);
   },
 
-  async update(id: string, input: Parameters<typeof mapExpenseToBody>[0]): Promise<ExpenseRecord> {
-    const raw = await apiRequest<BackendPayment>(`/payments/${id}`, {
+  async update(id: string, input: ExpenseInput): Promise<ExpenseRecord> {
+    const raw = await apiRequestFormData<BackendPayment>(`/payments/${id}`, buildExpenseFormData(input), {
       method: "PATCH",
-      body: JSON.stringify(mapExpenseToBody(input)),
+      timeoutMs: 60000,
     });
     return mapExpense(raw);
   },

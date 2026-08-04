@@ -43,7 +43,7 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
     setErrors({});
     setIsSubmitting(true);
     try {
-      await login(parsed.data);
+      await login(parsed.data, rememberMe);
       router.replace("/home");
     } catch (error) {
       setErrors({
@@ -59,11 +59,6 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
 
   return (
     <>
-      <View style={styles.cardTitle}>
-        <Text style={[styles.welcomeTitle, { color: colors.text }]}>Welcome Back</Text>
-        <Text style={[typography.caption, { color: colors.muted }]}>Sign in to continue</Text>
-      </View>
-
       <Input
         placeholder="Username / Email / Mobile"
         autoCapitalize="none"
@@ -122,16 +117,6 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
 }
 
 const styles = StyleSheet.create({
-  cardTitle: {
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  welcomeTitle: {
-    ...typography.h2,
-    fontSize: 18,
-    lineHeight: 24,
-  },
   formMeta: {
     flexDirection: "row",
     alignItems: "center",

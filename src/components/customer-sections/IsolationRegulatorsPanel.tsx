@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -13,12 +14,14 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateIsolationRegulatorsMutation } from '@/queries';
-import type { CustomerRecord } from '@/services/mockData';
+import { ApiError } from '@/services/apiClient';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const updateIsolationRegulatorsMutation = useUpdateIsolationRegulatorsMutation(customer.id);
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(customer.isolationFittings?.evidence ?? []);
   const source = customer.isolationFittings ?? {
     isolationValveHalfInch: '',
     isolationValveThreeQuarterInch: '',
@@ -57,13 +60,16 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
         elbowHalfInch: values.elbowHalfInch,
         teeHalfInch: values.teeHalfInch,
         extraGiAbove10Metres: values.extraGiAbove10Metres,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast('Isolation and regulators submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit isolation and regulators', 'error');
+    } catch (error) {
+      console.error('[IsolationRegulatorsPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit isolation and regulators';
+      showToast(message, 'error');
     }
   };
 
@@ -91,7 +97,14 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.remarks} onChangeText={(value) => updateField('remarks', value)} />
-        <EvidenceUploader title="Isolation / Regulator Photos" module="customers" recordId={customer.id} />
+        <EvidenceUploader
+          title="Isolation / Regulator Photos"
+          initialFiles={customer.isolationFittings?.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+          deferUpload
+        />
       </Card>
     </>
   );
@@ -105,8 +118,8 @@ export function useIsolationRegulatorsPanel(customer: CustomerRecord, onRefetch?
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

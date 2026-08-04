@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest, apiRequestFormData } from "./apiClient";
 import { resolveMediaUrl } from "./uploads.service";
 import type {
   BillingCompletion,
@@ -237,6 +237,12 @@ function withAllPipeSizes(records: BackendLmcPipeRecord[] | undefined): LmcPipeR
   );
 }
 
+function mapEvidenceArray(value: unknown, keyPrefix: string): EvidenceFile[] {
+  return Array.isArray(value)
+    ? (value as Record<string, unknown>[]).map((item, index) => mapEvidenceFile(item, index, keyPrefix))
+    : [];
+}
+
 function mapDocument(raw: BackendCustomerDocument): CustomerDocument {
   return {
     id: raw.id,
@@ -279,6 +285,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     giPipeOneInch: gi.giPipeOneInch ?? "",
     giPipeOneAndHalfInch: gi.giPipeOneAndHalfInch ?? "",
     giPipeTwoInch: gi.giPipeTwoInch ?? "",
+    evidence: mapEvidenceArray((gi as Record<string, unknown>).evidence, "gi"),
   };
 
   const isolationFittings: IsolationFittings = {
@@ -296,6 +303,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     elbowHalfInch: fittings.elbowHalfInch ?? "",
     teeHalfInch: fittings.teeHalfInch ?? "",
     extraGiAbove10Metres: fittings.extraGiAbove10Metres ?? "",
+    evidence: mapEvidenceArray((valves as Record<string, unknown>).evidence, "valves"),
   };
 
   const fittingsAccessories: FittingsAccessories = {
@@ -314,6 +322,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     plugHalfInch: fittings.plugHalfInch ?? "",
     fittingsOneAndHalfInch: fittings.fittingsOneAndHalfInchQuantity ?? "",
     fittingsTwoInch: fittings.fittingsTwoInchQuantity ?? "",
+    evidence: mapEvidenceArray((fittings as Record<string, unknown>).evidence, "fittings"),
   };
 
   const lmcPipelineWork: LmcPipelineWork = {
@@ -327,6 +336,8 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     paverBlocks: lmc.paverBlocks ?? "",
     malua: lmc.malua ?? "",
     hardRock: lmc.hardRock ?? "",
+    civilRemarks: lmc.civilRemarks,
+    civilEvidence: mapEvidenceArray((lmc as Record<string, unknown>).civilEvidence, "lmc-civil"),
   };
 
   const mdpe = (raw.mdpeFittings as Partial<MdpeFittings> | null) ?? {};
@@ -357,6 +368,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     meterType: commissioning.meterType ?? "",
     meterReading: commissioning.meterReading ?? "",
     nonConversionRemark: commissioning.nonConversionRemark ?? "",
+    evidence: mapEvidenceArray((commissioning as Record<string, unknown>).evidence, "commissioning"),
   };
 
   const billing = (raw.billingCompletion as Partial<BillingCompletion> | null) ?? {};
@@ -370,6 +382,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     gcBillDone: billing.gcBillDone ?? false,
     conversionBillDone: billing.conversionBillDone ?? false,
     remark: billing.remark ?? "",
+    evidence: mapEvidenceArray((billing as Record<string, unknown>).evidence, "billing"),
   };
 
   return {
@@ -427,6 +440,43 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
   };
 }
 
+// Attachments are embedded directly in this multipart request instead of
+// uploaded separately beforehand - a photo picked but never saved never
+// reaches storage at all. Mirrors expenses.service.ts's buildExpenseFormData.
+async function updateCustomerSection(
+  id: string,
+  sectionKey: string,
+  sectionFields: Record<string, unknown>,
+  evidence?: EvidenceFile[],
+  evidenceKey: "evidence" | "civilEvidence" = "evidence",
+): Promise<BackendCustomer> {
+  const formData = new FormData();
+  const section: Record<string, unknown> = { ...sectionFields };
+
+  if (evidence) {
+    section[evidenceKey] = evidence
+      .filter((file) => file.fileUrl)
+      .map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }));
+
+    evidence
+      .filter((file) => !file.fileUrl && file.uri)
+      .forEach((file) => {
+        formData.append("files", {
+          uri: file.uri!,
+          name: file.fileName,
+          type: file.mimeType || "application/octet-stream",
+        } as unknown as Blob);
+      });
+  }
+
+  formData.append(sectionKey, JSON.stringify(section));
+
+  return apiRequestFormData<BackendCustomer>(`/customers/${id}`, formData, {
+    method: "PATCH",
+    timeoutMs: 60000,
+  });
+}
+
 export const customersService = {
   async list(search?: string): Promise<CustomerRecord[]> {
     const query = new URLSearchParams({ limit: "200" });
@@ -446,41 +496,36 @@ export const customersService = {
       .map((part) => Number(part.trim()))
       .filter((value) => !Number.isNaN(value));
 
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        survey: {
-          surveyId: survey.surveyId,
-          surveyDate: survey.surveyDate,
-          assignedSurveyor: survey.assignedSurveyor,
-          latitude,
-          longitude,
-          workableStatus: survey.workableStatus,
-          approvalStatus: survey.approvalStatus,
-          initialMeasurements: survey.initialMeasurements,
-          siteAccessibility: survey.siteAccessibility,
-          meterPlacement: survey.meterPlacement,
-          pipelineRoute: survey.pipelineRoute,
-          civilWorkRequired: survey.civilWorkRequired,
-          obstaclesRemarks: survey.obstaclesRemarks,
-          notes: survey.notes,
-          reason: survey.reason,
-          recommendedAction: survey.recommendedAction,
-          expectedResolutionDate: survey.expectedResolutionDate,
-          evidence: survey.evidence?.length
-            ? survey.evidence.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))
-            : undefined,
-        },
-      }),
-    });
+    const raw = await updateCustomerSection(
+      id,
+      "survey",
+      {
+        surveyId: survey.surveyId,
+        surveyDate: survey.surveyDate,
+        assignedSurveyor: survey.assignedSurveyor,
+        latitude,
+        longitude,
+        workableStatus: survey.workableStatus,
+        approvalStatus: survey.approvalStatus,
+        initialMeasurements: survey.initialMeasurements,
+        siteAccessibility: survey.siteAccessibility,
+        meterPlacement: survey.meterPlacement,
+        pipelineRoute: survey.pipelineRoute,
+        civilWorkRequired: survey.civilWorkRequired,
+        obstaclesRemarks: survey.obstaclesRemarks,
+        notes: survey.notes,
+        reason: survey.reason,
+        recommendedAction: survey.recommendedAction,
+        expectedResolutionDate: survey.expectedResolutionDate,
+      },
+      survey.evidence,
+    );
     return mapCustomer(raw);
   },
 
   async updateGiMeasurements(id: string, giMeasurements: GiMeasurements): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ giMeasurements }),
-    });
+    const { evidence, ...fields } = giMeasurements;
+    const raw = await updateCustomerSection(id, "giMeasurements", fields, evidence);
     return mapCustomer(raw);
   },
 
@@ -498,46 +543,43 @@ export const customersService = {
       | "regulator6BarTo21Mbar"
       | "regulator100MbarTo21Mbar"
       | "warningPlate"
+      | "evidence"
     >,
   ): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ valvesRegulators: values }),
-    });
+    const { evidence, ...fields } = values;
+    const raw = await updateCustomerSection(id, "valvesRegulators", fields, evidence);
     return mapCustomer(raw);
   },
 
   async updateFittingsAccessories(id: string, values: FittingsAccessories): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        fittingsAccessories: {
-          clampHalfInch: values.clampHalfInch,
-          clamp3InchToHalfInch: values.clampThreeInchToHalfInch,
-          elbowHalfInch: values.elbowHalfInch,
-          mfElbowHalfInch: values.mfElbowHalfInch,
-          socketHalfInch: values.socketHalfInch,
-          teeHalfInch: values.teeHalfInch,
-          nipple2Inch: values.nippleTwoInch,
-          nipple3Inch: values.nippleThreeInch,
-          nipple4Inch: values.nippleFourInch,
-          reducerElbowThreeQuarterToHalfInch: values.reducerElbowThreeQuarterToHalfInch,
-          threeQuarterInchTo3Inch: values.threeQuarterInchToThreeInch,
-          unionHalfInch: values.unionHalfInch,
-          plugHalfInch: values.plugHalfInch,
-          fittingsOneAndHalfInchQuantity: values.fittingsOneAndHalfInch,
-          fittingsTwoInchQuantity: values.fittingsTwoInch,
-        },
-      }),
-    });
+    const raw = await updateCustomerSection(
+      id,
+      "fittingsAccessories",
+      {
+        clampHalfInch: values.clampHalfInch,
+        clamp3InchToHalfInch: values.clampThreeInchToHalfInch,
+        elbowHalfInch: values.elbowHalfInch,
+        mfElbowHalfInch: values.mfElbowHalfInch,
+        socketHalfInch: values.socketHalfInch,
+        teeHalfInch: values.teeHalfInch,
+        nipple2Inch: values.nippleTwoInch,
+        nipple3Inch: values.nippleThreeInch,
+        nipple4Inch: values.nippleFourInch,
+        reducerElbowThreeQuarterToHalfInch: values.reducerElbowThreeQuarterToHalfInch,
+        threeQuarterInchTo3Inch: values.threeQuarterInchToThreeInch,
+        unionHalfInch: values.unionHalfInch,
+        plugHalfInch: values.plugHalfInch,
+        fittingsOneAndHalfInchQuantity: values.fittingsOneAndHalfInch,
+        fittingsTwoInchQuantity: values.fittingsTwoInch,
+      },
+      values.evidence,
+    );
     return mapCustomer(raw);
   },
 
   async updateCivilWork(id: string, values: Omit<LmcPipelineWork, "pipeRecords">): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ lmcPipelineWork: values }),
-    });
+    const { civilEvidence, ...fields } = values;
+    const raw = await updateCustomerSection(id, "lmcPipelineWork", fields, civilEvidence, "civilEvidence");
     return mapCustomer(raw);
   },
 
@@ -550,39 +592,47 @@ export const customersService = {
   },
 
   async updateCommissioningConversion(id: string, values: CommissioningConversion): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ commissioningConversion: values }),
-    });
+    const { evidence, ...fields } = values;
+    const raw = await updateCustomerSection(id, "commissioningConversion", fields, evidence);
     return mapCustomer(raw);
   },
 
   async updateBilling(id: string, values: BillingCompletion): Promise<CustomerRecord> {
-    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ billingCompletion: values }),
-    });
+    const { evidence, ...fields } = values;
+    const raw = await updateCustomerSection(id, "billingCompletion", fields, evidence);
     return mapCustomer(raw);
   },
 
   async upsertLmcPipeRecord(id: string, record: LmcPipeRecord): Promise<LmcPipeRecord> {
-    const raw = await apiRequest<BackendLmcPipeRecord>(`/customers/${id}/lmc-pipes`, {
+    const formData = new FormData();
+    const alreadyUploaded = (record.evidence ?? []).filter((file) => file.fileUrl);
+    const pending = (record.evidence ?? []).filter((file) => !file.fileUrl && file.uri);
+
+    formData.append("pipeSize", LMC_SIZE_TO_BACKEND[record.pipeSize] ?? "other");
+    if (record.lengthMetres) formData.append("lengthMetres", record.lengthMetres);
+    if (record.layingDate) formData.append("layingDate", record.layingDate);
+    if (record.testingDate) formData.append("testingDate", record.testingDate);
+    if (record.purgingDate) formData.append("purgingDate", record.purgingDate);
+    formData.append("layingStatus", LAYING_TO_BACKEND[record.layingStatus] ?? "not_started");
+    formData.append("testingStatus", TESTING_TO_BACKEND[record.testingStatus] ?? "not_started");
+    formData.append("purgingStatus", PURGING_TO_BACKEND[record.purgingStatus] ?? "not_started");
+    if (record.jointFittingDetails) formData.append("jointFittingDetails", record.jointFittingDetails);
+    if (record.remarks) formData.append("remarks", record.remarks);
+    formData.append(
+      "evidence",
+      JSON.stringify(alreadyUploaded.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))),
+    );
+    pending.forEach((file) => {
+      formData.append("files", {
+        uri: file.uri!,
+        name: file.fileName,
+        type: file.mimeType || "application/octet-stream",
+      } as unknown as Blob);
+    });
+
+    const raw = await apiRequestFormData<BackendLmcPipeRecord>(`/customers/${id}/lmc-pipes`, formData, {
       method: "PUT",
-      body: JSON.stringify({
-        pipeSize: LMC_SIZE_TO_BACKEND[record.pipeSize] ?? "other",
-        lengthMetres: record.lengthMetres || undefined,
-        layingDate: record.layingDate || undefined,
-        testingDate: record.testingDate || undefined,
-        purgingDate: record.purgingDate || undefined,
-        layingStatus: LAYING_TO_BACKEND[record.layingStatus] ?? "not_started",
-        testingStatus: TESTING_TO_BACKEND[record.testingStatus] ?? "not_started",
-        purgingStatus: PURGING_TO_BACKEND[record.purgingStatus] ?? "not_started",
-        jointFittingDetails: record.jointFittingDetails || undefined,
-        remarks: record.remarks || undefined,
-        evidence: record.evidence?.length
-          ? record.evidence.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))
-          : undefined,
-      }),
+      timeoutMs: 60000,
     });
     return mapPipeRecord(raw);
   },

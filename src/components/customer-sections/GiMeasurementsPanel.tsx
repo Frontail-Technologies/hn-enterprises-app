@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -13,7 +14,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateGiMeasurementsMutation } from '@/queries';
-import type { CustomerRecord } from '@/services/mockData';
+import { ApiError } from '@/services/apiClient';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
@@ -29,6 +31,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     giPipeOneAndHalfInch: '',
     giPipeTwoInch: '',
   };
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(gi.evidence ?? []);
   const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:gi`, {
     tfToRegulator: gi.tfToRegulator,
     inlet: gi.inlet,
@@ -53,13 +56,16 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
         giPipeOneInch: values.giPipeOneInch,
         giPipeOneAndHalfInch: values.giPipeOneAndHalfInch,
         giPipeTwoInch: values.giPipeTwoInch,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast('GI measurements submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit GI measurements', 'error');
+    } catch (error) {
+      console.error('[GiMeasurementsPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit GI measurements';
+      showToast(message, 'error');
     }
   };
 
@@ -90,7 +96,14 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.remarks} onChangeText={(value) => updateField('remarks', value)} />
-        <EvidenceUploader title="GI Photos" module="customers" recordId={customer.id} />
+        <EvidenceUploader
+          title="GI Photos"
+          initialFiles={gi.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+          deferUpload
+        />
       </Card>
     </>
   );
@@ -104,8 +117,8 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

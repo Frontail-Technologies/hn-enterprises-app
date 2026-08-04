@@ -31,6 +31,10 @@ import { useComplaintsQuery } from "@/queries";
 import type { ActivityLogEntry } from "@/services/mockData";
 import type { SupervisorStatTone } from "@/services/mobileStats";
 import type { ComplaintRecord } from "@/services/complaints.service";
+import {
+  hasShownAttendanceReminder,
+  markAttendanceReminderShown,
+} from "@/utils/attendanceReminder";
 import { toDateKey } from "@/utils/date";
 import { formatTime } from "@/utils/format";
 
@@ -43,9 +47,15 @@ export default function HomeScreen() {
   const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
 
   useEffect(() => {
-    if (attendance.loading || attendance.isCheckedInToday) return;
+    // Guard against showing this more than once per app session - e.g. if this
+    // screen re-mounts (tab re-focus, fast refresh) while the timer is pending,
+    // or the effect re-runs as attendance state settles from loading -> loaded.
+    if (attendance.loading || attendance.isCheckedInToday || hasShownAttendanceReminder()) return;
 
-    const timer = setTimeout(() => setReminderVisible(true), 500);
+    const timer = setTimeout(() => {
+      markAttendanceReminderShown();
+      setReminderVisible(true);
+    }, 500);
     return () => clearTimeout(timer);
   }, [attendance.isCheckedInToday, attendance.loading]);
 

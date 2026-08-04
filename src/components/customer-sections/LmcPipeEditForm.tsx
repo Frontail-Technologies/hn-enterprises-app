@@ -16,6 +16,7 @@ import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpsertLmcPipeMutation } from '@/queries';
+import { ApiError } from '@/services/apiClient';
 import type { CustomerRecord, EvidenceFile, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
 
 const layingOptions: LmcLayingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
@@ -82,8 +83,10 @@ export function usePipeEditForm(
       showToast(`${draftPipe.pipeSize} pipe update submitted`, 'success');
       if (onDone) onDone();
       else router.back();
-    } catch {
-      showToast(`Unable to submit ${draftPipe.pipeSize} pipe update`, 'error');
+    } catch (error) {
+      console.error('[LmcPipeEditForm] submit failed', { customerId: customer.id, pipeSize: draftPipe.pipeSize, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : `Unable to submit ${draftPipe.pipeSize} pipe update`;
+      showToast(message, 'error');
     }
   };
 
@@ -143,6 +146,7 @@ export function usePipeEditForm(
           module="customers"
           recordId={customer.id}
           onChange={setEvidence}
+          deferUpload
         />
       </Card>
     </>
@@ -194,8 +198,8 @@ function StatusChooser<T extends string>({
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

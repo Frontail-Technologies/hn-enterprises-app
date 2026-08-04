@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateMdpeFittingsMutation } from '@/queries';
+import { ApiError } from '@/services/apiClient';
 import type { CustomerRecord } from '@/services/mockData';
 
 const mdpeFields = [
@@ -59,8 +60,10 @@ export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () =>
       await onRefetch?.();
       showToast('MDPE fittings submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit MDPE fittings', 'error');
+    } catch (error) {
+      console.error('[MdpeFittingsPanel] submit failed', { customerId: customer.id, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit MDPE fittings';
+      showToast(message, 'error');
     }
   };
 
@@ -91,8 +94,8 @@ export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () =>
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

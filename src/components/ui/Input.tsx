@@ -63,13 +63,13 @@ export function Input({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   label: {
     ...typography.label,
   },
   inputRow: {
-    minHeight: 50,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 44,
     paddingHorizontal: spacing.lg,
     ...typography.body,
   },

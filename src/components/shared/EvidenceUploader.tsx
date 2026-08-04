@@ -22,6 +22,11 @@ type EvidenceUploaderProps = {
   recordId?: string;
   onChange?: (files: EvidenceFile[]) => void;
   readOnly?: boolean;
+  // When true, picked files are staged locally (status: 'Pending') instead of
+  // uploaded immediately - the caller is responsible for embedding them in
+  // its own save request. Avoids uploading a file the user never ends up
+  // saving.
+  deferUpload?: boolean;
 };
 
 type PendingAsset = {
@@ -31,6 +36,20 @@ type PendingAsset = {
   assetId?: string | null;
 };
 
+const IMAGE_EXTENSION_RE = /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i;
+
+// mimeType isn't always available (evidence loaded back from the server never
+// carries one - see mapEvidenceFile in expenses.service.ts) and hosted URLs
+// (e.g. Cloudinary) don't reliably end in a file extension either, so
+// fileName is the one field that's always present and trustworthy here.
+export function isImageFile(file: Pick<EvidenceFile, 'mimeType' | 'fileName' | 'uri'>) {
+  return Boolean(
+    file.mimeType?.startsWith('image/') ||
+      IMAGE_EXTENSION_RE.test(file.fileName) ||
+      (file.uri && IMAGE_EXTENSION_RE.test(file.uri)),
+  );
+}
+
 export function EvidenceUploader({
   title = 'Evidence Photos',
   initialFiles = [],
@@ -38,6 +57,7 @@ export function EvidenceUploader({
   recordId,
   onChange,
   readOnly = false,
+  deferUpload = false,
 }: EvidenceUploaderProps) {
   const { colors } = useTheme();
   const { location, captureLocation } = useCurrentLocation();
@@ -118,11 +138,17 @@ export function EvidenceUploader({
   };
 
   useEffect(() => {
-    onChange?.(files);
+    // Only report files that are safe to persist: already-uploaded ones (real
+    // fileUrl) or, in deferred mode, staged local files meant to be embedded
+    // at save time. Excludes still-uploading/failed eager-mode items, which
+    // otherwise get saved with no fileUrl and turn into permanently-broken
+    // evidence entries (as happened before uploads were fixed).
+    const persistable = files.filter((file) => file.fileUrl || (deferUpload && file.uri));
+    onChange?.(persistable);
     // onChange intentionally excluded: it should fire when `files` changes, not when the
     // caller passes a new function reference (e.g. an inline callback re-created on render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files]);
+  }, [files, deferUpload]);
 
   const updateFiles = (updater: (current: EvidenceFile[]) => EvidenceFile[]) => {
     setFiles(updater);
@@ -168,13 +194,15 @@ export function EvidenceUploader({
       fileName: asset.fileName,
       uri: asset.uri,
       mimeType: asset.mimeType ?? 'application/octet-stream',
-      status: 'Uploading' as const,
+      status: deferUpload ? ('Pending' as const) : ('Uploading' as const),
       capturedAt,
       gpsLocation,
     }));
 
     updateFiles((current) => [...current, ...staged]);
     closeSheet();
+
+    if (deferUpload) return;
 
     staged.forEach((file) => {
       void runUpload(file.id, { uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType });
@@ -202,12 +230,15 @@ export function EvidenceUploader({
               ...file,
               uri: asset.uri,
               mimeType,
-              status: 'Uploading',
+              fileUrl: deferUpload ? undefined : file.fileUrl,
+              status: deferUpload ? 'Pending' : 'Uploading',
               capturedAt: new Date().toISOString(),
             }
           : file,
       ),
     );
+
+    if (deferUpload) return;
 
     const existingFileName = files.find((file) => file.id === id)?.fileName;
     const fileName = existingFileName ?? `replacement-${id}.jpg`;
@@ -248,7 +279,7 @@ export function EvidenceUploader({
       {files.length ? (
         <View style={styles.fileList}>
           {files.map((file) => {
-            const isImage = Boolean(file.mimeType?.startsWith('image/') || file.uri?.match(/\.(jpg|jpeg|png|webp)$/i));
+            const isImage = isImageFile(file);
 
             return (
               <View key={file.id} style={[styles.fileItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -344,7 +375,7 @@ export function EvidenceUploader({
       <Modal visible={Boolean(previewFile)} transparent animationType="fade" onRequestClose={() => setPreviewFile(null)}>
         <Pressable style={styles.previewBackdrop} onPress={() => setPreviewFile(null)}>
           <View style={[styles.previewCard, { backgroundColor: colors.card }]}>
-            {previewFile?.uri && previewFile.mimeType?.startsWith('image/') ? (
+            {previewFile?.uri && isImageFile(previewFile) ? (
               <Image source={{ uri: previewFile.uri }} style={styles.previewImage} contentFit="contain" />
             ) : (
               <FileText size={52} color={colors.primary} />

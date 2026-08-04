@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { CheckSquare2, Square } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -13,7 +14,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateBillingMutation } from '@/queries';
-import type { CustomerRecord } from '@/services/mockData';
+import { ApiError } from '@/services/apiClient';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
@@ -32,6 +34,7 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
     evidence: [],
   };
   const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:billing`, billing);
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(billing.evidence ?? []);
 
   const submit = async () => {
     try {
@@ -45,13 +48,16 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
         gcBillDone: values.gcBillDone,
         conversionBillDone: values.conversionBillDone,
         remark: billing.remark,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast('JMR / billing remarks submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit billing remarks', 'error');
+    } catch (error) {
+      console.error('[BillingRemarksPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit billing remarks';
+      showToast(message, 'error');
     }
   };
 
@@ -76,7 +82,14 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
       </Card>
 
       <Card style={styles.formCard}>
-        <EvidenceUploader title="Supporting Photo / Document" initialFiles={billing.evidence} module="customers" recordId={customer.id} />
+        <EvidenceUploader
+          title="Supporting Photo / Document"
+          initialFiles={billing.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+          deferUpload
+        />
       </Card>
     </>
   );
@@ -104,25 +117,27 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 18,
   },
   toggleRow: {
-    minHeight: 52,
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   toggleText: {
     ...typography.bodyMedium,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
   },
 });

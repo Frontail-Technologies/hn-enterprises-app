@@ -34,30 +34,55 @@ type ApiResponse<T> = {
 
 let refreshPromise: Promise<boolean> | null = null;
 
+// Tokens always live here for the current app session. Whether they ALSO get
+// written to SecureStore (surviving an app restart) depends on "remember me" -
+// tracked here so a later silent token refresh keeps honoring the choice made
+// at login, without every setTokens() call needing to repeat it.
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+let rememberSession = true;
+
 export function getApiOrigin() {
   return API_BASE_URL.replace(/\/api\/?$/, "");
 }
 
 export async function getAccessToken() {
+  if (memoryAccessToken !== null) return memoryAccessToken;
   return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
 export async function getRefreshToken() {
+  if (memoryRefreshToken !== null) return memoryRefreshToken;
   return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 }
 
-export async function setTokens(accessToken: string, refreshToken: string) {
-  await Promise.all([
-    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken),
-    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken),
-  ]);
+export async function setTokens(accessToken: string, refreshToken: string, rememberMe = rememberSession) {
+  rememberSession = rememberMe;
+  memoryAccessToken = accessToken;
+  memoryRefreshToken = refreshToken;
+
+  if (rememberMe) {
+    await Promise.all([
+      SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken),
+      SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken),
+    ]);
+  } else {
+    await clearPersistedTokens();
+  }
 }
 
-export async function clearTokens() {
+async function clearPersistedTokens() {
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
   ]);
+}
+
+export async function clearTokens() {
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
+  rememberSession = true;
+  await clearPersistedTokens();
 }
 
 export async function apiRequest<T>(
@@ -77,6 +102,9 @@ export async function apiRequest<T>(
       ...requestOptions,
       headers: {
         Accept: "application/json",
+        // Bypasses ngrok's free-tier browser-warning interstitial when the API is
+        // tunneled during local dev (see mobile-app/.env) - ignored by the real backend.
+        "ngrok-skip-browser-warning": "true",
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
@@ -93,6 +121,70 @@ export async function apiRequest<T>(
   }
 
   return parseResponse<T>(response);
+}
+
+// Expo's fetch (the default global `fetch` since SDK 53) can't send React
+// Native's classic {uri,name,type} FormData file part - it throws
+// "Unsupported FormDataPart implementation". XMLHttpRequest uses RN's native
+// networking bridge instead, which streams `uri` parts from disk directly and
+// has supported this shape for years - so any FormData body with an embedded
+// file must go through here, not through apiRequest()/fetch().
+export async function apiRequestFormData<T>(
+  path: string,
+  formData: FormData,
+  options: { method?: string; auth?: boolean; timeoutMs?: number; skipRefresh?: boolean } = {},
+): Promise<T> {
+  const { method = "POST", auth = true, timeoutMs = REQUEST_TIMEOUT_MS, skipRefresh = false } = options;
+  const token = auth ? await getAccessToken() : null;
+
+  const { status, payload } = await sendFormDataViaXhr(`${API_BASE_URL}${path}`, formData, method, token, timeoutMs);
+
+  if (status === 401 && auth && !skipRefresh) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiRequestFormData<T>(path, formData, { ...options, skipRefresh: true });
+    }
+  }
+
+  if (status < 200 || status >= 300 || payload?.success === false) {
+    throw new ApiError(payload?.message ?? "Something went wrong", status, payload?.errors);
+  }
+
+  return payload?.data as T;
+}
+
+function sendFormDataViaXhr(
+  url: string,
+  formData: FormData,
+  method: string,
+  token: string | null,
+  timeoutMs: number,
+): Promise<{ status: number; payload: ApiResponse<unknown> | null }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.timeout = timeoutMs;
+    xhr.open(method, url);
+    xhr.setRequestHeader("Accept", "application/json");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.onload = () => {
+      let payload: ApiResponse<unknown> | null = null;
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        payload = null;
+      }
+      resolve({ status: xhr.status, payload });
+    };
+
+    xhr.onerror = () => {
+      console.error("[apiClient] xhr formdata request failed", { url, method });
+      reject(new ApiError("Unable to connect to server", 0));
+    };
+    xhr.ontimeout = () => reject(new ApiError("Server connection timed out", 0));
+
+    xhr.send(formData);
+  });
 }
 
 async function refreshAccessToken() {
@@ -144,6 +236,16 @@ async function requestWithTimeout(url: string, options: RequestInit, timeoutMs =
       throw new ApiError("Server connection timed out", 0);
     }
 
+    // "Unable to connect to server" is a catch-all label - log what fetch
+    // actually threw, since this also fires for local failures (e.g. reading
+    // a bad file:// / content:// uri for a multipart body), not just genuine
+    // network unreachability.
+    console.error("[apiClient] fetch threw", {
+      url,
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
     throw new ApiError("Unable to connect to server", 0);
   } finally {
     clearTimeout(timeoutId);

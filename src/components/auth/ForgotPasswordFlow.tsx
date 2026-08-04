@@ -1,6 +1,6 @@
 import { Eye, EyeOff, Lock, ShieldCheck, UserRound } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
@@ -109,13 +109,6 @@ export function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
 
   return (
     <>
-      <View style={styles.cardTitle}>
-        <Text style={[styles.welcomeTitle, { color: colors.text }]}>Reset Password</Text>
-        <Text style={[typography.caption, { color: colors.muted }]}>
-          {resetOtpSent ? "Enter OTP and set a new password" : "Request OTP on registered email"}
-        </Text>
-      </View>
-
       <Input
         placeholder="Username / Email / Mobile"
         autoCapitalize="none"
@@ -202,16 +195,6 @@ export function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  cardTitle: {
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  welcomeTitle: {
-    ...typography.h2,
-    fontSize: 18,
-    lineHeight: 24,
-  },
   formError: {
     ...typography.caption,
     fontSize: 11,

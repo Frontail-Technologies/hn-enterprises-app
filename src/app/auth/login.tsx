@@ -29,22 +29,19 @@ export default function LoginScreen() {
           style={styles.logo}
           contentFit="contain"
         />
-        <Text style={[styles.company, { color: colors.text }]}>HN ENTERPRISES</Text>
-        <Text style={[styles.tagline, { color: colors.accent }]}>
-          Building Today. Securing Tomorrow.
-        </Text>
       </View>
 
       <Card elevated style={styles.loginCard}>
         {resetMode ? (
           <ForgotPasswordFlow onBack={() => setResetMode(false)} />
         ) : (
-          <LoginForm onForgotPassword={() => setResetMode(true)} />
+          <>
+            <LoginForm onForgotPassword={() => setResetMode(true)} />
+            <Text style={[styles.supportText, { color: colors.muted }]}>
+              Need help? <Text style={{ color: colors.accent }}>Contact Support</Text>
+            </Text>
+          </>
         )}
-
-        <Text style={[styles.supportText, { color: colors.muted }]}>
-          Need help? <Text style={{ color: colors.accent }}>Contact Support</Text>
-        </Text>
       </Card>
 
       <Text style={[styles.version, { color: colors.muted }]}>v 1.0.0</Text>
@@ -66,19 +63,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   logo: {
-    width: 154,
-    height: 94,
-  },
-  company: {
-    ...typography.h2,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: 0.8,
-  },
-  tagline: {
-    ...typography.caption,
-    fontSize: 13,
-    lineHeight: 18,
+    width: 240,
+    height: 146,
   },
   loginCard: {
     width: "100%",

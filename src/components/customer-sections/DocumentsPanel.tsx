@@ -1,6 +1,9 @@
+import { Image } from 'expo-image';
 import { Eye, FileText, Image as ImageIcon } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { isImageFile } from '@/components/shared/EvidenceUploader';
 import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -10,14 +13,24 @@ import { formatDate } from '@/utils/format';
 
 export function useDocumentsPanel(customer: CustomerRecord) {
   const surveyPhotos = customer.survey.evidence ?? [];
+  const giPhotos = customer.giMeasurements.evidence ?? [];
+  const isolationPhotos = customer.isolationFittings.evidence ?? [];
+  const fittingsPhotos = customer.fittingsAccessories?.evidence ?? [];
+  const civilPhotos = customer.lmcPipelineWork.civilEvidence ?? [];
   const lmcEvidence = customer.lmcPipelineWork.pipeRecords.flatMap((pipe) => pipe.evidence);
   const meterPhotos = customer.commissioningConversion.evidence ?? [];
+  const billingPhotos = customer.billingCompletion.evidence ?? [];
 
   const content = (
     <>
       <MediaSection title="Survey Photos" files={surveyPhotos} uploadedOn={customer.survey.surveyDate} />
-      <MediaSection title="LMC Evidence" files={lmcEvidence} uploadedOn={customer.createdDate} />
+      <MediaSection title="GI Measurement Photos" files={giPhotos} uploadedOn={customer.createdDate} />
+      <MediaSection title="Isolation / Regulator Photos" files={isolationPhotos} uploadedOn={customer.createdDate} />
+      <MediaSection title="Fittings & Accessories Photos" files={fittingsPhotos} uploadedOn={customer.createdDate} />
+      <MediaSection title="LMC Civil Work Photos" files={civilPhotos} uploadedOn={customer.createdDate} />
+      <MediaSection title="LMC Pipe Evidence" files={lmcEvidence} uploadedOn={customer.createdDate} />
       <MediaSection title="Meter Photo" files={meterPhotos} uploadedOn={customer.commissioningConversion.installationDate} />
+      <MediaSection title="JMR / Billing Evidence" files={billingPhotos} uploadedOn={customer.createdDate} />
       <DocumentSection customer={customer} />
     </>
   );
@@ -27,8 +40,7 @@ export function useDocumentsPanel(customer: CustomerRecord) {
 
 function MediaSection({ title, files, uploadedOn }: { title: string; files: EvidenceFile[]; uploadedOn: string }) {
   const { colors } = useTheme();
-  const visibleFiles = files.slice(0, 3);
-  const hiddenCount = Math.max(files.length - visibleFiles.length, 0);
+  const [previewFile, setPreviewFile] = useState<EvidenceFile | null>(null);
 
   return (
     <Card style={styles.mediaCard}>
@@ -36,20 +48,22 @@ function MediaSection({ title, files, uploadedOn }: { title: string; files: Evid
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           {title} ({files.length})
         </Text>
-        {files.length > 3 ? <Text style={[styles.viewAll, { color: colors.accent }]}>View All</Text> : null}
       </View>
       {files.length ? (
         <>
           <View style={styles.thumbnailRow}>
-            {visibleFiles.map((file, index) => (
-              <View key={file.id} style={[styles.thumbnail, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <ImageIcon size={24} color={colors.primary} />
-                {index === visibleFiles.length - 1 && hiddenCount ? (
-                  <View style={styles.moreOverlay}>
-                    <Text style={styles.moreText}>+{hiddenCount}</Text>
-                  </View>
-                ) : null}
-              </View>
+            {files.map((file) => (
+              <Pressable
+                key={file.id}
+                onPress={() => setPreviewFile(file)}
+                style={[styles.thumbnail, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                {isImageFile(file) && file.uri ? (
+                  <Image source={{ uri: file.uri }} style={styles.thumbnailImage} contentFit="cover" />
+                ) : (
+                  <ImageIcon size={24} color={colors.primary} />
+                )}
+              </Pressable>
             ))}
           </View>
           <View style={styles.uploadLine}>
@@ -62,6 +76,21 @@ function MediaSection({ title, files, uploadedOn }: { title: string; files: Evid
       ) : (
         <Text style={[typography.label, { color: colors.muted }]}>No files uploaded.</Text>
       )}
+
+      <Modal visible={Boolean(previewFile)} transparent animationType="fade" onRequestClose={() => setPreviewFile(null)}>
+        <Pressable style={styles.previewBackdrop} onPress={() => setPreviewFile(null)}>
+          <View style={[styles.previewCard, { backgroundColor: colors.card }]}>
+            {previewFile?.uri && isImageFile(previewFile) ? (
+              <Image source={{ uri: previewFile.uri }} style={styles.previewImage} contentFit="contain" />
+            ) : (
+              <FileText size={52} color={colors.primary} />
+            )}
+            <Text style={[styles.previewName, { color: colors.text }]} numberOfLines={1}>
+              {previewFile?.fileName}
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
     </Card>
   );
 }
@@ -75,7 +104,6 @@ function DocumentSection({ customer }: { customer: CustomerRecord }) {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Documents & PDFs ({customer.documents.length})
         </Text>
-        {customer.documents.length > 3 ? <Text style={[styles.viewAll, { color: colors.accent }]}>View All</Text> : null}
       </View>
       {customer.documents.length ? (
         customer.documents.map((document) => (
@@ -104,8 +132,8 @@ function DocumentSection({ customer }: { customer: CustomerRecord }) {
 
 const styles = StyleSheet.create({
   mediaCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -124,6 +152,7 @@ const styles = StyleSheet.create({
   },
   thumbnailRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   thumbnail: {
@@ -134,6 +163,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.sm,
     overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    padding: spacing.xl,
+  },
+  previewCard: {
+    width: '100%',
+    minHeight: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+  },
+  previewImage: {
+    width: '100%',
+    height: 320,
+  },
+  previewName: {
+    ...typography.caption,
+    textAlign: 'center',
   },
   moreOverlay: {
     ...StyleSheet.absoluteFill,

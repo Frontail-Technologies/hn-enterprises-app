@@ -6,6 +6,7 @@ import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
+import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -105,6 +106,9 @@ export default function ExpensesScreen() {
         <Text style={[styles.resultText, { color: colors.muted }]}>
           {isLoading ? 'Loading expenses...' : `Showing ${filteredExpenses.length} of ${expenses.length} records`}
         </Text>
+        {isLoading ? (
+          <TableSkeleton columnWidths={[150, 110, 150, 92, 110, 96, 74]} />
+        ) : (
         <ScrollableTable
           header={
             <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
@@ -165,6 +169,7 @@ export default function ExpensesScreen() {
             </Pressable>
           ))}
         </ScrollableTable>
+        )}
       </View>
 
       <Sheet
@@ -265,6 +270,7 @@ export default function ExpensesScreen() {
             module="expenses"
             recordId={editingId ?? undefined}
             onChange={(files) => updateDraft('evidence', files)}
+            deferUpload
           />
           <Input
             label="Remarks"
@@ -369,36 +375,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   tableRow: {
-    minHeight: 50,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderLeftWidth: 1,
   },
   tableHeader: {
-    minHeight: 38,
+    minHeight: 28,
     borderTopWidth: 1,
   },
   headerCell: {
     ...typography.caption,
     fontSize: 10,
     lineHeight: 13,
-    minHeight: 38,
+    minHeight: 28,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     textTransform: 'uppercase',
   },
   headerCellPressable: {
-    minHeight: 38,
+    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   headerCellText: {
     ...typography.caption,

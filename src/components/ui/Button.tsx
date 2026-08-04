@@ -50,12 +50,12 @@ export function Button({ label, onPress, variant = 'primary', icon, disabled, lo
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
+    minHeight: 42,
     width: '100%',
     borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   disabled: {
     opacity: 0.5,

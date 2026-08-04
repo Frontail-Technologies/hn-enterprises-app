@@ -9,6 +9,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AttendanceProvider } from '@/context/AttendanceContext';
@@ -48,6 +49,7 @@ export default function RootLayout() {
                   <AuthRedirector />
                   <ThemedStatusBar />
                   <Stack screenOptions={{ headerShown: false }} />
+                  <AuthLoadingOverlay />
                 </AttendanceProvider>
               </NotificationsProvider>
             </AuthProvider>
@@ -87,3 +89,31 @@ function AuthRedirector() {
 
   return null;
 }
+
+// Covers the Stack while the stored session is being verified on launch, so
+// nothing (e.g. the login screen, mid-request) renders and gets torn down by
+// the redirect that follows a moment later.
+function AuthLoadingOverlay() {
+  const { isLoading } = useAuth();
+  const { colors } = useTheme();
+
+  if (!isLoading) return null;
+
+  return (
+    <View style={[styles.overlay, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

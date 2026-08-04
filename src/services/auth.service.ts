@@ -21,7 +21,7 @@ type PasswordResetRequestResponse = {
 };
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<AuthSession> {
+  async login(credentials: LoginCredentials, rememberMe = true): Promise<AuthSession> {
     const data = await apiRequest<LoginResponse>("/auth/login", {
       method: "POST",
       auth: false,
@@ -32,7 +32,7 @@ export const authService = {
       }),
     });
 
-    await persistSession(data);
+    await persistSession(data, rememberMe);
     return data;
   },
 
@@ -99,9 +99,12 @@ export const authService = {
   },
 };
 
-async function persistSession(session: AuthSession) {
-  await Promise.all([
-    setTokens(session.accessToken, session.refreshToken),
-    SecureStore.setItemAsync(USER_KEY, JSON.stringify(session.user)),
-  ]);
+async function persistSession(session: AuthSession, rememberMe: boolean) {
+  await setTokens(session.accessToken, session.refreshToken, rememberMe);
+
+  if (rememberMe) {
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(session.user));
+  } else {
+    await SecureStore.deleteItemAsync(USER_KEY);
+  }
 }

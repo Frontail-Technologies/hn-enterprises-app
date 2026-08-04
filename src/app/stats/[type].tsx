@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ScrollableTable } from '@/components/shared/ScrollableTable';
+import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
@@ -55,6 +56,9 @@ export default function StatDetailScreen() {
         <Text style={[styles.resultText, { color: colors.muted }]}>
           {isLoading ? 'Loading...' : `Showing ${filteredRows.length} of ${rows.length} records`}
         </Text>
+        {isLoading ? (
+          <TableSkeleton columnWidths={[150, 112, 150, 112, 106, 190]} />
+        ) : (
         <ScrollableTable
           header={
             <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
@@ -71,6 +75,7 @@ export default function StatDetailScreen() {
             <StatTableRow key={row.id} row={row} />
           ))}
         </ScrollableTable>
+        )}
       </View>
 
       <Sheet
@@ -223,27 +228,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   tableRow: {
-    minHeight: 48,
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderLeftWidth: 1,
   },
   tableHeader: {
-    minHeight: 38,
+    minHeight: 28,
     borderTopWidth: 1,
   },
   headerCell: {
     ...typography.caption,
-    minHeight: 38,
+    fontSize: 10,
+    lineHeight: 13,
+    minHeight: 28,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     textTransform: 'uppercase',
   },
   bodyCell: {
-    minHeight: 48,
+    minHeight: 36,
     justifyContent: 'center',
     borderRightWidth: 1,
     paddingHorizontal: spacing.sm,

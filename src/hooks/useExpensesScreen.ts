@@ -9,6 +9,7 @@ import {
   useExpenseSiteOptionsQuery,
   useUpdateExpenseMutation,
 } from '@/queries';
+import { ApiError } from '@/services/apiClient';
 import type { ExpenseRecord, ExpenseStatus } from '@/services/expenses.service';
 import type { ExpenseDraft, ExpenseGridRow } from '@/types/expenses';
 
@@ -137,8 +138,15 @@ export function useExpensesScreen() {
         showToast('Expense added', 'success');
       }
       setSheetOpen(false);
-    } catch {
-      showToast('Unable to save expense', 'error');
+    } catch (error) {
+      console.error('[useExpensesScreen] save failed', {
+        editingId,
+        category: draft.category,
+        evidenceCount: draft.evidence.length,
+        error,
+      });
+      const message = error instanceof ApiError ? error.message : 'Unable to save expense';
+      showToast(message, 'error');
     }
   };
 

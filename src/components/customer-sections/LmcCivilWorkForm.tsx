@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -13,12 +14,14 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateCivilWorkMutation } from '@/queries';
-import type { CustomerRecord } from '@/services/mockData';
+import { ApiError } from '@/services/apiClient';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const updateCivilWorkMutation = useUpdateCivilWorkMutation(customer.id);
+  const [civilEvidence, setCivilEvidence] = useState<EvidenceFile[]>(customer.lmcPipelineWork?.civilEvidence ?? []);
   const civil = customer.lmcPipelineWork ?? {
     pipeRecords: [],
     fourMetresUnderGc: '',
@@ -58,13 +61,17 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
         paverBlocks: values.paverBlocks,
         malua: values.malua,
         hardRock: values.hardRock,
+        civilRemarks: values.civilRemarks,
+        civilEvidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast('Civil work submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit civil work', 'error');
+    } catch (error) {
+      console.error('[LmcCivilWorkForm] submit failed', { customerId: customer.id, evidenceCount: civilEvidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit civil work';
+      showToast(message, 'error');
     }
   };
 
@@ -87,7 +94,14 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
 
       <Card style={styles.formCard}>
         <Input label="Remarks" value={values.civilRemarks} onChangeText={(value) => updateField('civilRemarks', value)} />
-        <EvidenceUploader title="Civil Work Photos" initialFiles={civil.civilEvidence} module="customers" recordId={customer.id} />
+        <EvidenceUploader
+          title="Civil Work Photos"
+          initialFiles={civil.civilEvidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setCivilEvidence}
+          deferUpload
+        />
       </Card>
     </>
   );
@@ -101,8 +115,8 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

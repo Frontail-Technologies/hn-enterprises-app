@@ -39,31 +39,33 @@ export function QuantityFieldRow({ label, value, onChangeText, unit = 'Qty', key
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 58,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     borderWidth: 1,
     borderRadius: radius.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   copy: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   label: {
     ...typography.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 17,
   },
   input: {
-    width: 92,
-    minHeight: 40,
+    width: 80,
+    minHeight: 34,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     textAlign: 'center',
     textAlignVertical: 'center',
     ...typography.bodyMedium,
+    fontSize: 13,
   },
 });

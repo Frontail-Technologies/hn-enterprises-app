@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tableRow: {
-    minHeight: 52,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderLeftWidth: 1,
   },
   tableHeaderRow: {
-    minHeight: 36,
+    minHeight: 30,
     borderTopWidth: 1,
   },
   headerCell: {

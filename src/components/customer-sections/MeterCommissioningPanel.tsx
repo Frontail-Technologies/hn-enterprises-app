@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
@@ -16,12 +17,14 @@ import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpdateCommissioningConversionMutation } from '@/queries';
-import type { CustomerRecord } from '@/services/mockData';
+import { ApiError } from '@/services/apiClient';
+import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const updateCommissioningMutation = useUpdateCommissioningConversionMutation(customer.id);
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(customer.commissioningConversion?.evidence ?? []);
   const meter = customer.commissioningConversion ?? {
     meterNo: '',
     installationDate: '',
@@ -52,13 +55,16 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
         meterType: values.meterType,
         meterReading: values.meterReading,
         nonConversionRemark: values.nonConversionRemark,
+        evidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast('Meter & commissioning submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit meter & commissioning', 'error');
+    } catch (error) {
+      console.error('[MeterCommissioningPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit meter & commissioning';
+      showToast(message, 'error');
     }
   };
 
@@ -100,7 +106,14 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
             textAlignVertical="top"
           />
         </View>
-        <EvidenceUploader title="Meter Photo / Installation Photos" initialFiles={meter.evidence} module="customers" recordId={customer.id} />
+        <EvidenceUploader
+          title="Meter Photo / Installation Photos"
+          initialFiles={meter.evidence}
+          module="customers"
+          recordId={customer.id}
+          onChange={setEvidence}
+          deferUpload
+        />
       </Card>
     </>
   );
@@ -114,8 +127,8 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,

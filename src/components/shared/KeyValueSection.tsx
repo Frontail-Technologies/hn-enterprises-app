@@ -43,19 +43,19 @@ function formatValue(value: KeyValueItem['value']) {
 
 const styles = StyleSheet.create({
   card: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   title: {
     ...typography.bodyMedium,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: 15,
+    lineHeight: 20,
   },
   divider: {
     height: 1,
   },
   rows: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   row: {
     flexDirection: 'row',

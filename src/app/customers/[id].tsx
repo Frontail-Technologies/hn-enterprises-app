@@ -366,8 +366,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pageContent: {
-    gap: spacing.md,
-    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
   },
   headerAction: {
     width: 36,
@@ -384,13 +384,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   quickCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   quickTitle: {
     ...typography.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 17,
   },
   quickGrid: {
     flexDirection: "row",
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     flex: 1,
-    minHeight: 74,
+    minHeight: 62,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,

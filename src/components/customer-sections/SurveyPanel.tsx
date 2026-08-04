@@ -18,15 +18,21 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpdateSurveyMutation } from '@/queries';
+import { ApiError } from '@/services/apiClient';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
+
+function splitGpsLocation(gpsLocation: string) {
+  const [latitude = '', longitude = ''] = gpsLocation.split(',').map((part) => part.trim());
+  return { latitude, longitude };
+}
 
 export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const updateSurveyMutation = useUpdateSurveyMutation(customer.id);
-  const { location, captureLocation, loading } = useCurrentLocation();
+  const { captureLocation, loading } = useCurrentLocation();
   const survey = customer.survey ?? {
     surveyId: '',
     surveyDate: '',
@@ -38,10 +44,11 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     gpsLocation: '',
     photos: [],
   };
+  const { latitude: initialLatitude, longitude: initialLongitude } = splitGpsLocation(survey.gpsLocation ?? '');
   const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:survey`, {
     surveyDate: survey.surveyDate,
-    assignedSurveyor: survey.assignedSurveyor,
-    gpsLocation: survey.gpsLocation,
+    latitude: initialLatitude,
+    longitude: initialLongitude,
     workableStatus: survey.workableStatus,
     initialMeasurements: survey.initialMeasurements,
     siteAccessibility: survey.siteAccessibility ?? '',
@@ -62,21 +69,26 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       await updateSurveyMutation.mutateAsync( {
         ...survey,
         ...values,
+        assignedSurveyor: customer.customerConnection.supervisorName,
+        gpsLocation: `${values.latitude}, ${values.longitude}`,
         evidence,
       });
       await clearDraft();
       await onRefetch?.();
       showToast(survey.approvalStatus === 'Sent Back' ? 'Survey resubmitted' : 'Survey submitted', 'success');
       router.back();
-    } catch {
-      showToast('Unable to submit survey', 'error');
+    } catch (error) {
+      console.error('[SurveyPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
+      const message = error instanceof ApiError ? error.message : 'Unable to submit survey';
+      showToast(message, 'error');
     }
   };
 
   const captureGps = async () => {
     const nextLocation = await captureLocation();
     if (nextLocation) {
-      updateField('gpsLocation', `${nextLocation.latitude.toFixed(5)}, ${nextLocation.longitude.toFixed(5)}`);
+      updateField('latitude', nextLocation.latitude.toFixed(5));
+      updateField('longitude', nextLocation.longitude.toFixed(5));
     }
   };
 
@@ -95,29 +107,34 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Survey Details</Text>
         <Input label="Survey ID" value={survey.surveyId} editable={false} />
         <DateField label="Survey Date" value={values.surveyDate} onChangeText={(value) => updateField('surveyDate', value)} />
-        <Input
-          label="Assigned Surveyor"
-          value={values.assignedSurveyor}
-          onChangeText={(value) => updateField('assignedSurveyor', value)}
-        />
-        <View style={styles.locationRow}>
-          <View style={styles.locationInput}>
+        <Input label="Assigned Surveyor" value={customer.customerConnection.supervisorName} editable={false} />
+        <View style={styles.coordsRow}>
+          <View style={styles.coordInput}>
             <Input
-              label="GPS / Location"
-              value={location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : values.gpsLocation}
-              onChangeText={(value) => updateField('gpsLocation', value)}
+              label="Latitude"
+              value={values.latitude}
+              onChangeText={(value) => updateField('latitude', value)}
+              keyboardType="numeric"
             />
           </View>
-          <Pressable
-            onPress={captureGps}
-            style={[styles.locationButton, { backgroundColor: colors.softOrange, borderColor: colors.primary }]}
-          >
-            <MapPin size={18} color={colors.primary} />
-            <Text style={[styles.locationButtonText, { color: colors.primary }]}>
-              {loading ? 'Capturing' : 'Capture'}
-            </Text>
-          </Pressable>
+          <View style={styles.coordInput}>
+            <Input
+              label="Longitude"
+              value={values.longitude}
+              onChangeText={(value) => updateField('longitude', value)}
+              keyboardType="numeric"
+            />
+          </View>
         </View>
+        <Pressable
+          onPress={captureGps}
+          style={[styles.locationButton, { backgroundColor: colors.softOrange, borderColor: colors.primary }]}
+        >
+          <MapPin size={18} color={colors.primary} />
+          <Text style={[styles.locationButtonText, { color: colors.primary }]}>
+            {loading ? 'Capturing current location...' : 'Capture Current Location'}
+          </Text>
+        </Pressable>
       </Card>
 
       <Card style={styles.formCard}>
@@ -210,6 +227,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
           module="customers"
           recordId={customer.id}
           onChange={setEvidence}
+          deferUpload
         />
       </Card>
 
@@ -244,31 +262,31 @@ function getWorkableTone(option: (typeof workableOptions)[number]) {
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   noticeCard: {
-    gap: spacing.sm,
-    padding: spacing.md,
+    gap: spacing.xs,
+    padding: spacing.sm,
   },
   sectionTitle: {
     ...typography.bodyMedium,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 18,
   },
-  locationRow: {
+  coordsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     gap: spacing.sm,
   },
-  locationInput: {
+  coordInput: {
     flex: 1,
   },
   locationButton: {
-    minHeight: 50,
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
@@ -282,13 +300,14 @@ const styles = StyleSheet.create({
   },
   workableCard: {
     flex: 1,
-    minHeight: 74,
+    minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: 3,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   optionText: {
     ...typography.label,
@@ -297,13 +316,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   fieldGroup: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   textArea: {
-    minHeight: 104,
+    minHeight: 80,
     borderWidth: 1,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
     ...typography.body,
+    fontSize: 13,
   },
 });

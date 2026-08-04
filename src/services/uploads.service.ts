@@ -1,4 +1,4 @@
-import { apiRequest, getApiOrigin } from "./apiClient";
+import { apiRequestFormData, getApiOrigin } from "./apiClient";
 
 export type UploadedFile = {
   fileName: string;
@@ -23,9 +23,7 @@ export async function uploadFile(asset: UploadAsset, module: string, recordId?: 
   formData.append("module", module);
   if (recordId) formData.append("recordId", recordId);
 
-  return apiRequest<UploadedFile>("/uploads", {
-    method: "POST",
-    body: formData,
+  return apiRequestFormData<UploadedFile>("/uploads", formData, {
     // Camera photos can be several MB - the default request timeout is tuned for
     // quick JSON calls and is too short for a real upload over a mobile network.
     timeoutMs: 60000,

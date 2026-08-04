@@ -109,6 +109,7 @@ export type GiMeasurements = {
   giPipeOneInch: string;
   giPipeOneAndHalfInch: string;
   giPipeTwoInch: string;
+  evidence?: EvidenceFile[];
 };
 
 export type IsolationFittings = {
@@ -126,6 +127,7 @@ export type IsolationFittings = {
   elbowHalfInch: string;
   teeHalfInch: string;
   extraGiAbove10Metres: string;
+  evidence?: EvidenceFile[];
 };
 
 export type FittingsAccessories = {

@@ -10,6 +10,7 @@ import {
 
 import { authService } from "@/services/auth.service";
 import type { AuthUser, LoginCredentials } from "@/types/auth";
+import { resetAttendanceReminder } from "@/utils/attendanceReminder";
 
 type PasswordResetResult = {
   resetOtp?: string | null;
@@ -30,7 +31,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   requestPasswordReset: (identifier: string) => Promise<PasswordResetResult>;
@@ -70,14 +71,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    const session = await authService.login(credentials);
+  const login = useCallback(async (credentials: LoginCredentials, rememberMe = true) => {
+    const session = await authService.login(credentials, rememberMe);
     setUser(session.user);
   }, []);
 
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
+    resetAttendanceReminder();
   }, []);
 
   const refreshUser = useCallback(async () => {
