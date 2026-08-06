@@ -1,5 +1,6 @@
-import { PropsWithChildren, ReactNode } from 'react';
+import React, { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useTheme } from '@/context/ThemeContext';
 
 type ScrollableTableProps = PropsWithChildren<{
   header: ReactNode;
@@ -7,6 +8,8 @@ type ScrollableTableProps = PropsWithChildren<{
 }>;
 
 export function ScrollableTable({ header, minWidth, children }: ScrollableTableProps) {
+  const { colors } = useTheme();
+  
   return (
     <ScrollView
       horizontal
@@ -25,9 +28,9 @@ export function ScrollableTable({ header, minWidth, children }: ScrollableTableP
 const styles = StyleSheet.create({
   horizontalScroll: {
     flexGrow: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   content: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
 });

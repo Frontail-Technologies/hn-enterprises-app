@@ -12,3 +12,5 @@ export * from "./complaints.queries";
 export * from "./customers.queries";
 export * from "./notifications.queries";
 export * from "./planning.queries";
+
+export * from "./plumbers.queries";

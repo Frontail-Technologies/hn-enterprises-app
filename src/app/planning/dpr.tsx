@@ -117,7 +117,7 @@ export default function DprScreen() {
           }
         >
           {items.map((item) => (
-            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: '#FFFFFF' }]}>
+            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <View style={[styles.bodyCell, styles.taskCell, { borderColor: colors.border }]}>
                 <Text style={[styles.taskText, { color: colors.text }]} numberOfLines={2}>
                   {item.label}
@@ -132,7 +132,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
+                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -145,7 +145,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
+                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -157,7 +157,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInputWide,
-                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
+                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>
@@ -169,7 +169,7 @@ export default function DprScreen() {
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInputWide,
-                    { backgroundColor: '#FFFFFF', borderColor: colors.border, color: colors.text },
+                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                   ]}
                 />
               </View>

@@ -50,6 +50,14 @@ export const complaintsApi = {
     return rows.map(mapComplaint);
   },
 
+  async create(input: { customerId: string; title: string; description: string; priority: ComplaintPriority }): Promise<ComplaintRecord> {
+    const raw = await apiRequest<BackendComplaint>("/complaints", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return mapComplaint(raw);
+  },
+
   async updateStatus(id: string, input: { status: ComplaintStatus; supervisorRemark?: string }): Promise<ComplaintRecord> {
     const raw = await apiRequest<BackendComplaint>(`/complaints/${id}`, {
       method: "PATCH",

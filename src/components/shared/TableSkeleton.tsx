@@ -25,7 +25,7 @@ export function TableSkeleton({ columnWidths, rowCount = 8, rowHeight = 36, head
         ))}
       </View>
       {Array.from({ length: rowCount }).map((_, rowIndex) => (
-        <View key={rowIndex} style={[styles.row, { height: rowHeight, backgroundColor: '#FFFFFF', borderColor: colors.border }]}>
+        <View key={rowIndex} style={[styles.row, { height: rowHeight, backgroundColor: colors.card, borderColor: colors.border }]}>
           {columnWidths.map((width, colIndex) => (
             <View key={colIndex} style={[styles.cell, { width, borderColor: colors.border }]}>
               <Skeleton width={colIndex === 0 ? '85%' : '55%'} height={11} />

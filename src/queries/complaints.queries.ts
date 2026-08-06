@@ -12,6 +12,18 @@ export function useComplaintsQuery(params: { supervisorId?: string; status?: Com
   });
 }
 
+export function useCreateComplaintMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { customerId: string; title: string; description: string; priority: any }) =>
+      complaintsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.complaints.all });
+    },
+  });
+}
+
 export function useUpdateComplaintMutation() {
   const queryClient = useQueryClient();
 

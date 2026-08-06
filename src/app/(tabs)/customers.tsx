@@ -82,7 +82,7 @@ export default function CustomersScreen() {
                     style={({ pressed }) => [
                       styles.dataRow,
                       {
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: colors.card,
                         borderColor: colors.border,
                         opacity: !row.canOpen ? 0.72 : pressed ? 0.62 : 1,
                       },

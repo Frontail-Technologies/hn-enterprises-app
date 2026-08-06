@@ -15,21 +15,21 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ title, subtitle, left, right, style }: AppHeaderProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={colors.accent}
+        backgroundColor={isDark ? colors.card : colors.accent}
         translucent={false}
       />
       <View
         style={[
           styles.header,
           {
-            backgroundColor: colors.accent,
+            backgroundColor: isDark ? colors.card : colors.accent,
             paddingTop: insets.top + spacing.lg,
           },
           style,

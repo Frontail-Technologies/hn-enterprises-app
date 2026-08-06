@@ -10,19 +10,83 @@ import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
-import { useUpdateComplaintMutation } from '@/queries';
-import type { ComplaintRecord, ComplaintStatus } from '@/services/complaints.service';
+import { useUpdateComplaintMutation, useCreateComplaintMutation } from '@/queries';
+import type { ComplaintRecord, ComplaintStatus, ComplaintPriority } from '@/services/complaints.service';
 
 type ComplaintUpdateSheetProps = {
-  complaint: ComplaintRecord | null;
+  complaint?: ComplaintRecord | null;
+  visible?: boolean;
+  preselectedCustomerId?: string;
   onClose: () => void;
 };
 
-export function ComplaintUpdateSheet({ complaint, onClose }: ComplaintUpdateSheetProps) {
+export function ComplaintUpdateSheet({ complaint, visible, preselectedCustomerId, onClose }: ComplaintUpdateSheetProps) {
+  const isVisible = visible !== undefined ? visible : Boolean(complaint);
   return (
-    <Sheet visible={Boolean(complaint)} onClose={onClose} title="Complaint">
-      {complaint ? <ComplaintUpdateForm key={complaint.id} complaint={complaint} onClose={onClose} /> : null}
+    <Sheet visible={isVisible} onClose={onClose} title={complaint ? "Update Complaint" : "Raise Complaint"}>
+      {complaint ? (
+        <ComplaintUpdateForm key={complaint.id} complaint={complaint} onClose={onClose} />
+      ) : preselectedCustomerId && isVisible ? (
+        <ComplaintCreateForm customerId={preselectedCustomerId} onClose={onClose} />
+      ) : null}
     </Sheet>
+  );
+}
+
+const complaintPriorityOptions = [
+  { label: 'Low', value: 'low' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'High', value: 'high' },
+];
+
+function ComplaintCreateForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
+  const { showToast } = useToast();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<ComplaintPriority>('medium');
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const createMutation = useCreateComplaintMutation();
+
+  const handleSave = async () => {
+    if (!title.trim() || !description.trim()) {
+      showToast('Title and description are required', 'error');
+      return;
+    }
+    try {
+      await createMutation.mutateAsync({ customerId, title, description, priority });
+      showToast('Complaint raised', 'success');
+      onClose();
+    } catch (error: any) { showToast(error?.message || 'Unable to raise complaint', "error"); }
+  };
+
+  return (
+    <View style={styles.content}>
+      <Input
+        label="Title"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Enter complaint title..."
+      />
+
+      <SimpleSelect
+        label="Priority"
+        value={priority}
+        options={complaintPriorityOptions}
+        open={priorityOpen}
+        onOpenChange={setPriorityOpen}
+        onChange={(val) => setPriority(val as ComplaintPriority)}
+      />
+
+      <Input
+        label="Description"
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Enter details..."
+        multiline
+      />
+
+      <Button label="Save" onPress={() => void handleSave()} loading={createMutation.isPending} />
+    </View>
   );
 }
 
@@ -39,9 +103,7 @@ function ComplaintUpdateForm({ complaint, onClose }: { complaint: ComplaintRecor
       await updateMutation.mutateAsync({ id: complaint.id, status, supervisorRemark: remark.trim() || undefined });
       showToast('Complaint updated', 'success');
       onClose();
-    } catch {
-      showToast('Unable to update complaint', 'error');
-    }
+    } catch (error: any) { showToast(error?.message || 'Unable to update complaint', "error"); }
   };
 
   return (

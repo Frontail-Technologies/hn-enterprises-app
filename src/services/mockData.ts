@@ -110,6 +110,8 @@ export type GiMeasurements = {
   giPipeOneAndHalfInch: string;
   giPipeTwoInch: string;
   evidence?: EvidenceFile[];
+  approvalStatus?: 'draft' | 'submitted' | 'approved';
+  approvalComments?: string;
 };
 
 export type IsolationFittings = {
@@ -189,6 +191,8 @@ export type LmcPipelineWork = {
   hardRock: string;
   civilRemarks?: string;
   civilEvidence?: EvidenceFile[];
+  approvalStatus?: 'draft' | 'submitted' | 'approved';
+  approvalComments?: string;
 };
 
 export type MdpeFittings = {
@@ -218,6 +222,8 @@ export type CommissioningConversion = {
   meterReading: string;
   nonConversionRemark: string;
   evidence?: EvidenceFile[];
+  approvalStatus?: 'draft' | 'submitted' | 'approved';
+  approvalComments?: string;
 };
 
 export type BillingCompletion = {

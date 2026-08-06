@@ -5,7 +5,6 @@ import type { EvidenceFile } from "./mockData";
 
 export type ExpenseCategory =
   | "worker_payment"
-  | "supervisor_payment"
   | "plumber_payment"
   | "rent"
   | "material_expense"
@@ -15,12 +14,11 @@ export type ExpenseStatus = "draft" | "submitted" | "approved" | "rejected";
 export type ExpenseMode = "cash" | "upi" | "neft" | "bank_transfer" | "cheque" | "other";
 
 export const expenseCategoryOptions: { label: string; value: ExpenseCategory }[] = [
-  { label: "Worker Payment", value: "worker_payment" },
-  { label: "Supervisor Payment", value: "supervisor_payment" },
-  { label: "Plumber Payment", value: "plumber_payment" },
+  { label: "Worker Payments", value: "worker_payment" },
+  { label: "Plumber Payments", value: "plumber_payment" },
   { label: "Office / Guest House Rent", value: "rent" },
-  { label: "Material Expense", value: "material_expense" },
-  { label: "Other Expense", value: "other_expense" },
+  { label: "Material Expenses", value: "material_expense" },
+  { label: "Other Expenses", value: "other_expense" },
 ];
 
 export type ExpenseRecord = {
@@ -28,6 +26,7 @@ export type ExpenseRecord = {
   category: ExpenseCategory;
   purpose: string;
   paidTo: string;
+  plumberId: string;
   siteId: string;
   amount: string;
   date: string;
@@ -43,6 +42,7 @@ type BackendPayment = {
   id: string;
   category: ExpenseCategory;
   paidTo: string | null;
+  plumberId: string | null;
   siteId: string | null;
   amount: string;
   paymentDate: string;
@@ -71,6 +71,7 @@ function mapExpense(raw: BackendPayment): ExpenseRecord {
     category: raw.category,
     purpose: raw.purpose ?? "",
     paidTo: raw.paidTo ?? "",
+    plumberId: raw.plumberId ?? "",
     siteId: raw.siteId ?? "",
     amount: raw.amount,
     date: raw.paymentDate.slice(0, 10),
@@ -85,6 +86,7 @@ type ExpenseInput = {
   category: ExpenseCategory;
   purpose: string;
   paidTo: string;
+  plumberId: string;
   siteId: string;
   amount: string;
   date: string;
@@ -100,10 +102,11 @@ type ExpenseInput = {
 function buildExpenseFormData(input: ExpenseInput) {
   const formData = new FormData();
   formData.append("category", input.category);
-  if (input.paidTo) formData.append("paidTo", input.paidTo);
-  if (input.siteId) formData.append("siteId", input.siteId);
   if (input.purpose) formData.append("purpose", input.purpose);
-  formData.append("amount", String(Number(input.amount) || 0));
+  if (input.paidTo) formData.append("paidTo", input.paidTo);
+  if (input.plumberId) formData.append("plumberId", input.plumberId);
+  if (input.siteId) formData.append("siteId", input.siteId);
+  formData.append("amount", input.amount);
   formData.append("paymentDate", input.date);
   formData.append("mode", input.paymentMode);
   formData.append("status", input.status);

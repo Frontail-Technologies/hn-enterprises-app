@@ -39,9 +39,7 @@ export function useWorkProgressUpdateForm({
       });
       showToast(record.status === "Sent Back" ? "Work update resubmitted" : "Work progress submitted", "success");
       router.back();
-    } catch {
-      showToast("Unable to submit work update", "error");
-    }
+    } catch (error: any) { showToast(error?.message || "Unable to submit work update", "error"); }
   };
 
   return {

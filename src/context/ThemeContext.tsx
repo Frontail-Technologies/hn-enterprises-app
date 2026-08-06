@@ -13,6 +13,8 @@ const darkColors: AppColors = {
   border: '#3B352B',
   softOrange: '#382A0E',
   softBlue: '#102A3D',
+  accent: '#60A5FA',
+  blue: '#3B82F6',
 };
 
 type ThemeContextValue = {

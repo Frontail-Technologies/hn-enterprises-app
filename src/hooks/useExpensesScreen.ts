@@ -19,9 +19,10 @@ export const draftStatusOptions = expenseStatusOptions.filter(
 
 function emptyDraft(): ExpenseDraft {
   return {
-    category: 'other_expense',
+    category: 'worker_payment',
     purpose: '',
     paidTo: '',
+    plumberId: '',
     siteId: '',
     amount: '',
     date: new Date().toISOString().slice(0, 10),
@@ -50,6 +51,7 @@ export function useExpensesScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draftCategoryOpen, setDraftCategoryOpen] = useState(false);
   const [draftSiteOpen, setDraftSiteOpen] = useState(false);
+  const [draftPlumberOpen, setDraftPlumberOpen] = useState(false);
   const [draftModeOpen, setDraftModeOpen] = useState(false);
   const [draftStatusOpen, setDraftStatusOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -112,6 +114,7 @@ export function useExpensesScreen() {
       category: expense.category,
       purpose: expense.purpose,
       paidTo: expense.paidTo,
+      plumberId: expense.plumberId,
       siteId: expense.siteId,
       amount: expense.amount,
       date: expense.date,
@@ -182,6 +185,8 @@ export function useExpensesScreen() {
     setDraftCategoryOpen,
     draftSiteOpen,
     setDraftSiteOpen,
+    draftPlumberOpen,
+    setDraftPlumberOpen,
     draftModeOpen,
     setDraftModeOpen,
     draftStatusOpen,

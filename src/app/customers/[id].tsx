@@ -14,6 +14,7 @@ import {
 import PagerView from "react-native-pager-view";
 
 import { useBillingRemarksPanel } from "@/components/customer-sections/BillingRemarksPanel";
+import { useCustomerComplaintsPanel } from "@/components/customer-sections/CustomerComplaintsPanel";
 import { useCustomerInfoPanel } from "@/components/customer-sections/CustomerInfoPanel";
 import { useDocumentsPanel } from "@/components/customer-sections/DocumentsPanel";
 import { useFittingsAccessoriesPanel } from "@/components/customer-sections/FittingsAccessoriesPanel";
@@ -90,6 +91,7 @@ function CustomerWorkspaceContent({
   const meterPanel = useMeterCommissioningPanel(customer, onRefetch);
   const billingPanel = useBillingRemarksPanel(customer, onRefetch);
   const documentsPanel = useDocumentsPanel(customer);
+  const complaintsPanel = useCustomerComplaintsPanel(customer);
 
   const tabs = [
     { key: "customer", label: "Customer", panel: customerInfoPanel },
@@ -119,6 +121,7 @@ function CustomerWorkspaceContent({
       panel: billingPanel,
     },
     { key: "documents", label: "Photos / Documents", panel: documentsPanel },
+    { key: "complaints", label: "Complaints", panel: complaintsPanel },
   ];
 
   // The set of tab keys never actually changes across renders (only each
@@ -265,9 +268,7 @@ function CustomerQuickActions({
                   await createNoteMutation.mutateAsync(note.trim());
                   setNote("");
                   showToast("Note saved", "success");
-                } catch {
-                  showToast("Unable to save note", "error");
-                }
+                } catch (error: any) { showToast(error?.message || "Unable to save note", "error"); }
               }}
               disabled={!note.trim()}
               style={styles.noteFooterButton}

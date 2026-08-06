@@ -56,6 +56,7 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
         meterReading: values.meterReading,
         nonConversionRemark: values.nonConversionRemark,
         evidence,
+        approvalStatus: 'submitted',
       });
       await clearDraft();
       await onRefetch?.();

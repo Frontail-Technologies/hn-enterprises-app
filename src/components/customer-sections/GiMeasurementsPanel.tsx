@@ -57,6 +57,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
         giPipeOneAndHalfInch: values.giPipeOneAndHalfInch,
         giPipeTwoInch: values.giPipeTwoInch,
         evidence,
+        approvalStatus: 'submitted',
       });
       await clearDraft();
       await onRefetch?.();

@@ -40,7 +40,7 @@ export default function NotificationsScreen() {
         left={<BackButton />}
         right={
           <Pressable onPress={markAllAsRead} hitSlop={10} style={styles.markAllButton}>
-            <Text style={[typography.label, { color: '#FFFFFF' }]}>Mark all read</Text>
+            <Text style={[typography.label, { color: colors.primary }]}>Mark all read</Text>
           </Pressable>
         }
       />

@@ -63,6 +63,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
         hardRock: values.hardRock,
         civilRemarks: values.civilRemarks,
         civilEvidence,
+        approvalStatus: 'submitted',
       });
       await clearDraft();
       await onRefetch?.();

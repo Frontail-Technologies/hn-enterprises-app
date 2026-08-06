@@ -40,6 +40,9 @@ export const queryKeys = {
     all: ["expenses"] as const,
     siteOptions: ["expenses", "site-options"] as const,
   },
+  plumbers: {
+    all: ["plumbers"] as const,
+  },
   complaints: {
     all: ["complaints"] as const,
     list: (params: { supervisorId?: string; status?: string }) => ["complaints", "list", params] as const,

@@ -143,7 +143,7 @@ function StatTableRow({ row }: { row: SupervisorStatDetailRow }) {
       }}
       style={({ pressed }) => pressed && canOpen && { opacity: 0.72 }}
     >
-      <View style={[styles.tableRow, { backgroundColor: '#FFFFFF', borderColor: colors.border }]}>
+      <View style={[styles.tableRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[styles.nameCell, styles.bodyCell, { borderColor: colors.border }]}>
           <Text style={[styles.primaryCellText, { color: colors.text }]} numberOfLines={1}>
             {row.title}

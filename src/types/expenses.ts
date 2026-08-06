@@ -11,6 +11,7 @@ export type ExpenseDraft = {
   category: ExpenseCategory;
   purpose: string;
   paidTo: string;
+  plumberId: string;
   siteId: string;
   amount: string;
   date: string;

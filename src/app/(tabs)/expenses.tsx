@@ -1,5 +1,6 @@
 import { Edit3, Filter, IndianRupee, Plus, Search } from 'lucide-react-native';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useState, useMemo } from 'react';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
@@ -14,6 +15,13 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
+import {
+  useCreateExpenseMutation,
+  useExpenseSiteOptionsQuery,
+  useExpensesQuery,
+  usePlumbersOptionsQuery,
+  useUpdateExpenseMutation,
+} from '@/queries';
 import { expenseGridColumns, expenseModeOptions, expenseStatusLabels } from '@/constants/expenses';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
@@ -23,31 +31,54 @@ import type { ExpenseColumnKey } from '@/types/expenses';
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();
+  const expensesQuery = useExpensesQuery();
+  const siteOptionsQuery = useExpenseSiteOptionsQuery();
+  const plumbersQuery = usePlumbersOptionsQuery();
+
+  const siteSelectOptions = useMemo(
+    () => (siteOptionsQuery.data ?? []).map((s) => ({ label: s.name, value: s.id })),
+    [siteOptionsQuery.data],
+  );
+
+  const plumberSelectOptions = useMemo(
+    () => (plumbersQuery.data ?? []).map((p) => ({ label: p.name, value: p.id })),
+    [plumbersQuery.data],
+  );
+
+  const plumberNameById = useMemo(
+    () => new Map((plumbersQuery.data ?? []).map((p) => [p.id, p.name])),
+    [plumbersQuery.data],
+  );
+
+  const createExpenseMutation = useCreateExpenseMutation();
+  const updateExpenseMutation = useUpdateExpenseMutation();
+
   const {
     isLoading,
     isSaving,
     expenses,
     filteredExpenses,
     total,
-    siteSelectOptions,
     search,
     setSearch,
     fromDate,
     setFromDate,
     toDate,
     setToDate,
-    filterSheetOpen,
-    setFilterSheetOpen,
-    sheetOpen,
-    setSheetOpen,
     draftCategoryOpen,
     setDraftCategoryOpen,
     draftSiteOpen,
     setDraftSiteOpen,
+    draftPlumberOpen,
+    setDraftPlumberOpen,
     draftModeOpen,
     setDraftModeOpen,
     draftStatusOpen,
     setDraftStatusOpen,
+    filterSheetOpen,
+    setFilterSheetOpen,
+    sheetOpen,
+    setSheetOpen,
     editingId,
     draft,
     openAdd,
@@ -140,7 +171,7 @@ export default function ExpensesScreen() {
               onPress={() => openEdit(expense)}
               style={({ pressed }) => [
                 styles.tableRow,
-                { borderColor: colors.border, backgroundColor: '#FFFFFF', opacity: pressed ? 0.62 : 1 },
+                { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
               ]}
             >
               <View style={[styles.purposeCell, { borderColor: colors.border }]}>
@@ -150,7 +181,7 @@ export default function ExpensesScreen() {
                 <Text style={[typography.caption, { color: colors.muted }]}>{expense.paymentMode || '-'}</Text>
               </View>
               <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-                {expense.paidTo || '-'}
+                {expense.category === 'plumber_payment' ? (plumberNameById.get(expense.plumberId) || expense.paidTo || '-') : (expense.paidTo || '-')}
               </Text>
               <Text style={[styles.bodyCell, styles.siteCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
                 {expense.site || '-'}
@@ -225,12 +256,24 @@ export default function ExpensesScreen() {
             onChangeText={(value) => updateDraft('purpose', value)}
             placeholder="Pipe clamp purchase"
           />
-          <Input
-            label="Paid To / Shop"
-            value={draft.paidTo}
-            onChangeText={(value) => updateDraft('paidTo', value)}
-            placeholder="Vendor or person name"
-          />
+          {draft.category === 'plumber_payment' ? (
+            <SimpleSelect
+              label="Select Plumber"
+              value={draft.plumberId}
+              options={plumberSelectOptions}
+              open={draftPlumberOpen}
+              onOpenChange={setDraftPlumberOpen}
+              onChange={(value) => updateDraft('plumberId', value)}
+              searchable
+            />
+          ) : (
+            <Input
+              label="Paid To / Shop"
+              value={draft.paidTo}
+              onChangeText={(value) => updateDraft('paidTo', value)}
+              placeholder="Vendor or person name"
+            />
+          )}
           <SimpleSelect
             label="Site Address"
             value={draft.siteId}
