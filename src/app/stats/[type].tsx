@@ -1,12 +1,16 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { FlashList } from '@shopify/flash-list';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, Filter, Search } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Reveal } from '@/components/ui/Reveal';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
@@ -20,9 +24,13 @@ import type { SupervisorStatDetailRow } from '@/services/mobileStats';
 export default function StatDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
   const { stats } = useSupervisorStats();
   const stat = stats.find((item) => item.id === type) ?? null;
-  const { rows, isLoading } = useSupervisorStatDetails(type ? String(type) : undefined);
+  const { rows, total, isLoading, isFetchingNextPage, hasNextPage, loadMore } = useSupervisorStatDetails(
+    type ? String(type) : undefined,
+  );
   const {
     search,
     setSearch,
@@ -39,8 +47,17 @@ export default function StatDetailScreen() {
     resetFilters,
   } = useStatDetailFilters(rows);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ type: 'active' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
+
   return (
-    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen}>
       <AppHeader title={stat?.label ?? 'Stat Details'} subtitle={`${filteredRows.length} records`} left={<BackButton />} />
 
       <Input
@@ -54,27 +71,62 @@ export default function StatDetailScreen() {
 
       <View style={styles.tablePanel}>
         <Text style={[styles.resultText, { color: colors.muted }]}>
-          {isLoading ? 'Loading...' : `Showing ${filteredRows.length} of ${rows.length} records`}
+          {isLoading ? 'Loading...' : `Showing ${filteredRows.length} of ${total} records`}
         </Text>
         {isLoading ? (
           <TableSkeleton columnWidths={[150, 112, 150, 112, 106, 190]} />
         ) : (
-        <ScrollableTable
-          header={
-            <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              <Text style={[styles.headerCell, styles.nameCell, { color: colors.muted, borderColor: colors.border }]}>Name / Work</Text>
-              <Text style={[styles.headerCell, styles.refCell, { color: colors.muted, borderColor: colors.border }]}>Reference</Text>
-              <Text style={[styles.headerCell, styles.siteCell, { color: colors.muted, borderColor: colors.border }]}>Site</Text>
-              <Text style={[styles.headerCell, styles.statusCell, { color: colors.muted, borderColor: colors.border }]}>Status</Text>
-              <Text style={[styles.headerCell, styles.dateCell, { color: colors.muted, borderColor: colors.border }]}>Date</Text>
-              <Text style={[styles.headerCell, styles.helperCell, { color: colors.muted, borderColor: colors.border }]}>Detail</Text>
-            </View>
-          }
-        >
-          {filteredRows.map((row) => (
-            <StatTableRow key={row.id} row={row} />
-          ))}
-        </ScrollableTable>
+          <ScrollableTable
+            listMode
+            minWidth={820}
+            header={
+              <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
+                <Text style={[styles.headerCell, styles.nameCell, { color: colors.muted, borderColor: colors.border }]}>Name / Work</Text>
+                <Text style={[styles.headerCell, styles.refCell, { color: colors.muted, borderColor: colors.border }]}>Reference</Text>
+                <Text style={[styles.headerCell, styles.siteCell, { color: colors.muted, borderColor: colors.border }]}>Site</Text>
+                <Text style={[styles.headerCell, styles.statusCell, { color: colors.muted, borderColor: colors.border }]}>Status</Text>
+                <Text style={[styles.headerCell, styles.dateCell, { color: colors.muted, borderColor: colors.border }]}>Date</Text>
+                <Text style={[styles.headerCell, styles.helperCell, { color: colors.muted, borderColor: colors.border }]}>Detail</Text>
+              </View>
+            }
+          >
+            <FlashList
+              style={styles.flex}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              data={filteredRows}
+              keyExtractor={(row) => row.id}
+              renderItem={({ item: row }) => (
+                <Reveal stagger={false}>
+                  <StatTableRow row={row} />
+                </Reveal>
+              )}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.primaryDark}
+                  colors={[colors.primaryDark]}
+                  progressBackgroundColor={colors.card}
+                />
+              }
+              ListFooterComponent={
+                hasNextPage ? (
+                  <Pressable
+                    onPress={loadMore}
+                    disabled={isFetchingNextPage}
+                    style={({ pressed }) => [styles.loadMoreRow, { borderColor: colors.border }, pressed && { opacity: 0.72 }]}
+                  >
+                    {isFetchingNextPage ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text style={[typography.label, { color: colors.primary }]}>Load more</Text>
+                    )}
+                  </Pressable>
+                ) : null
+              }
+            />
+          </ScrollableTable>
         )}
       </View>
 
@@ -220,12 +272,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tablePanel: {
+    flex: 1,
     gap: spacing.sm,
-    padding: spacing.sm,
+    paddingVertical: spacing.sm,
+    // Bleed out of the screen's own horizontal padding so the table itself
+    // reaches the screen edges instead of floating in a narrower column.
+    marginHorizontal: -20,
+  },
+  flex: {
+    flex: 1,
   },
   resultText: {
     ...typography.caption,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: 20,
+  },
+  loadMoreRow: {
+    minHeight: 44,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.sm,
   },
   tableRow: {
     minHeight: 36,

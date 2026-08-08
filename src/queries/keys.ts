@@ -38,7 +38,6 @@ export const queryKeys = {
   },
   expenses: {
     all: ["expenses"] as const,
-    siteOptions: ["expenses", "site-options"] as const,
   },
   plumbers: {
     all: ["plumbers"] as const,

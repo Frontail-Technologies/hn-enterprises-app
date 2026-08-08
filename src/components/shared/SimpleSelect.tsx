@@ -21,6 +21,7 @@ type SimpleSelectProps<T extends string> = {
   onOpenChange: (open: boolean) => void;
   onChange: (value: T) => void;
   searchable?: boolean;
+  disabled?: boolean;
 };
 
 export function SimpleSelect<T extends string>({
@@ -31,6 +32,7 @@ export function SimpleSelect<T extends string>({
   onOpenChange,
   onChange,
   searchable = false,
+  disabled = false,
 }: SimpleSelectProps<T>) {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
@@ -51,16 +53,17 @@ export function SimpleSelect<T extends string>({
   return (
     <>
       <Pressable
+        disabled={disabled}
         onPress={() => handleOpenChange(true)}
         style={({ pressed }) => [
           styles.trigger,
-          { backgroundColor: colors.card, borderColor: colors.border },
-          pressed && { opacity: 0.82 },
+          { backgroundColor: disabled ? colors.background : colors.card, borderColor: colors.border },
+          pressed && !disabled && { opacity: 0.82 },
         ]}
       >
         <View style={styles.triggerCopy}>
           <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>
-          <Text style={[styles.value, { color: colors.text }]} numberOfLines={1}>
+          <Text style={[styles.value, { color: disabled ? colors.muted : colors.text }]} numberOfLines={1}>
             {selected?.label ?? value}
           </Text>
         </View>

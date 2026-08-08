@@ -1,24 +1,40 @@
-import { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
 
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useTheme } from '@/context/ThemeContext';
+import { radius, spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
 
 type ButtonProps = {
   label: string;
   onPress?: () => void;
-  variant?: 'primary' | 'outline' | 'ghost';
+  variant?: "primary" | "outline" | "ghost";
   icon?: ReactNode;
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, onPress, variant = 'primary', icon, disabled, loading, style }: ButtonProps) {
+export function Button({
+  label,
+  onPress,
+  variant = "primary",
+  icon,
+  disabled,
+  loading,
+  style,
+}: ButtonProps) {
   const { colors } = useTheme();
-  const isPrimary = variant === 'primary';
-  const isGhost = variant === 'ghost';
+  const isPrimary = variant === "primary";
+  const isGhost = variant === "ghost";
 
   return (
     <Pressable
@@ -27,8 +43,12 @@ export function Button({ label, onPress, variant = 'primary', icon, disabled, lo
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: isPrimary ? colors.primary : isGhost ? 'transparent' : colors.card,
-          borderColor: isPrimary || isGhost ? 'transparent' : colors.border,
+          backgroundColor: isPrimary
+            ? colors.primary
+            : isGhost
+              ? "transparent"
+              : colors.card,
+          borderColor: isPrimary || isGhost ? "transparent" : colors.border,
           borderWidth: isPrimary || isGhost ? 0 : 1,
         },
         (disabled || loading) && styles.disabled,
@@ -37,11 +57,18 @@ export function Button({ label, onPress, variant = 'primary', icon, disabled, lo
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? '#FFFFFF' : colors.primary} />
+        <ActivityIndicator color={isPrimary ? "#FFFFFF" : colors.primary} />
       ) : (
         <View style={styles.contentRow}>
           {icon}
-          <Text style={[styles.label, { color: isPrimary ? '#FFFFFF' : colors.text }]}>{label}</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: isPrimary ? "#FFFFFF" : colors.text },
+            ]}
+          >
+            {label}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -51,10 +78,10 @@ export function Button({ label, onPress, variant = 'primary', icon, disabled, lo
 const styles = StyleSheet.create({
   base: {
     minHeight: 42,
-    width: '100%',
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
   disabled: {
@@ -64,8 +91,8 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   label: {

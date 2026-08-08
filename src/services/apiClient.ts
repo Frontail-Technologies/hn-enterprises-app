@@ -30,6 +30,14 @@ type ApiResponse<T> = {
   message?: string;
   data?: T;
   errors?: unknown;
+  meta?: { pagination?: PaginationMeta };
+};
+
+export type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 let refreshPromise: Promise<boolean> | null = null;
@@ -85,10 +93,7 @@ export async function clearTokens() {
   await clearPersistedTokens();
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+async function performRequest(path: string, options: ApiRequestOptions): Promise<Response> {
   const { auth = true, skipRefresh = false, timeoutMs, headers, ...requestOptions } =
     options;
   const token = auth ? await getAccessToken() : null;
@@ -116,11 +121,36 @@ export async function apiRequest<T>(
   if (response.status === 401 && auth && !skipRefresh) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      return apiRequest<T>(path, { ...options, skipRefresh: true });
+      return performRequest(path, { ...options, skipRefresh: true });
     }
   }
 
+  return response;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const response = await performRequest(path, options);
   return parseResponse<T>(response);
+}
+
+// Same request/auth-retry path as apiRequest, but also surfaces meta.pagination
+// instead of discarding it - needed by any list endpoint an infinite-scroll
+// screen paginates through.
+export async function apiRequestPaginated<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<{ data: T; pagination?: PaginationMeta }> {
+  const response = await performRequest(path, options);
+  const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
+
+  if (!response.ok || payload?.success === false) {
+    throw new ApiError(payload?.message ?? "Something went wrong", response.status, payload?.errors);
+  }
+
+  return { data: payload?.data as T, pagination: payload?.meta?.pagination };
 }
 
 // Expo's fetch (the default global `fetch` since SDK 53) can't send React

@@ -12,5 +12,5 @@ export type CustomerGridRow = {
 
 export type CustomerGridColumnKey = keyof Pick<
   CustomerGridRow,
-  'trBpNo' | 'customerName' | 'fullAddress' | 'mobileNo' | 'siteArea' | 'status'
+  'trBpNo' | 'customerName' | 'fullAddress' | 'mobileNo' | 'status'
 >;

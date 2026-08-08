@@ -1,6 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { FlashList } from '@shopify/flash-list';
 import { Edit3, Filter, IndianRupee, Plus, Search } from 'lucide-react-native';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { useState, useMemo } from 'react';
+import { Pressable, RefreshControl, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useCallback, useState, useMemo } from 'react';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
@@ -12,17 +14,18 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
+import { Reveal } from '@/components/ui/Reveal';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import {
   useCreateExpenseMutation,
-  useExpenseSiteOptionsQuery,
   useExpensesQuery,
   usePlumbersOptionsQuery,
   useUpdateExpenseMutation,
+  useMasterValuesQuery,
 } from '@/queries';
-import { expenseGridColumns, expenseModeOptions, expenseStatusLabels } from '@/constants/expenses';
+import { expenseGridColumns, expenseStatusLabels } from '@/constants/expenses';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { draftStatusOptions, useExpensesScreen } from '@/hooks/useExpensesScreen';
@@ -31,13 +34,15 @@ import type { ExpenseColumnKey } from '@/types/expenses';
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
   const expensesQuery = useExpensesQuery();
-  const siteOptionsQuery = useExpenseSiteOptionsQuery();
   const plumbersQuery = usePlumbersOptionsQuery();
-
-  const siteSelectOptions = useMemo(
-    () => (siteOptionsQuery.data ?? []).map((s) => ({ label: s.name, value: s.id })),
-    [siteOptionsQuery.data],
+  const paymentModesQuery = useMasterValuesQuery('Payment Types');
+  
+  const expenseModeOptions = useMemo(
+    () => (paymentModesQuery.data ?? []).map((mode) => ({ label: mode, value: mode })),
+    [paymentModesQuery.data]
   );
 
   const plumberSelectOptions = useMemo(
@@ -67,8 +72,6 @@ export default function ExpensesScreen() {
     setToDate,
     draftCategoryOpen,
     setDraftCategoryOpen,
-    draftSiteOpen,
-    setDraftSiteOpen,
     draftPlumberOpen,
     setDraftPlumberOpen,
     draftModeOpen,
@@ -99,8 +102,17 @@ export default function ExpensesScreen() {
     clearFilter,
   } = useExpensesScreen();
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ type: 'active' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
+
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} tabBarAware edges={['bottom']} contentStyle={styles.screen}>
       <AppHeader title="Expenses" subtitle="Site expenses and payment records" />
 
       <View style={styles.topRow}>
@@ -140,66 +152,85 @@ export default function ExpensesScreen() {
         {isLoading ? (
           <TableSkeleton columnWidths={[150, 110, 150, 92, 110, 96, 74]} />
         ) : (
-        <ScrollableTable
-          header={
-            <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              {expenseGridColumns.map((column) => {
-                const active = isColumnActive(column.key);
-                return (
-                  <Pressable
-                    key={column.key}
-                    onPress={() => openFilter(column)}
-                    style={[styles.headerCellPressable, columnWidthStyles[column.key], { borderColor: colors.border }]}
-                  >
-                    <Text
-                      style={[styles.headerCellText, { color: active ? colors.primary : colors.muted }]}
-                      numberOfLines={1}
+          <ScrollableTable
+            listMode
+            minWidth={782}
+            header={
+              <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
+                {expenseGridColumns.map((column) => {
+                  const active = isColumnActive(column.key);
+                  return (
+                    <Pressable
+                      key={column.key}
+                      onPress={() => openFilter(column)}
+                      style={[styles.headerCellPressable, columnWidthStyles[column.key], { borderColor: colors.border }]}
                     >
-                      {column.label}
+                      <Text
+                        style={[styles.headerCellText, { color: active ? colors.primary : colors.muted }]}
+                        numberOfLines={1}
+                      >
+                        {column.label}
+                      </Text>
+                      <Filter size={11} color={active ? colors.primary : colors.muted} />
+                    </Pressable>
+                  );
+                })}
+                <Text style={[styles.headerCell, styles.actionCell, { color: colors.muted, borderColor: colors.border }]}>Action</Text>
+              </View>
+            }
+          >
+            <FlashList
+              style={styles.flex}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              data={filteredExpenses}
+              keyExtractor={(expense) => expense.id}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.primaryDark}
+                  colors={[colors.primaryDark]}
+                  progressBackgroundColor={colors.card}
+                />
+              }
+              renderItem={({ item: expense }) => (
+                <Reveal stagger={false}>
+                  <Pressable
+                    onPress={() => openEdit(expense)}
+                    style={({ pressed }) => [
+                      styles.tableRow,
+                      { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
+                    ]}
+                  >
+                    <View style={[styles.purposeCell, { borderColor: colors.border }]}>
+                      <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
+                        {expense.purpose || '-'}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.muted }]}>{expense.paymentMode || '-'}</Text>
+                    </View>
+                    <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
+                      {expense.category === 'plumber_payment' ? (plumberNameById.get(expense.plumberId) || expense.paidTo || '-') : (expense.paidTo || '-')}
                     </Text>
-                    <Filter size={11} color={active ? colors.primary : colors.muted} />
+                    <Text style={[styles.bodyCell, styles.siteCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
+                      {expense.address || '-'}
+                    </Text>
+                    <Text style={[styles.bodyCell, styles.amountCell, { color: colors.primary, borderColor: colors.border }]}>
+                      Rs. {Number(expense.amount || 0).toLocaleString('en-IN')}
+                    </Text>
+                    <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]}>{expense.date}</Text>
+                    <View style={[styles.statusCell, { borderColor: colors.border }]}>
+                      <StatusPill status={expense.status} />
+                    </View>
+                    <View style={[styles.actionCell, { borderColor: colors.border }]}>
+                      {expense.evidence.length ? <Text style={[typography.caption, { color: colors.green }]}>{expense.evidence.length}</Text> : null}
+                      <Edit3 size={15} color={colors.primary} />
+                    </View>
                   </Pressable>
-                );
-              })}
-              <Text style={[styles.headerCell, styles.actionCell, { color: colors.muted, borderColor: colors.border }]}>Action</Text>
-            </View>
-          }
-        >
-          {filteredExpenses.map((expense) => (
-            <Pressable
-              key={expense.id}
-              onPress={() => openEdit(expense)}
-              style={({ pressed }) => [
-                styles.tableRow,
-                { borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.62 : 1 },
-              ]}
-            >
-              <View style={[styles.purposeCell, { borderColor: colors.border }]}>
-                <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
-                  {expense.purpose || '-'}
-                </Text>
-                <Text style={[typography.caption, { color: colors.muted }]}>{expense.paymentMode || '-'}</Text>
-              </View>
-              <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-                {expense.category === 'plumber_payment' ? (plumberNameById.get(expense.plumberId) || expense.paidTo || '-') : (expense.paidTo || '-')}
-              </Text>
-              <Text style={[styles.bodyCell, styles.siteCell, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-                {expense.site || '-'}
-              </Text>
-              <Text style={[styles.bodyCell, styles.amountCell, { color: colors.primary, borderColor: colors.border }]}>
-                Rs. {Number(expense.amount || 0).toLocaleString('en-IN')}
-              </Text>
-              <Text style={[styles.bodyCell, styles.mediumCell, { color: colors.text, borderColor: colors.border }]}>{expense.date}</Text>
-              <View style={[styles.statusCell, { borderColor: colors.border }]}>
-                <StatusPill status={expense.status} />
-              </View>
-              <View style={[styles.actionCell, { borderColor: colors.border }]}>
-                {expense.evidence.length ? <Text style={[typography.caption, { color: colors.green }]}>{expense.evidence.length}</Text> : null}
-                <Edit3 size={15} color={colors.primary} />
-              </View>
-            </Pressable>
-          ))}
-        </ScrollableTable>
+                </Reveal>
+              )}
+            />
+          </ScrollableTable>
         )}
       </View>
 
@@ -274,14 +305,11 @@ export default function ExpensesScreen() {
               placeholder="Vendor or person name"
             />
           )}
-          <SimpleSelect
+          <Input
             label="Site Address"
-            value={draft.siteId}
-            options={siteSelectOptions}
-            open={draftSiteOpen}
-            onOpenChange={setDraftSiteOpen}
-            onChange={(value) => updateDraft('siteId', value)}
-            searchable
+            value={draft.address}
+            onChangeText={(value) => updateDraft('address', value)}
+            placeholder="Site or work address"
           />
           <Input
             label="Amount"
@@ -306,6 +334,12 @@ export default function ExpensesScreen() {
             open={draftStatusOpen}
             onOpenChange={setDraftStatusOpen}
             onChange={(value) => updateDraft('status', value)}
+          />
+          <Input
+            label="Remarks (Optional)"
+            value={draft.remarks}
+            onChangeText={(value) => updateDraft('remarks', value)}
+            placeholder="Any additional notes"
           />
           <EvidenceUploader
             title="Receipt / Proof"
@@ -410,12 +444,19 @@ const styles = StyleSheet.create({
     width: 88,
   },
   tablePanel: {
+    flex: 1,
     gap: spacing.sm,
-    padding: spacing.sm,
+    paddingVertical: spacing.sm,
+    // Bleed out of the screen's own horizontal padding so the table itself
+    // reaches the screen edges instead of floating in a narrower column.
+    marginHorizontal: -20,
+  },
+  flex: {
+    flex: 1,
   },
   resultText: {
     ...typography.caption,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: 20,
   },
   tableRow: {
     minHeight: 38,
@@ -527,7 +568,7 @@ const styles = StyleSheet.create({
 const columnWidthStyles: Record<ExpenseColumnKey, StyleProp<ViewStyle>> = {
   purpose: styles.purposeCell,
   paidTo: styles.mediumCell,
-  site: styles.siteCell,
+  address: styles.siteCell,
   amount: styles.amountCell,
   date: styles.mediumCell,
   status: styles.statusCell,

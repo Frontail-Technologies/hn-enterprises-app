@@ -1,17 +1,15 @@
 import { router } from "expo-router";
 import { ArrowLeft, ClipboardCheck } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
-import { Card } from "@/components/ui/Card";
+import { StatSummaryCard } from "@/components/shared/StatSummaryCard";
+import { StatsGridSkeleton } from "@/components/shared/StatsGridSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Screen } from "@/components/ui/Screen";
-import { radius, spacing } from "@/constants/spacing";
+import { spacing } from "@/constants/spacing";
 import { statIcons } from "@/constants/statIcons";
-import { typography } from "@/constants/typography";
-import { useTheme } from "@/context/ThemeContext";
 import { useSupervisorStats } from "@/hooks/useMobileStats";
-import type { SupervisorStat, SupervisorStatTone } from "@/services/mobileStats";
 
 export default function AllStatsScreen() {
   const { stats, isLoading } = useSupervisorStats();
@@ -23,26 +21,18 @@ export default function AllStatsScreen() {
         subtitle="Supervisor work progress summary"
         left={<BackButton />}
       />
-      {!isLoading && !stats.length ? (
+      {isLoading ? (
+        <StatsGridSkeleton />
+      ) : !stats.length ? (
         <EmptyState title="No stats available" />
       ) : (
         <View style={styles.grid}>
           {stats.map((stat) => (
-            <Pressable
+            <StatSummaryCard
               key={stat.id}
-              onPress={() =>
-                router.push({
-                  pathname: "/stats/[type]",
-                  params: { type: stat.id },
-                })
-              }
-              style={({ pressed }) => [
-                styles.cardPressable,
-                pressed && { opacity: 0.72 },
-              ]}
-            >
-              <StatCard stat={stat} icon={statIcons[stat.id] ?? ClipboardCheck} />
-            </Pressable>
+              {...stat}
+              icon={statIcons[stat.id] ?? ClipboardCheck}
+            />
           ))}
         </View>
       )}
@@ -56,52 +46,6 @@ function BackButton() {
       <ArrowLeft size={22} color="#FFFFFF" />
     </Pressable>
   );
-}
-
-function StatCard({
-  stat,
-  icon: Icon,
-}: {
-  stat: SupervisorStat;
-  icon: typeof ClipboardCheck;
-}) {
-  const { colors } = useTheme();
-  const accentColor = getAccentColor(stat.tone, colors);
-  const softColor = getSoftColor(stat.tone, colors);
-
-  return (
-    <Card style={styles.card}>
-      <Text style={[styles.label, { color: colors.text }]} numberOfLines={2}>
-        {stat.label}
-      </Text>
-      <View style={styles.cardBottom}>
-        <Text style={[styles.value, { color: accentColor }]}>{stat.value}</Text>
-        <View style={[styles.iconBox, { backgroundColor: softColor }]}>
-          <Icon size={18} color={accentColor} />
-        </View>
-      </View>
-    </Card>
-  );
-}
-
-function getAccentColor(
-  tone: SupervisorStatTone,
-  colors: ReturnType<typeof useTheme>["colors"],
-) {
-  if (tone === "red") return colors.red;
-  if (tone === "green") return colors.green;
-  if (tone === "orange") return colors.primary;
-  return colors.blue;
-}
-
-function getSoftColor(
-  tone: SupervisorStatTone,
-  colors: ReturnType<typeof useTheme>["colors"],
-) {
-  if (tone === "red") return "#FEE2E2";
-  if (tone === "green") return "#DCFCE7";
-  if (tone === "orange") return colors.softOrange;
-  return colors.softBlue;
 }
 
 const styles = StyleSheet.create({
@@ -119,38 +63,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-  },
-  card: {
-    width: "100%",
-    minHeight: 106,
-    justifyContent: "space-between",
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-  },
-  cardPressable: {
-    width: "31.6%",
-  },
-  cardBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  label: {
-    ...typography.label,
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  iconBox: {
-    width: 30,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-  },
-  value: {
-    fontFamily: typography.h1.fontFamily,
-    fontSize: 24,
-    lineHeight: 29,
   },
 });

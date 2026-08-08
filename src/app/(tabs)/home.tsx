@@ -14,6 +14,7 @@ import { AttendanceReminderSheet } from "@/components/shared/AttendanceReminderS
 import { ComplaintBoxSkeleton } from "@/components/shared/ComplaintBoxSkeleton";
 import { ComplaintListItem } from "@/components/shared/ComplaintListItem";
 import { RecentActivitySkeleton } from "@/components/shared/RecentActivitySkeleton";
+import { StatSummaryCard } from "@/components/shared/StatSummaryCard";
 import { StatsGridSkeleton } from "@/components/shared/StatsGridSkeleton";
 import { ComplaintUpdateSheet } from "@/components/complaints/ComplaintUpdateSheet";
 import { Card } from "@/components/ui/Card";
@@ -29,7 +30,6 @@ import { useSupervisorStats } from "@/hooks/useMobileStats";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
 import { useComplaintsQuery } from "@/queries";
 import type { ActivityLogEntry } from "@/services/mockData";
-import type { SupervisorStatTone } from "@/services/mobileStats";
 import type { ComplaintRecord } from "@/services/complaints.service";
 import {
   hasShownAttendanceReminder,
@@ -236,7 +236,7 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.statsGrid}>
               {summaryCards.map((item) => (
-                <SummaryCard key={item.label} {...item} />
+                <StatSummaryCard key={item.label} {...item} />
               ))}
             </View>
           )}
@@ -283,12 +283,14 @@ export default function HomeScreen() {
           </View>
           {activityLoading ? (
             <RecentActivitySkeleton />
-          ) : (
+          ) : recentActivity.length ? (
             <View style={styles.activityList}>
               {recentActivity.map((item) => (
                 <ActivityListItem key={item.id} item={item} />
               ))}
             </View>
+          ) : (
+            <Text style={[typography.caption, { color: colors.muted }]}>No activity yet.</Text>
           )}
         </View>
       </View>
@@ -299,67 +301,6 @@ export default function HomeScreen() {
       />
       <ComplaintUpdateSheet complaint={activeComplaint} onClose={() => setActiveComplaint(null)} />
     </Screen>
-  );
-}
-
-type SummaryCardProps = {
-  id: string;
-  label: string;
-  value: string;
-  icon: typeof ClipboardCheck;
-  tone: SupervisorStatTone;
-};
-
-function SummaryCard({
-  id,
-  label,
-  value,
-  icon: Icon,
-  tone,
-}: SummaryCardProps) {
-  const { colors } = useTheme();
-  const accentColor =
-    tone === "red"
-      ? colors.red
-      : tone === "green"
-        ? colors.green
-        : tone === "orange"
-          ? colors.primary
-          : colors.blue;
-  const softColor =
-    tone === "orange"
-      ? colors.softOrange
-      : tone === "red"
-        ? "#FEE2E2"
-        : tone === "green"
-          ? "#DCFCE7"
-          : colors.softBlue;
-
-  return (
-    <Pressable
-      onPress={() =>
-        router.push({ pathname: "/stats/[type]", params: { type: id } })
-      }
-      style={({ pressed }) => [
-        styles.statPressable,
-        pressed && { opacity: 0.72 },
-      ]}
-      >
-        <Card style={styles.statCard}>
-          <Text
-            style={[typography.label, styles.statLabel, { color: colors.text }]}
-            numberOfLines={2}
-          >
-            {label}
-          </Text>
-          <View style={styles.statBottom}>
-            <Text style={[styles.statValue, { color: accentColor }]}>{value}</Text>
-            <View style={[styles.statIcon, { backgroundColor: softColor }]}>
-              <Icon size={18} color={accentColor} />
-            </View>
-          </View>
-        </Card>
-      </Pressable>
   );
 }
 
@@ -444,38 +385,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-  },
-  statCard: {
-    width: "100%",
-    minHeight: 106,
-    justifyContent: "space-between",
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-  },
-  statPressable: {
-    width: "31.6%",
-  },
-  statBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  statLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  statIcon: {
-    width: 30,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-  },
-  statValue: {
-    fontFamily: typography.h1.fontFamily,
-    fontSize: 22,
-    lineHeight: 30,
   },
   quickSection: {
     gap: spacing.md,

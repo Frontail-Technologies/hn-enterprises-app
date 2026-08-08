@@ -264,6 +264,7 @@ export type CustomerRecord = {
   commissioningConversion: CommissioningConversion;
   billingCompletion: BillingCompletion;
   documents: CustomerDocument[];
+  customFields?: Record<string, string | boolean>;
 };
 
 export type WorkProgressRecord = {

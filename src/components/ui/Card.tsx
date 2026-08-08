@@ -1,8 +1,8 @@
-import { PropsWithChildren } from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { PropsWithChildren } from "react";
+import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
-import { radius, spacing } from '@/constants/spacing';
-import { useTheme } from '@/context/ThemeContext';
+import { radius, spacing } from "@/constants/spacing";
+import { useTheme } from "@/context/ThemeContext";
 
 type CardProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
@@ -28,7 +28,7 @@ export function Card({ children, style }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

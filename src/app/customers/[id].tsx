@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Navigation, Phone, StickyNote } from "lucide-react-native";
 import {
@@ -15,6 +15,7 @@ import PagerView from "react-native-pager-view";
 
 import { useBillingRemarksPanel } from "@/components/customer-sections/BillingRemarksPanel";
 import { useCustomerComplaintsPanel } from "@/components/customer-sections/CustomerComplaintsPanel";
+import { useCustomFieldsPanel } from "@/components/customer-sections/CustomFieldsPanel";
 import { useCustomerInfoPanel } from "@/components/customer-sections/CustomerInfoPanel";
 import { useDocumentsPanel } from "@/components/customer-sections/DocumentsPanel";
 import { useFittingsAccessoriesPanel } from "@/components/customer-sections/FittingsAccessoriesPanel";
@@ -92,6 +93,9 @@ function CustomerWorkspaceContent({
   const billingPanel = useBillingRemarksPanel(customer, onRefetch);
   const documentsPanel = useDocumentsPanel(customer);
   const complaintsPanel = useCustomerComplaintsPanel(customer);
+  // One tab per dynamic field group (mirrors the web dashboard) - empty when
+  // the signed-in supervisor has no visible custom fields, so no tab shows.
+  const customFieldGroupTabs = useCustomFieldsPanel(customer, onRefetch);
 
   const tabs = [
     { key: "customer", label: "Customer", panel: customerInfoPanel },
@@ -122,13 +126,13 @@ function CustomerWorkspaceContent({
     },
     { key: "documents", label: "Photos / Documents", panel: documentsPanel },
     { key: "complaints", label: "Complaints", panel: complaintsPanel },
+    ...customFieldGroupTabs,
   ];
 
-  // The set of tab keys never actually changes across renders (only each
-  // tab's panel content/footer does), so this is safe to compute once and
-  // reuse in the pager hook below without it churning every render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const tabKeys = useMemo(() => tabs.map((tab) => tab.key), []);
+  // Custom field groups load asynchronously and can append tabs after the
+  // first render, so this is recomputed every render rather than memoized
+  // once at mount.
+  const tabKeys = tabs.map((tab) => tab.key);
 
   const {
     activeKey: activeSection,

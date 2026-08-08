@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { customersService } from "@/services/customers.service";
 import type {
@@ -18,6 +18,18 @@ export function useCustomerListQuery(search?: string) {
   return useQuery({
     queryKey: queryKeys.customers.list(search),
     queryFn: () => customersService.list(search),
+  });
+}
+
+const CUSTOMER_PAGE_SIZE = 100;
+
+export function useCustomerInfiniteListQuery(search?: string) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.customers.list(search), "infinite"],
+    queryFn: ({ pageParam }) => customersService.listPage({ page: pageParam, limit: CUSTOMER_PAGE_SIZE, search }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.page < lastPage.pagination.totalPages ? lastPage.pagination.page + 1 : undefined,
   });
 }
 
@@ -67,6 +79,12 @@ export function useUpdateCivilWorkMutation(customerId: string) {
 
 export function useUpdateMdpeFittingsMutation(customerId: string) {
   return useCustomerMutation<MdpeFittings>((values) => customersService.updateMdpeFittings(customerId, values));
+}
+
+export function useUpdateCustomFieldsMutation(customerId: string) {
+  return useCustomerMutation<Record<string, string | boolean>>((values) =>
+    customersService.updateCustomFields(customerId, values),
+  );
 }
 
 export function useUpdateCommissioningConversionMutation(customerId: string) {

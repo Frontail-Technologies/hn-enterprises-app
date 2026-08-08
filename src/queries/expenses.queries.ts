@@ -12,13 +12,6 @@ export function useExpensesQuery() {
   });
 }
 
-export function useExpenseSiteOptionsQuery() {
-  return useQuery({
-    queryKey: queryKeys.expenses.siteOptions,
-    queryFn: () => expensesApi.listSiteOptions(),
-  });
-}
-
 export function useCreateExpenseMutation() {
   const queryClient = useQueryClient();
 

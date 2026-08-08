@@ -12,10 +12,20 @@ export function useSupervisorStats() {
 
 export function useSupervisorStatDetails(type: string | undefined) {
   const query = useSupervisorStatDetailsQuery(type);
+  const rows = query.data?.pages.flatMap((page) => page.rows) ?? [];
+  const total = query.data?.pages[0]?.pagination.total ?? 0;
+
+  const loadMore = () => {
+    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+  };
 
   return {
-    rows: query.data ?? [],
+    rows,
+    total,
     isLoading: query.isLoading,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: Boolean(query.hasNextPage),
+    loadMore,
     error: query.error instanceof Error ? query.error : null,
   };
 }

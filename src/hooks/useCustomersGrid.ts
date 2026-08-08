@@ -1,15 +1,45 @@
 import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { customerGridColumns } from '@/constants/customers';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
-import { useCustomerList } from '@/hooks/useCustomerRecord';
+import { useCustomerInfiniteListQuery } from '@/queries';
 import type { CustomerGridRow } from '@/types/customers';
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 export function useCustomersGrid() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const openingRowRef = useRef<string | null>(null);
-  const { customers, isLoading } = useCustomerList();
+
+  // Search now hits the server (paginated results can't be filtered
+  // client-side), so debounce it instead of firing a request per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useCustomerInfiniteListQuery(
+    debouncedSearch || undefined,
+  );
+  // isFetchingNextPage only flips after a render, so a burst of onScroll
+  // events (nested scroll views fire these often) can call loadMore several
+  // times before that catches up - this ref-based lock closes that gap.
+  const isFetchingRef = useRef(false);
+  useEffect(() => {
+    isFetchingRef.current = isFetchingNextPage;
+  }, [isFetchingNextPage]);
+
+  // Dedupe by id as a safety net - unstable sort tie-breaks on the backend
+  // (or any other pagination hiccup) could otherwise hand back the same
+  // customer on two pages, which would crash the list on a duplicate key.
+  const customers = useMemo(() => {
+    const seen = new Set<string>();
+    const all = data?.pages.flatMap((page) => page.customers) ?? [];
+    return all.filter((customer) => (seen.has(customer.id) ? false : (seen.add(customer.id), true)));
+  }, [data]);
+  const total = data?.pages[0]?.pagination.total ?? 0;
 
   const rows = useMemo<CustomerGridRow[]>(
     () =>
@@ -42,17 +72,10 @@ export function useCustomersGrid() {
     clearFilter,
   } = useColumnFilters(customerGridColumns, rows);
 
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return rows.filter((row) => {
-      const matchesSearch = query
-        ? customerGridColumns.some((column) => String(row[column.key]).toLowerCase().includes(query))
-        : true;
-
-      return matchesSearch && matchesFilters(row);
-    });
-  }, [matchesFilters, rows, search]);
+  // Free-text search already narrowed `rows` server-side - only the column
+  // filter checkboxes need to run client-side, over whatever pages have
+  // loaded so far (their option lists grow as more pages load in).
+  const filteredRows = useMemo(() => rows.filter((row) => matchesFilters(row)), [matchesFilters, rows]);
 
   const openCustomer = (row: CustomerGridRow) => {
     if (!row.canOpen) return;
@@ -69,10 +92,20 @@ export function useCustomersGrid() {
     }, 900);
   };
 
+  const loadMore = () => {
+    if (!hasNextPage || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    void fetchNextPage();
+  };
+
   return {
     search,
     setSearch,
     isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    loadMore,
+    total,
     rows,
     filteredRows,
     openCustomer,

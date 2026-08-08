@@ -29,7 +29,7 @@ export const expenseStatusLabels: Record<ExpenseStatus, string> = {
 export const expenseGridColumns: FilterableColumn<ExpenseColumnKey>[] = [
   { key: 'purpose', label: 'Purpose' },
   { key: 'paidTo', label: 'Paid To' },
-  { key: 'site', label: 'Site' },
+  { key: 'address', label: 'Address' },
   { key: 'amount', label: 'Amount' },
   { key: 'date', label: 'Date' },
   { key: 'status', label: 'Status' },

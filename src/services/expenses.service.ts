@@ -1,6 +1,5 @@
 import { apiRequest, apiRequestFormData } from "./apiClient";
 import { resolveMediaUrl } from "./uploads.service";
-import { projectsApi } from "./projects.service";
 import type { EvidenceFile } from "./mockData";
 
 export type ExpenseCategory =
@@ -11,7 +10,7 @@ export type ExpenseCategory =
   | "other_expense";
 
 export type ExpenseStatus = "draft" | "submitted" | "approved" | "rejected";
-export type ExpenseMode = "cash" | "upi" | "neft" | "bank_transfer" | "cheque" | "other";
+export type ExpenseMode = string;
 
 export const expenseCategoryOptions: { label: string; value: ExpenseCategory }[] = [
   { label: "Worker Payments", value: "worker_payment" },
@@ -27,7 +26,9 @@ export type ExpenseRecord = {
   purpose: string;
   paidTo: string;
   plumberId: string;
+  customerId: string;
   siteId: string;
+  address: string;
   amount: string;
   date: string;
   paymentMode: ExpenseMode;
@@ -36,14 +37,14 @@ export type ExpenseRecord = {
   evidence: EvidenceFile[];
 };
 
-export type SiteOption = { id: string; name: string };
-
 type BackendPayment = {
   id: string;
   category: ExpenseCategory;
   paidTo: string | null;
   plumberId: string | null;
+  customerId: string | null;
   siteId: string | null;
+  address: string | null;
   amount: string;
   paymentDate: string;
   mode: ExpenseMode;
@@ -72,7 +73,9 @@ function mapExpense(raw: BackendPayment): ExpenseRecord {
     purpose: raw.purpose ?? "",
     paidTo: raw.paidTo ?? "",
     plumberId: raw.plumberId ?? "",
+    customerId: raw.customerId ?? "",
     siteId: raw.siteId ?? "",
+    address: raw.address ?? "",
     amount: raw.amount,
     date: raw.paymentDate.slice(0, 10),
     paymentMode: raw.mode,
@@ -87,7 +90,9 @@ type ExpenseInput = {
   purpose: string;
   paidTo: string;
   plumberId: string;
+  customerId: string;
   siteId: string;
+  address: string;
   amount: string;
   date: string;
   paymentMode: ExpenseMode;
@@ -105,7 +110,9 @@ function buildExpenseFormData(input: ExpenseInput) {
   if (input.purpose) formData.append("purpose", input.purpose);
   if (input.paidTo) formData.append("paidTo", input.paidTo);
   if (input.plumberId) formData.append("plumberId", input.plumberId);
+  if (input.customerId) formData.append("customerId", input.customerId);
   if (input.siteId) formData.append("siteId", input.siteId);
+  if (input.address) formData.append("address", input.address);
   formData.append("amount", input.amount);
   formData.append("paymentDate", input.date);
   formData.append("mode", input.paymentMode);
@@ -154,16 +161,5 @@ export const expensesApi = {
       timeoutMs: 60000,
     });
     return mapExpense(raw);
-  },
-
-  async listSiteOptions(): Promise<SiteOption[]> {
-    const projects = await projectsApi.list();
-    const sitesByProject = await Promise.all(
-      projects.map(async (project) => {
-        const sites = await projectsApi.listSites(project.id);
-        return sites.map((site) => ({ id: site.id, name: `${site.name} (${project.name})` }));
-      }),
-    );
-    return sitesByProject.flat();
   },
 };

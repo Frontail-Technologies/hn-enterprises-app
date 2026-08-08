@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest, apiRequestPaginated, type PaginationMeta } from "./apiClient";
 
 export type SupervisorStatTone = "blue" | "orange" | "green" | "red";
 
@@ -58,7 +58,15 @@ export const statsApi = {
     return apiRequest<SupervisorStat[]>("/stats/summary");
   },
 
-  async getDetails(type: string): Promise<SupervisorStatDetailRow[]> {
-    return apiRequest<SupervisorStatDetailRow[]>(`/stats/${type}/details`);
+  async getDetailsPage(
+    type: string,
+    params: { page: number; limit: number },
+  ): Promise<{ rows: SupervisorStatDetailRow[]; pagination: PaginationMeta }> {
+    const query = new URLSearchParams({ page: String(params.page), limit: String(params.limit) });
+    const { data, pagination } = await apiRequestPaginated<SupervisorStatDetailRow[]>(
+      `/stats/${type}/details?${query.toString()}`,
+    );
+    const rows = data ?? [];
+    return { rows, pagination: pagination ?? { page: params.page, limit: params.limit, total: rows.length, totalPages: 1 } };
   },
 };

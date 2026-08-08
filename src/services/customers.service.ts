@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestFormData } from "./apiClient";
+import { apiRequest, apiRequestFormData, apiRequestPaginated, type PaginationMeta } from "./apiClient";
 import { resolveMediaUrl } from "./uploads.service";
 import type {
   BillingCompletion,
@@ -132,6 +132,7 @@ type BackendCustomer = {
   mdpeFittings: Record<string, unknown> | null;
   commissioningConversion: Record<string, unknown> | null;
   billingCompletion: Record<string, unknown> | null;
+  customFields: Record<string, unknown> | null;
   lmcPipeRecords?: BackendLmcPipeRecord[];
   documents?: BackendCustomerDocument[];
   project?: { id: string; name: string } | null;
@@ -437,6 +438,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     commissioningConversion,
     billingCompletion,
     documents: (raw.documents ?? []).map(mapDocument),
+    customFields: (raw.customFields as Record<string, string | boolean> | null) ?? {},
   };
 }
 
@@ -483,6 +485,17 @@ export const customersService = {
     if (search) query.set("search", search);
     const rows = await apiRequest<BackendCustomer[]>(`/customers?${query.toString()}`);
     return rows.map(mapCustomer);
+  },
+
+  async listPage(params: { page: number; limit: number; search?: string }): Promise<{
+    customers: CustomerRecord[];
+    pagination: PaginationMeta;
+  }> {
+    const query = new URLSearchParams({ page: String(params.page), limit: String(params.limit) });
+    if (params.search) query.set("search", params.search);
+    const { data, pagination } = await apiRequestPaginated<BackendCustomer[]>(`/customers?${query.toString()}`);
+    const customers = (data ?? []).map(mapCustomer);
+    return { customers, pagination: pagination ?? { page: params.page, limit: params.limit, total: customers.length, totalPages: 1 } };
   },
 
   async get(id: string): Promise<CustomerRecord> {
@@ -587,6 +600,14 @@ export const customersService = {
     const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ mdpeFittings }),
+    });
+    return mapCustomer(raw);
+  },
+
+  async updateCustomFields(id: string, customFields: Record<string, string | boolean>): Promise<CustomerRecord> {
+    const raw = await apiRequest<BackendCustomer>(`/customers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ customFields }),
     });
     return mapCustomer(raw);
   },

@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { CheckSquare2, Square } from 'lucide-react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
+import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { radius, spacing } from '@/constants/spacing';
@@ -13,14 +14,26 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { useUpdateBillingMutation } from '@/queries';
+import { useMasterValuesQuery, useUpdateBillingMutation } from '@/queries';
 import { ApiError } from '@/services/apiClient';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
+
+// No backend master category exists for payment status - matches the fixed
+// list the web admin panel uses (customers.service.ts paymentStatusOptions)
+// so both platforms show the same vocabulary.
+const PAYMENT_STATUS_OPTIONS = ['Pending', 'In Review', 'Approved', 'Rejected', 'Completed'].map((status) => ({
+  label: status,
+  value: status,
+}));
 
 export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const updateBillingMutation = useUpdateBillingMutation(customer.id);
+  const { data: paymentModes = [] } = useMasterValuesQuery('Payment Types');
+  const paymentModeOptions = useMemo(() => paymentModes.map((mode) => ({ label: mode, value: mode })), [paymentModes]);
+  const [paymentStatusOpen, setPaymentStatusOpen] = useState(false);
+  const [paymentModeOpen, setPaymentModeOpen] = useState(false);
   const billing = customer.billingCompletion ?? {
     paymentStatus: '',
     paymentMode: '',
@@ -67,8 +80,22 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
 
       <Card style={styles.formCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Summary</Text>
-        <Input label="Payment Status" value={values.paymentStatus} onChangeText={(value) => updateField('paymentStatus', value)} />
-        <Input label="Payment Mode" value={values.paymentMode} onChangeText={(value) => updateField('paymentMode', value)} />
+        <SimpleSelect
+          label="Payment Status"
+          value={values.paymentStatus}
+          options={PAYMENT_STATUS_OPTIONS}
+          open={paymentStatusOpen}
+          onOpenChange={setPaymentStatusOpen}
+          onChange={(value) => updateField('paymentStatus', value)}
+        />
+        <SimpleSelect
+          label="Payment Mode"
+          value={values.paymentMode}
+          options={paymentModeOptions}
+          open={paymentModeOpen}
+          onOpenChange={setPaymentModeOpen}
+          onChange={(value) => updateField('paymentMode', value)}
+        />
         <Input label="Initial Amount" value={values.initialAmount} editable={false} />
       </Card>
 

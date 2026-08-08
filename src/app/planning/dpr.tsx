@@ -242,6 +242,9 @@ const styles = StyleSheet.create({
   },
   tablePanel: {
     gap: spacing.sm,
+    // Bleed out of the screen's own horizontal padding so the table itself
+    // reaches the screen edges instead of floating in a narrower column.
+    marginHorizontal: -20,
   },
   tableRow: {
     minHeight: 46,

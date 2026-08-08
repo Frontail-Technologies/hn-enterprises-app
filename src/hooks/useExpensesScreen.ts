@@ -6,7 +6,6 @@ import { useColumnFilters } from '@/hooks/useColumnFilters';
 import {
   useCreateExpenseMutation,
   useExpensesQuery,
-  useExpenseSiteOptionsQuery,
   useUpdateExpenseMutation,
 } from '@/queries';
 import { ApiError } from '@/services/apiClient';
@@ -23,7 +22,9 @@ function emptyDraft(): ExpenseDraft {
     purpose: '',
     paidTo: '',
     plumberId: '',
+    customerId: '',
     siteId: '',
+    address: '',
     amount: '',
     date: new Date().toISOString().slice(0, 10),
     paymentMode: 'cash',
@@ -36,12 +37,10 @@ function emptyDraft(): ExpenseDraft {
 export function useExpensesScreen() {
   const { showToast } = useToast();
   const expensesQuery = useExpensesQuery();
-  const siteOptionsQuery = useExpenseSiteOptionsQuery();
   const createExpenseMutation = useCreateExpenseMutation();
   const updateExpenseMutation = useUpdateExpenseMutation();
   const expenses = useMemo(() => expensesQuery.data ?? [], [expensesQuery.data]);
-  const sites = useMemo(() => siteOptionsQuery.data ?? [], [siteOptionsQuery.data]);
-  const isLoading = expensesQuery.isLoading || siteOptionsQuery.isLoading;
+  const isLoading = expensesQuery.isLoading;
   const isSaving = createExpenseMutation.isPending || updateExpenseMutation.isPending;
 
   const [search, setSearch] = useState('');
@@ -50,23 +49,13 @@ export function useExpensesScreen() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draftCategoryOpen, setDraftCategoryOpen] = useState(false);
-  const [draftSiteOpen, setDraftSiteOpen] = useState(false);
   const [draftPlumberOpen, setDraftPlumberOpen] = useState(false);
   const [draftModeOpen, setDraftModeOpen] = useState(false);
   const [draftStatusOpen, setDraftStatusOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>(emptyDraft());
 
-  const siteNameById = useMemo(() => new Map(sites.map((site) => [site.id, site.name])), [sites]);
-  const siteSelectOptions = useMemo(
-    () => sites.map((site) => ({ label: site.name, value: site.id })),
-    [sites],
-  );
-
-  const rows = useMemo<ExpenseGridRow[]>(
-    () => expenses.map((expense) => ({ ...expense, site: siteNameById.get(expense.siteId) ?? '' })),
-    [expenses, siteNameById],
-  );
+  const rows = useMemo<ExpenseGridRow[]>(() => expenses, [expenses]);
 
   const {
     activeColumn,
@@ -91,7 +80,7 @@ export function useExpensesScreen() {
       const matchesToDate = toDate ? expense.date <= toDate : true;
       const matchesSearch =
         !query ||
-        [expense.purpose, expense.paidTo, expense.site, expense.paymentMode, expense.status]
+        [expense.purpose, expense.paidTo, expense.address, expense.paymentMode, expense.status]
           .join(' ')
           .toLowerCase()
           .includes(query);
@@ -115,7 +104,9 @@ export function useExpensesScreen() {
       purpose: expense.purpose,
       paidTo: expense.paidTo,
       plumberId: expense.plumberId,
+      customerId: expense.customerId,
       siteId: expense.siteId,
+      address: expense.address,
       amount: expense.amount,
       date: expense.date,
       paymentMode: expense.paymentMode,
@@ -170,7 +161,6 @@ export function useExpensesScreen() {
     rows,
     filteredExpenses,
     total,
-    siteSelectOptions,
     search,
     setSearch,
     fromDate,
@@ -183,8 +173,6 @@ export function useExpensesScreen() {
     setSheetOpen,
     draftCategoryOpen,
     setDraftCategoryOpen,
-    draftSiteOpen,
-    setDraftSiteOpen,
     draftPlumberOpen,
     setDraftPlumberOpen,
     draftModeOpen,
