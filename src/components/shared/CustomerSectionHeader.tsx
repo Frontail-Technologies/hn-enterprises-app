@@ -48,6 +48,7 @@ export function CustomerSectionHeader({ title, customer }: CustomerSectionHeader
 }
 
 CustomerSectionHeader.displayName = 'CustomerSectionHeader';
+CustomerSectionHeader.isStickyHeader = true;
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();

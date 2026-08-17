@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ArrowLeft, ClipboardCheck } from "lucide-react-native";
+import { useCallback } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
@@ -10,12 +12,20 @@ import { Screen } from "@/components/ui/Screen";
 import { spacing } from "@/constants/spacing";
 import { statIcons } from "@/constants/statIcons";
 import { useSupervisorStats } from "@/hooks/useMobileStats";
+import { useResponsive } from "@/hooks/useResponsive";
+import { queryKeys } from "@/queries";
 
 export default function AllStatsScreen() {
   const { stats, isLoading } = useSupervisorStats();
+  const { isTablet, isLargeTablet } = useResponsive();
+  const statCardWidth = isLargeTablet ? "15.3%" : isTablet ? "23.6%" : "31.6%";
+  const queryClient = useQueryClient();
+  const onRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.stats.summary });
+  }, [queryClient]);
 
   return (
-    <Screen scroll edges={["bottom"]} contentStyle={styles.screen}>
+    <Screen scroll edges={["bottom"]} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader
         title="All Stats"
         subtitle="Supervisor work progress summary"
@@ -32,6 +42,7 @@ export default function AllStatsScreen() {
               key={stat.id}
               {...stat}
               icon={statIcons[stat.id] ?? ClipboardCheck}
+              widthPercent={statCardWidth}
             />
           ))}
         </View>

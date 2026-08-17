@@ -14,7 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateCivilWorkMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
@@ -71,7 +71,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
       router.back();
     } catch (error) {
       console.error('[LmcCivilWorkForm] submit failed', { customerId: customer.id, evidenceCount: civilEvidence.length, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit civil work';
+      const message = normalizeError(error, 'Unable to submit civil work');
       showToast(message, 'error');
     }
   };

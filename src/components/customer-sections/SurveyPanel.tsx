@@ -18,7 +18,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpdateSurveyMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
@@ -79,7 +79,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       router.back();
     } catch (error) {
       console.error('[SurveyPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit survey';
+      const message = normalizeError(error, 'Unable to submit survey');
       showToast(message, 'error');
     }
   };
@@ -91,6 +91,8 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       updateField('longitude', nextLocation.longitude.toFixed(5));
     }
   };
+
+  const required = customer.sectionCompletion?.survey.requiredFields ?? [];
 
   const content = (
     <>
@@ -106,7 +108,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       <Card style={styles.formCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Survey Details</Text>
         <Input label="Survey ID" value={survey.surveyId} editable={false} />
-        <DateField label="Survey Date" value={values.surveyDate} onChangeText={(value) => updateField('surveyDate', value)} />
+        <DateField label="Survey Date" required={required.includes('surveyDate')} value={values.surveyDate} onChangeText={(value) => updateField('surveyDate', value)} />
         <Input label="Assigned Surveyor" value={customer.customerConnection.supervisorName} editable={false} />
         <View style={styles.coordsRow}>
           <View style={styles.coordInput}>
@@ -138,7 +140,9 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       </Card>
 
       <Card style={styles.formCard}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Workable Assessment</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Workable Assessment{required.includes('workableStatus') ? ' *' : ''}
+        </Text>
         <View style={styles.optionGrid}>
           {workableOptions.map((option) => (
             <Pressable

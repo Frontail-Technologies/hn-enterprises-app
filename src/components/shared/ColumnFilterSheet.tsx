@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Sheet } from '@/components/ui/Sheet';
-import { radius, spacing } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import type { FilterableColumn } from '@/hooks/useColumnFilters';
@@ -47,27 +47,27 @@ export function ColumnFilterSheet<K extends string>({
       }
     >
       <View style={styles.list}>
-        <Input
-          placeholder="Search filter values"
-          value={filterSearch}
-          onChangeText={onSearchChange}
-          leftIcon={<Search size={18} color={colors.muted} />}
-        />
+        {activeValues.length > 8 || filterSearch.length > 0 ? (
+          <Input
+            placeholder="Search filter values"
+            value={filterSearch}
+            onChangeText={onSearchChange}
+            leftIcon={<Search size={18} color={colors.muted} />}
+          />
+        ) : null}
         {activeValues.map((value) => {
           const selected = pendingValues.includes(value);
           return (
             <Pressable
               key={value}
               onPress={() => onToggleValue(value)}
-              style={[
+              style={({ pressed }) => [
                 styles.option,
-                {
-                  backgroundColor: selected ? colors.softOrange : colors.card,
-                  borderColor: selected ? colors.primary : colors.border,
-                },
+                { borderBottomColor: colors.border, backgroundColor: selected ? colors.softOrange : 'transparent' },
+                pressed && { opacity: 0.7 },
               ]}
             >
-              <Text style={[typography.body, { color: colors.text }]} numberOfLines={2}>
+              <Text style={[typography.body, { color: colors.text }]} numberOfLines={1}>
                 {value}
               </Text>
               {selected ? <Check size={17} color={colors.primary} /> : null}
@@ -81,18 +81,16 @@ export function ColumnFilterSheet<K extends string>({
 
 const styles = StyleSheet.create({
   list: {
-    gap: spacing.sm,
+    gap: 0,
   },
   option: {
-    minHeight: 46,
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.sm,
   },
   footer: {
     flexDirection: 'row',

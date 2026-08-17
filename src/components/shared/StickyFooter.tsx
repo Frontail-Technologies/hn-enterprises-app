@@ -1,13 +1,11 @@
-import { PropsWithChildren, useEffect, useState } from 'react';
-import { Animated, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PropsWithChildren, useEffect, useState } from "react";
+import { Animated, StyleSheet } from "react-native";
 
-import { spacing } from '@/constants/spacing';
-import { useTheme } from '@/context/ThemeContext';
+import { spacing } from "@/constants/spacing";
+import { useTheme } from "@/context/ThemeContext";
 
 export function StickyFooter({ children }: PropsWithChildren) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const [opacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -24,7 +22,7 @@ export function StickyFooter({ children }: PropsWithChildren) {
         styles.footer,
         {
           opacity,
-          paddingBottom: Math.max(insets.bottom + spacing.sm, spacing.lg),
+          paddingBottom: spacing.md,
           backgroundColor: colors.card,
           borderTopColor: colors.border,
         },
@@ -42,4 +40,3 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
 });
-

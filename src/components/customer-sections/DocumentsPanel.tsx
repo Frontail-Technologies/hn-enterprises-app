@@ -56,7 +56,7 @@ function MediaSection({ title, files, uploadedOn }: { title: string; files: Evid
               <Pressable
                 key={file.id}
                 onPress={() => setPreviewFile(file)}
-                style={[styles.thumbnail, { backgroundColor: colors.background, borderColor: colors.border }]}
+                style={[styles.thumbnail, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
               >
                 {isImageFile(file) && file.uri ? (
                   <Image source={{ uri: file.uri }} style={styles.thumbnailImage} contentFit="cover" />

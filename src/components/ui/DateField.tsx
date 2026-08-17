@@ -21,6 +21,7 @@ type DateFieldProps = Omit<
 > & {
   label: string;
   value?: string;
+  required?: boolean;
   onChangeText?: (value: string) => void;
 };
 
@@ -29,6 +30,7 @@ const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 export function DateField({
   label,
   value,
+  required,
   editable = true,
   onChangeText,
 }: DateFieldProps) {
@@ -41,7 +43,10 @@ export function DateField({
 
   return (
     <View style={styles.wrapper}>
-      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>
+        {label}
+        {required ? <Text style={{ color: colors.red }}> *</Text> : null}
+      </Text>
       <Pressable
         disabled={!editable}
         onPress={() => setOpen(true)}
@@ -179,20 +184,22 @@ function buildMonthDays(month: Date) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: spacing.xs,
+    gap: 6,
   },
   label: {
     ...typography.label,
+    fontSize: 14,
+    lineHeight: 18,
   },
   inputRow: {
-    minHeight: 44,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
     borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.lg,
+    borderRadius: radius.input,
+    paddingHorizontal: 14,
   },
   inputText: {
     ...typography.body,

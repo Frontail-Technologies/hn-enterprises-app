@@ -4,8 +4,10 @@ import type {
   BillingCompletion,
   CommissioningConversion,
   CustomerConnectionDetails,
+  CompletionSectionKey,
   CustomerDocument,
   CustomerRecord,
+  CustomerSectionCompletion,
   CustomerStatus,
   EvidenceFile,
   FittingsAccessories,
@@ -137,6 +139,7 @@ type BackendCustomer = {
   documents?: BackendCustomerDocument[];
   project?: { id: string; name: string } | null;
   site?: { id: string; name: string } | null;
+  sectionCompletion?: CustomerSectionCompletion;
 };
 
 type BackendLmcPipeRecord = {
@@ -439,6 +442,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     billingCompletion,
     documents: (raw.documents ?? []).map(mapDocument),
     customFields: (raw.customFields as Record<string, string | boolean> | null) ?? {},
+    sectionCompletion: raw.sectionCompletion,
   };
 }
 
@@ -479,12 +483,44 @@ async function updateCustomerSection(
   });
 }
 
+export type CustomerOption = {
+  id: string;
+  name: string;
+  trBpNo: string;
+  projectId: string;
+  projectName: string;
+  siteId: string;
+  siteArea: string;
+};
+
+function mapCustomerOption(raw: BackendCustomer): CustomerOption {
+  return {
+    id: raw.id,
+    name: raw.customerName,
+    trBpNo: raw.trBpNumber ?? "",
+    projectId: raw.project?.id ?? "",
+    projectName: raw.project?.name ?? "",
+    siteId: raw.site?.id ?? "",
+    siteArea: raw.site?.name ?? "",
+  };
+}
+
 export const customersService = {
   async list(search?: string): Promise<CustomerRecord[]> {
     const query = new URLSearchParams({ limit: "200" });
     if (search) query.set("search", search);
     const rows = await apiRequest<BackendCustomer[]>(`/customers?${query.toString()}`);
     return rows.map(mapCustomer);
+  },
+
+  // Lightweight list for pickers: only the fields needed to label a customer and
+  // resolve its linked project/site. Customers without a linked project+site are
+  // dropped since a DPR can't be filed against them.
+  async listOptions(search?: string): Promise<CustomerOption[]> {
+    const query = new URLSearchParams({ limit: "200" });
+    if (search) query.set("search", search);
+    const rows = await apiRequest<BackendCustomer[]>(`/customers?${query.toString()}`);
+    return rows.map(mapCustomerOption).filter((option) => option.projectId && option.siteId);
   },
 
   async listPage(params: { page: number; limit: number; search?: string }): Promise<{
@@ -496,6 +532,18 @@ export const customersService = {
     const { data, pagination } = await apiRequestPaginated<BackendCustomer[]>(`/customers?${query.toString()}`);
     const customers = (data ?? []).map(mapCustomer);
     return { customers, pagination: pagination ?? { page: params.page, limit: params.limit, total: customers.length, totalPages: 1 } };
+  },
+
+  async setSectionCompletion(
+    id: string,
+    sectionKey: CompletionSectionKey,
+    completed: boolean,
+  ): Promise<CustomerRecord> {
+    const raw = await apiRequest<BackendCustomer>(`/customers/${id}/sections/${sectionKey}/completion`, {
+      method: "PATCH",
+      body: JSON.stringify({ completed }),
+    });
+    return mapCustomer(raw);
   },
 
   async get(id: string): Promise<CustomerRecord> {

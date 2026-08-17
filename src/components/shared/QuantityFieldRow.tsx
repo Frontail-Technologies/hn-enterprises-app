@@ -31,7 +31,7 @@ export function QuantityFieldRow({ label, value, onChangeText, unit = 'Qty', key
         keyboardType={keyboardType}
         placeholder="-"
         placeholderTextColor={colors.muted}
-        style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+        style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}
       />
     </View>
   );

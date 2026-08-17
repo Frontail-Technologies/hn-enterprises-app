@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { customersService } from "@/services/customers.service";
 import type {
   BillingCompletion,
   CommissioningConversion,
+  CompletionSectionKey,
   CustomerRecord,
   FittingsAccessories,
   GiMeasurements,
@@ -18,6 +19,17 @@ export function useCustomerListQuery(search?: string) {
   return useQuery({
     queryKey: queryKeys.customers.list(search),
     queryFn: () => customersService.list(search),
+    // Keep the current results on screen while a new search term fetches,
+    // instead of blanking to a loading state on each keystroke.
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCustomerOptionsQuery(search?: string) {
+  return useQuery({
+    queryKey: queryKeys.customers.options(search),
+    queryFn: () => customersService.listOptions(search),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -30,6 +42,9 @@ export function useCustomerInfiniteListQuery(search?: string) {
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.pagination.page < lastPage.pagination.totalPages ? lastPage.pagination.page + 1 : undefined,
+    // Keep the previously loaded pages visible while a changed search term
+    // refetches, so the grid doesn't flash its skeleton on every keystroke.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -53,6 +68,12 @@ function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<Custome
       queryClient.invalidateQueries({ queryKey: ["stats"] });
     },
   });
+}
+
+export function useSetSectionCompletionMutation(customerId: string) {
+  return useCustomerMutation<{ sectionKey: CompletionSectionKey; completed: boolean }>(({ sectionKey, completed }) =>
+    customersService.setSectionCompletion(customerId, sectionKey, completed),
+  );
 }
 
 export function useUpdateSurveyMutation(customerId: string) {

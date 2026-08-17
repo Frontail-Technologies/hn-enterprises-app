@@ -9,6 +9,11 @@ type InfoRowProps = {
   value?: string | number | null;
 };
 
+function formatValue(value: InfoRowProps['value']) {
+  if (value === undefined || value === null || value === '') return '-';
+  return String(value);
+}
+
 export function InfoRow({ label, value }: InfoRowProps) {
   const { colors } = useTheme();
 
@@ -16,7 +21,7 @@ export function InfoRow({ label, value }: InfoRowProps) {
     <View style={styles.row}>
       <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>
       <Text style={[styles.value, { color: colors.text }]} numberOfLines={2}>
-        {value || '-'}
+        {formatValue(value)}
       </Text>
     </View>
   );
@@ -27,7 +32,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   label: {
     flex: 0.9,

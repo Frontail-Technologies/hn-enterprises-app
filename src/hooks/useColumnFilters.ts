@@ -69,6 +69,18 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
     setActiveColumn(null);
   };
 
+  const clearAllFilters = () => {
+    setFilters({});
+    setPendingValues([]);
+    setFilterSearch('');
+    setActiveColumn(null);
+  };
+
+  const activeFilterCount = useMemo(
+    () => Object.values(filters).filter((values) => (values as string[] | undefined)?.length).length,
+    [filters],
+  );
+
   return {
     filters,
     activeColumn,
@@ -83,5 +95,7 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
   };
 }

@@ -28,7 +28,7 @@ export function StageStatusCard({ record }: StageStatusCardProps) {
         <StatusBadge status={record.status} />
       </View>
 
-      <View style={[styles.actionBox, { backgroundColor: colors.background }]}>
+      <View style={[styles.actionBox, { backgroundColor: colors.surfaceMuted }]}>
         <Text style={[typography.label, { color: colors.muted }]}>Next Required Action</Text>
         <Text style={[styles.actionText, { color: colors.text }]}>{record.nextRequiredAction}</Text>
       </View>

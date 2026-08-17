@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   Bell,
@@ -5,7 +6,7 @@ import {
   LockKeyhole,
   UserRound,
 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ActivityListItem } from "@/components/shared/ActivityListItem";
@@ -26,9 +27,11 @@ import { useAttendanceStatus } from "@/context/AttendanceContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useResponsive } from "@/hooks/useResponsive";
 import { useSupervisorStats } from "@/hooks/useMobileStats";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
-import { useComplaintsQuery } from "@/queries";
+import { guardNavigation } from "@/lib/navigation";
+import { queryKeys, useComplaintsQuery } from "@/queries";
 import type { ActivityLogEntry } from "@/services/mockData";
 import type { ComplaintRecord } from "@/services/complaints.service";
 import {
@@ -40,17 +43,25 @@ import { formatTime } from "@/utils/format";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const { isTablet, isLargeTablet } = useResponsive();
+  const statCardWidth = isLargeTablet ? "15.3%" : isTablet ? "23.6%" : "31.6%";
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const attendance = useAttendanceStatus();
   const [reminderVisible, setReminderVisible] = useState(false);
-  const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
+  const [activeComplaint, setActiveComplaint] =
+    useState<ComplaintRecord | null>(null);
 
   useEffect(() => {
     // Guard against showing this more than once per app session - e.g. if this
     // screen re-mounts (tab re-focus, fast refresh) while the timer is pending,
     // or the effect re-runs as attendance state settles from loading -> loaded.
-    if (attendance.loading || attendance.isCheckedInToday || hasShownAttendanceReminder()) return;
+    if (
+      attendance.loading ||
+      attendance.isCheckedInToday ||
+      hasShownAttendanceReminder()
+    )
+      return;
 
     const timer = setTimeout(() => {
       markAttendanceReminderShown();
@@ -111,36 +122,52 @@ export default function HomeScreen() {
     ? colors.green
     : colors.primary;
 
-  const { items: recentActivity, isLoading: activityLoading } = useRecentActivity({
-    extra: attendanceActivity,
-    limit: 4,
-    supervisorId: user?.id,
-  });
+  const { items: recentActivity, isLoading: activityLoading } =
+    useRecentActivity({
+      extra: attendanceActivity,
+      limit: 4,
+      supervisorId: user?.id,
+    });
 
   const { stats, isLoading: statsLoading } = useSupervisorStats();
-  const summaryCards = stats
-    .slice(0, 6)
-    .map((stat) => ({
-      ...stat,
-      icon: statIcons[stat.id] ?? ClipboardCheck,
-    }));
+  const summaryCards = stats.slice(0, 6).map((stat) => ({
+    ...stat,
+    icon: statIcons[stat.id] ?? ClipboardCheck,
+  }));
 
-  const { data: complaints = [], isLoading: complaintsLoading } = useComplaintsQuery({
-    supervisorId: user?.id,
-  });
+  const {
+    data: complaints = [],
+    isLoading: complaintsLoading,
+    refetch: refetchComplaints,
+  } = useComplaintsQuery();
   const openComplaints = complaints
-    .filter((complaint) => complaint.status === "open" || complaint.status === "in_progress")
+    .filter(
+      (complaint) =>
+        complaint.status === "open" || complaint.status === "in_progress",
+    )
     .slice(0, 3);
 
+  const queryClient = useQueryClient();
+  // Home surfaces attendance + stats + complaints + activity - each pulled
+  // from its own source, so a pull-to-refresh here refetches exactly those
+  // four instead of every active query in the app.
+  const onRefresh = useCallback(async () => {
+    await Promise.all([
+      attendance.refetch(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats.summary }),
+      queryClient.invalidateQueries({ queryKey: ["activity", "recent"] }),
+      refetchComplaints(),
+    ]);
+  }, [attendance, queryClient, refetchComplaints]);
+
   return (
-    <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
+    <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader
         title={user?.name ?? "Supervisor"}
-        subtitle="Good Morning, here's your operational overview"
         right={
           <View style={styles.headerActions}>
             <Pressable
-              onPress={() => router.push("/notifications")}
+              onPress={() => guardNavigation(() => router.push("/notifications"))}
               style={styles.notificationWrap}
             >
               <Bell size={23} color="#FFFFFF" />
@@ -153,7 +180,7 @@ export default function HomeScreen() {
               ) : null}
             </Pressable>
             <Pressable
-              onPress={() => router.push("/profile")}
+              onPress={() => guardNavigation(() => router.push("/profile"))}
               style={[
                 styles.profileAction,
                 { borderColor: "rgba(255,255,255,0.28)" },
@@ -196,22 +223,24 @@ export default function HomeScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => {
-              if (attendance.isCheckedInToday) {
-                const today = new Date();
-                router.push({
-                  pathname: "/attendance/[day]",
-                  params: {
-                    day: String(today.getDate()),
-                    date: toDateKey(today),
-                    status: "Present",
-                  },
-                });
-                return;
-              }
+            onPress={() =>
+              guardNavigation(() => {
+                if (attendance.isCheckedInToday) {
+                  const today = new Date();
+                  router.push({
+                    pathname: "/attendance/[day]",
+                    params: {
+                      day: String(today.getDate()),
+                      date: toDateKey(today),
+                      status: "Present",
+                    },
+                  });
+                  return;
+                }
 
-              router.push("/attendance");
-            }}
+                router.push("/attendance");
+              })
+            }
             style={[styles.detailsButton, { borderColor: colors.border }]}
           >
             <Text style={[typography.label, { color: colors.text }]}>
@@ -225,7 +254,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Work Stats
             </Text>
-            <Pressable onPress={() => router.push("/stats")}>
+            <Pressable onPress={() => guardNavigation(() => router.push("/stats"))}>
               <Text style={[typography.label, { color: colors.primary }]}>
                 View more
               </Text>
@@ -236,7 +265,11 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.statsGrid}>
               {summaryCards.map((item) => (
-                <StatSummaryCard key={item.label} {...item} />
+                <StatSummaryCard
+                  key={item.label}
+                  {...item}
+                  widthPercent={statCardWidth}
+                />
               ))}
             </View>
           )}
@@ -247,7 +280,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Complaints
             </Text>
-            <Pressable onPress={() => router.push("/complaints")}>
+            <Pressable onPress={() => guardNavigation(() => router.push("/complaints"))}>
               <Text style={[typography.label, { color: colors.primary }]}>
                 View all
               </Text>
@@ -266,7 +299,9 @@ export default function HomeScreen() {
               ))}
             </View>
           ) : (
-            <Text style={[typography.caption, { color: colors.muted }]}>No open complaints.</Text>
+            <Text style={[typography.caption, { color: colors.muted }]}>
+              No open complaints.
+            </Text>
           )}
         </View>
 
@@ -275,7 +310,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Activity
             </Text>
-            <Pressable onPress={() => router.push("/activity")}>
+            <Pressable onPress={() => guardNavigation(() => router.push("/activity"))}>
               <Text style={[typography.label, { color: colors.primary }]}>
                 View all
               </Text>
@@ -290,7 +325,9 @@ export default function HomeScreen() {
               ))}
             </View>
           ) : (
-            <Text style={[typography.caption, { color: colors.muted }]}>No activity yet.</Text>
+            <Text style={[typography.caption, { color: colors.muted }]}>
+              No activity yet.
+            </Text>
           )}
         </View>
       </View>
@@ -299,7 +336,10 @@ export default function HomeScreen() {
         visible={reminderVisible}
         onClose={() => setReminderVisible(false)}
       />
-      <ComplaintUpdateSheet complaint={activeComplaint} onClose={() => setActiveComplaint(null)} />
+      <ComplaintUpdateSheet
+        complaint={activeComplaint}
+        onClose={() => setActiveComplaint(null)}
+      />
     </Screen>
   );
 }

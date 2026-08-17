@@ -8,6 +8,7 @@ export const queryKeys = {
   },
   customers: {
     list: (search?: string) => ["customers", "list", search ?? ""] as const,
+    options: (search?: string) => ["customers", "options", search ?? ""] as const,
     detail: (id?: string) => ["customers", "detail", id ?? ""] as const,
     notes: (id?: string) => ["customers", "notes", id ?? ""] as const,
   },
@@ -23,9 +24,9 @@ export const queryKeys = {
     sites: (projectId: string) => ["projects", projectId, "sites"] as const,
   },
   planning: {
-    sitePlans: (params: { projectId?: string; siteId?: string; supervisorId?: string; date?: string }) =>
+    sitePlans: (params: { projectId?: string; siteId?: string; supervisorId?: string; customerId?: string; date?: string }) =>
       ["planning", "site-plans", params] as const,
-    dprRecords: (params: { projectId?: string; siteId?: string; supervisorId?: string; date?: string }) =>
+    dprRecords: (params: { projectId?: string; siteId?: string; supervisorId?: string; customerId?: string; date?: string }) =>
       ["planning", "dpr-records", params] as const,
   },
   work: {
@@ -38,6 +39,7 @@ export const queryKeys = {
   },
   expenses: {
     all: ["expenses"] as const,
+    detail: (id?: string) => ["expenses", "detail", id ?? ""] as const,
   },
   plumbers: {
     all: ["plumbers"] as const,

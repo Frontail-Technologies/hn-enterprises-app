@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { guardNavigation } from '@/lib/navigation';
 import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
 
@@ -25,7 +26,7 @@ export function AttendanceReminderSheet({ visible, onClose }: AttendanceReminder
           label="Check In Now"
           onPress={() => {
             onClose();
-            router.push('/attendance');
+            guardNavigation(() => router.push('/attendance'));
           }}
         />
         <Button label="Remind Me Later" variant="outline" onPress={onClose} />

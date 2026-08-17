@@ -3,17 +3,27 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, FileText, ImageIcon, MapPin, Plus, RefreshCcw, RotateCcw, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import {
+  ALLOWED_DOCUMENT_MIME,
+  MAX_DOCUMENT_BYTES,
+  MAX_EVIDENCE_COUNT,
+  MAX_IMAGE_BYTES,
+  formatBytes,
+  isImageAsset,
+} from '@/constants/uploads';
 import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
-import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
-import { ApiError } from '@/services/apiClient';
 import type { EvidenceFile } from '@/services/mockData';
+import { processEvidenceImage } from '@/services/imageProcessing';
 import { resolveMediaUrl, uploadFile, type UploadAsset } from '@/services/uploads.service';
+import { normalizeError } from '@/utils/normalizeError';
 
 type EvidenceUploaderProps = {
   title?: string;
@@ -22,32 +32,33 @@ type EvidenceUploaderProps = {
   recordId?: string;
   onChange?: (files: EvidenceFile[]) => void;
   readOnly?: boolean;
-  // When true, picked files are staged locally (status: 'Pending') instead of
-  // uploaded immediately - the caller is responsible for embedding them in
-  // its own save request. Avoids uploading a file the user never ends up
-  // saving.
   deferUpload?: boolean;
 };
 
 type PendingAsset = {
   uri: string;
-  fileName: string;
+  originalName: string;
   mimeType?: string;
+  size?: number | null;
+  width?: number | null;
+  height?: number | null;
   assetId?: string | null;
+  isImage: boolean;
+  label: string;
 };
 
 const IMAGE_EXTENSION_RE = /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i;
 
-// mimeType isn't always available (evidence loaded back from the server never
-// carries one - see mapEvidenceFile in expenses.service.ts) and hosted URLs
-// (e.g. Cloudinary) don't reliably end in a file extension either, so
-// fileName is the one field that's always present and trustworthy here.
 export function isImageFile(file: Pick<EvidenceFile, 'mimeType' | 'fileName' | 'uri'>) {
   return Boolean(
     file.mimeType?.startsWith('image/') ||
       IMAGE_EXTENSION_RE.test(file.fileName) ||
       (file.uri && IMAGE_EXTENSION_RE.test(file.uri)),
   );
+}
+
+function displayName(file: EvidenceFile, index: number) {
+  return file.label?.trim() || `Photo ${index + 1}`;
 }
 
 export function EvidenceUploader({
@@ -60,11 +71,14 @@ export function EvidenceUploader({
   deferUpload = false,
 }: EvidenceUploaderProps) {
   const { colors } = useTheme();
-  const { location, captureLocation } = useCurrentLocation();
+  const { showToast } = useToast();
+  const { location, error: locationError, loading: locationLoading, captureLocation } = useCurrentLocation();
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles);
   const [previewFile, setPreviewFile] = useState<EvidenceFile | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingAssets, setPendingAssets] = useState<PendingAsset[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [progressById, setProgressById] = useState<Record<string, number>>({});
 
   const openSheet = () => {
     setPendingAssets([]);
@@ -75,62 +89,79 @@ export function EvidenceUploader({
     setPendingAssets([]);
   };
 
+  const queueAssets = (incoming: PendingAsset[]) => {
+    const available = MAX_EVIDENCE_COUNT - (files.length + pendingAssets.length);
+    if (available <= 0) {
+      showToast(`You can attach up to ${MAX_EVIDENCE_COUNT} files.`, 'warning');
+      return;
+    }
+
+    const accepted: PendingAsset[] = [];
+    let rejection: string | null = null;
+
+    for (const asset of incoming) {
+      if (accepted.length >= available) {
+        rejection = rejection ?? `You can attach up to ${MAX_EVIDENCE_COUNT} files.`;
+        break;
+      }
+      const error = validateAsset(asset);
+      if (error) {
+        rejection = rejection ?? error;
+        continue;
+      }
+      accepted.push(asset);
+    }
+
+    if (accepted.length) setPendingAssets((current) => [...current, ...accepted]);
+    if (rejection) showToast(rejection, 'error');
+  };
+
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return;
+    if (!permission.granted) {
+      showToast('Camera permission is required.', 'error');
+      return;
+    }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-    });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 });
     if (result.canceled) return;
-    queuePending(result.assets, 'camera');
+    queueAssets(result.assets.map((asset) => fromImageAsset(asset)));
   };
 
   const pickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!permission.granted) {
+      showToast('Photo library permission is required.', 'error');
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsMultipleSelection: true,
       mediaTypes: ['images'],
-      quality: 0.85,
+      quality: 1,
     });
     if (result.canceled) return;
-    queuePending(result.assets, 'gallery');
+    queueAssets(result.assets.map((asset) => fromImageAsset(asset)));
   };
 
   const pickFromFiles = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      multiple: true,
-      copyToCacheDirectory: true,
-    });
+    const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
     if (result.canceled) return;
 
-    setPendingAssets((current) => [
-      ...current,
-      ...result.assets.map((asset) => ({
+    queueAssets(
+      result.assets.map((asset) => ({
         uri: asset.uri,
-        fileName: asset.name,
+        originalName: asset.name,
         mimeType: asset.mimeType,
+        size: asset.size,
+        isImage: isImageAsset(asset.mimeType, asset.name),
+        label: '',
       })),
-    ]);
+    );
   };
 
-  const queuePending = (assets: ImagePicker.ImagePickerAsset[], source: 'camera' | 'gallery') => {
-    setPendingAssets((current) => [
-      ...current,
-      ...assets.map((asset) => ({
-        uri: asset.uri,
-        fileName: asset.fileName ?? `${source}-${Date.now()}.jpg`,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        assetId: asset.assetId,
-      })),
-    ]);
-  };
-
-  const updatePendingName = (index: number, name: string) => {
-    setPendingAssets((current) => current.map((asset, i) => (i === index ? { ...asset, fileName: name } : asset)));
+  const updatePendingLabel = (index: number, label: string) => {
+    setPendingAssets((current) => current.map((asset, i) => (i === index ? { ...asset, label } : asset)));
   };
 
   const removePending = (index: number) => {
@@ -138,15 +169,8 @@ export function EvidenceUploader({
   };
 
   useEffect(() => {
-    // Only report files that are safe to persist: already-uploaded ones (real
-    // fileUrl) or, in deferred mode, staged local files meant to be embedded
-    // at save time. Excludes still-uploading/failed eager-mode items, which
-    // otherwise get saved with no fileUrl and turn into permanently-broken
-    // evidence entries (as happened before uploads were fixed).
     const persistable = files.filter((file) => file.fileUrl || (deferUpload && file.uri));
     onChange?.(persistable);
-    // onChange intentionally excluded: it should fire when `files` changes, not when the
-    // caller passes a new function reference (e.g. an inline callback re-created on render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, deferUpload]);
 
@@ -155,8 +179,11 @@ export function EvidenceUploader({
   };
 
   const runUpload = async (id: string, asset: UploadAsset) => {
+    setProgressById((current) => ({ ...current, [id]: 0 }));
     try {
-      const uploaded = await uploadFile(asset, module, recordId);
+      const uploaded = await uploadFile(asset, module, recordId, (fraction) => {
+        setProgressById((current) => ({ ...current, [id]: fraction }));
+      });
       updateFiles((current) =>
         current.map((file) =>
           file.id === id
@@ -172,41 +199,76 @@ export function EvidenceUploader({
         ),
       );
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Unable to upload file';
-      console.error('[EvidenceUploader] upload failed', {
-        module,
-        recordId,
-        fileName: asset.fileName,
-        mimeType: asset.mimeType,
-        error,
-      });
+      const message = normalizeError(error, 'Unable to upload file');
+      console.error('[EvidenceUploader] upload failed', { module, recordId, fileName: asset.fileName, error });
       updateFiles((current) =>
         current.map((file) => (file.id === id ? { ...file, status: 'Failed', errorMessage: message } : file)),
       );
+    } finally {
+      setProgressById((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
     }
   };
 
-  const confirmPending = () => {
-    const capturedAt = new Date().toISOString();
-    const gpsLocation = location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : undefined;
-    const staged: EvidenceFile[] = pendingAssets.map((asset) => ({
-      id: `${asset.assetId ?? asset.uri}-${Date.now()}`,
-      fileName: asset.fileName,
-      uri: asset.uri,
-      mimeType: asset.mimeType ?? 'application/octet-stream',
-      status: deferUpload ? ('Pending' as const) : ('Uploading' as const),
-      capturedAt,
-      gpsLocation,
-    }));
+  const confirmPending = async () => {
+    if (processing) return;
+    setProcessing(true);
+    try {
+      const capturedAt = new Date().toISOString();
+      const gpsLocation = location
+        ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+        : undefined;
+      const stamp = Date.now();
+      const staged: EvidenceFile[] = [];
+      const rejected: string[] = [];
 
-    updateFiles((current) => [...current, ...staged]);
-    closeSheet();
+      for (let index = 0; index < pendingAssets.length; index += 1) {
+        const asset = pendingAssets[index];
+        const base = {
+          id: `${asset.assetId ?? asset.uri}-${stamp}-${index}`,
+          label: asset.label.trim() || undefined,
+          status: (deferUpload ? 'Pending' : 'Uploading') as EvidenceFile['status'],
+          capturedAt,
+          gpsLocation,
+        };
 
-    if (deferUpload) return;
+        if (asset.isImage) {
+          try {
+            const processed = await processEvidenceImage(asset.uri, { width: asset.width, height: asset.height });
+            if (processed.size && processed.size > MAX_IMAGE_BYTES) {
+              rejected.push(`"${asset.originalName}" is still over ${formatBytes(MAX_IMAGE_BYTES)} after compression.`);
+              continue;
+            }
+            staged.push({ ...base, fileName: `evidence-${stamp}-${index}.jpg`, uri: processed.uri, mimeType: processed.mimeType });
+          } catch {
+            rejected.push(`Couldn't process "${asset.originalName}". Please try another photo.`);
+          }
+        } else {
+          staged.push({
+            ...base,
+            fileName: asset.originalName,
+            uri: asset.uri,
+            mimeType: asset.mimeType ?? 'application/octet-stream',
+          });
+        }
+      }
 
-    staged.forEach((file) => {
-      void runUpload(file.id, { uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType });
-    });
+      if (staged.length) {
+        updateFiles((current) => [...current, ...staged]);
+        closeSheet();
+        if (!deferUpload) {
+          staged.forEach((file) => {
+            void runUpload(file.id, { uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType });
+          });
+        }
+      }
+      if (rejected.length) showToast(rejected[0], 'error');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const removeFile = (id: string) => {
@@ -214,22 +276,18 @@ export function EvidenceUploader({
   };
 
   const replaceFile = async (id: string) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-    });
-
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const processed = await processEvidenceImage(asset.uri, { width: asset.width, height: asset.height });
     updateFiles((current) =>
       current.map((file) =>
         file.id === id
           ? {
               ...file,
-              uri: asset.uri,
-              mimeType,
+              uri: processed.uri,
+              mimeType: processed.mimeType,
               fileUrl: deferUpload ? undefined : file.fileUrl,
               status: deferUpload ? 'Pending' : 'Uploading',
               capturedAt: new Date().toISOString(),
@@ -240,9 +298,9 @@ export function EvidenceUploader({
 
     if (deferUpload) return;
 
-    const existingFileName = files.find((file) => file.id === id)?.fileName;
-    const fileName = existingFileName ?? `replacement-${id}.jpg`;
-    void runUpload(id, { uri: asset.uri, fileName, mimeType });
+    const existing = files.find((file) => file.id === id);
+    const fileName = existing?.fileName ?? 'evidence.jpg';
+    void runUpload(id, { uri: processed.uri, fileName, mimeType: processed.mimeType });
   };
 
   const retryFile = (id: string) => {
@@ -278,12 +336,13 @@ export function EvidenceUploader({
 
       {files.length ? (
         <View style={styles.fileList}>
-          {files.map((file) => {
+          {files.map((file, index) => {
             const isImage = isImageFile(file);
+            const progress = progressById[file.id];
 
             return (
               <View key={file.id} style={[styles.fileItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Pressable onPress={() => setPreviewFile(file)} style={[styles.thumb, { backgroundColor: colors.background }]}>
+                <Pressable onPress={() => setPreviewFile(file)} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]}>
                   {isImage && file.uri ? (
                     <Image source={{ uri: file.uri }} style={styles.thumbImage} contentFit="cover" />
                   ) : (
@@ -292,10 +351,10 @@ export function EvidenceUploader({
                 </Pressable>
                 <View style={styles.fileCopy}>
                   <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
-                    {file.fileName}
+                    {displayName(file, index)}
                   </Text>
-                  <Text style={[typography.label, { color: colors.muted }]}>
-                    {file.status ?? 'Uploaded'} : {file.capturedAt ? new Date(file.capturedAt).toLocaleString() : '-'}
+                  <Text style={[typography.label, { color: statusColor(file.status, colors) }]}>
+                    {statusLabel(file.status, progress)}
                   </Text>
                   {file.status === 'Failed' && file.errorMessage ? (
                     <Text style={[typography.label, { color: colors.red }]} numberOfLines={2}>
@@ -303,20 +362,20 @@ export function EvidenceUploader({
                     </Text>
                   ) : null}
                   {file.gpsLocation ? (
-                    <Text style={[typography.label, { color: colors.muted }]}>GPS: {file.gpsLocation}</Text>
+                    <Text style={[typography.label, { color: colors.muted }]}>Location attached</Text>
                   ) : null}
                 </View>
                 {readOnly ? null : (
                   <View style={styles.fileActions}>
-                    <Pressable onPress={() => replaceFile(file.id)}>
+                    <Pressable onPress={() => replaceFile(file.id)} hitSlop={6}>
                       <RefreshCcw size={16} color={colors.primary} />
                     </Pressable>
                     {file.status === 'Failed' ? (
-                      <Pressable onPress={() => retryFile(file.id)}>
+                      <Pressable onPress={() => retryFile(file.id)} hitSlop={6}>
                         <RotateCcw size={16} color={colors.red} />
                       </Pressable>
                     ) : null}
-                    <Pressable onPress={() => removeFile(file.id)}>
+                    <Pressable onPress={() => removeFile(file.id)} hitSlop={6}>
                       <X size={16} color={colors.red} />
                     </Pressable>
                   </View>
@@ -328,48 +387,67 @@ export function EvidenceUploader({
       ) : null}
 
       {readOnly ? null : (
-      <Sheet visible={sheetOpen} onClose={closeSheet} title={title}>
-        {pendingAssets.length === 0 ? (
-          <>
-            <View style={styles.actionRow}>
-              <EvidenceAction icon={Camera} label="Camera" onPress={pickFromCamera} />
-              <EvidenceAction icon={ImageIcon} label="Gallery" onPress={pickFromGallery} />
-              <EvidenceAction icon={FileText} label="File" onPress={pickFromFiles} />
-            </View>
-            <Pressable onPress={captureLocation} style={[styles.gpsButton, { borderColor: colors.border }]}>
-              <MapPin size={14} color={location ? colors.green : colors.muted} />
-              <Text style={[styles.gpsText, { color: location ? colors.green : colors.muted }]}>
-                {location ? 'GPS added to next upload' : 'Tag current location'}
-              </Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <Text style={[typography.label, { color: colors.muted }]}>Name each file before adding</Text>
-            {pendingAssets.map((asset, index) => (
-              <PendingAssetRow
-                key={`${asset.uri}-${index}`}
-                asset={asset}
-                onChangeName={(value) => updatePendingName(index, value)}
-                onRemove={() => removePending(index)}
-              />
-            ))}
-            <View style={styles.confirmRow}>
+        <Sheet visible={sheetOpen} onClose={closeSheet} title={title}>
+          {pendingAssets.length === 0 ? (
+            <>
+              <View style={styles.actionRow}>
+                <EvidenceAction icon={Camera} label="Camera" onPress={pickFromCamera} />
+                <EvidenceAction icon={ImageIcon} label="Gallery" onPress={pickFromGallery} />
+                <EvidenceAction icon={FileText} label="File" onPress={pickFromFiles} />
+              </View>
               <Pressable
-                onPress={() => setPendingAssets([])}
-                style={[styles.confirmSecondary, { borderColor: colors.border }]}
+                onPress={captureLocation}
+                disabled={locationLoading}
+                style={[styles.gpsButton, { borderColor: location ? colors.green : colors.border }]}
               >
-                <Text style={[typography.label, { color: colors.text }]}>Add more</Text>
-              </Pressable>
-              <Pressable onPress={confirmPending} style={[styles.confirmPrimary, { backgroundColor: colors.primary }]}>
-                <Text style={[typography.label, styles.confirmPrimaryText]}>
-                  Add {pendingAssets.length} file{pendingAssets.length === 1 ? '' : 's'}
+                <MapPin size={14} color={location ? colors.green : colors.muted} />
+                <Text style={[styles.gpsText, { color: location ? colors.green : colors.muted }]}>
+                  {locationLoading
+                    ? 'Getting location…'
+                    : location
+                      ? `Location attached${location.accuracy ? ` · ±${Math.round(location.accuracy)}m` : ''}`
+                      : 'Tag current location'}
                 </Text>
               </Pressable>
-            </View>
-          </>
-        )}
-      </Sheet>
+              {locationError ? (
+                <Text style={[typography.label, { color: colors.red }]}>
+                  {locationError} Enable location permission in Settings to tag evidence.
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={[typography.label, { color: colors.muted }]}>Add an optional label for each file</Text>
+              {pendingAssets.map((asset, index) => (
+                <PendingAssetRow
+                  key={`${asset.uri}-${index}`}
+                  asset={asset}
+                  onChangeLabel={(value) => updatePendingLabel(index, value)}
+                  onRemove={() => removePending(index)}
+                />
+              ))}
+              <View style={styles.confirmRow}>
+                <Pressable
+                  onPress={() => setPendingAssets([])}
+                  style={[styles.confirmSecondary, { borderColor: colors.border }]}
+                >
+                  <Text style={[typography.label, { color: colors.text }]}>Add more</Text>
+                </Pressable>
+                <Pressable
+                  onPress={confirmPending}
+                  disabled={processing}
+                  style={[styles.confirmPrimary, { backgroundColor: colors.primary, opacity: processing ? 0.7 : 1 }]}
+                >
+                  <Text style={[typography.label, styles.confirmPrimaryText]}>
+                    {processing
+                      ? 'Preparing…'
+                      : `Add ${pendingAssets.length} file${pendingAssets.length === 1 ? '' : 's'}`}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </Sheet>
       )}
 
       <Modal visible={Boolean(previewFile)} transparent animationType="fade" onRequestClose={() => setPreviewFile(null)}>
@@ -380,7 +458,9 @@ export function EvidenceUploader({
             ) : (
               <FileText size={52} color={colors.primary} />
             )}
-            <Text style={[styles.previewName, { color: colors.text }]}>{previewFile?.fileName}</Text>
+            <Text style={[styles.previewName, { color: colors.text }]}>
+              {previewFile ? displayName(previewFile, 0) : ''}
+            </Text>
           </View>
         </Pressable>
       </Modal>
@@ -388,33 +468,70 @@ export function EvidenceUploader({
   );
 }
 
+function fromImageAsset(asset: ImagePicker.ImagePickerAsset): PendingAsset {
+  return {
+    uri: asset.uri,
+    originalName: asset.fileName ?? `photo-${Date.now()}.jpg`,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+    size: asset.fileSize,
+    width: asset.width,
+    height: asset.height,
+    assetId: asset.assetId,
+    isImage: true,
+    label: '',
+  };
+}
+
+function validateAsset(asset: PendingAsset): string | null {
+  if (asset.isImage) return null;
+  const name = asset.originalName;
+  if (asset.mimeType && !ALLOWED_DOCUMENT_MIME.includes(asset.mimeType)) {
+    return `"${name}" isn't a supported file type.`;
+  }
+  if (asset.size && asset.size > MAX_DOCUMENT_BYTES) {
+    return `"${name}" is too large. Choose a file under ${formatBytes(MAX_DOCUMENT_BYTES)}.`;
+  }
+  return null;
+}
+
+function statusLabel(status: EvidenceFile['status'], progress?: number) {
+  if (status === 'Uploading') return `Uploading ${Math.round((progress ?? 0) * 100)}%`;
+  if (status === 'Failed') return 'Failed';
+  if (status === 'Pending') return 'Ready to upload';
+  return 'Uploaded';
+}
+
+function statusColor(status: EvidenceFile['status'], colors: ReturnType<typeof useTheme>['colors']) {
+  if (status === 'Failed') return colors.red;
+  if (status === 'Uploading') return colors.blue;
+  if (status === 'Pending') return colors.muted;
+  return colors.green;
+}
+
 function PendingAssetRow({
   asset,
-  onChangeName,
+  onChangeLabel,
   onRemove,
 }: {
   asset: PendingAsset;
-  onChangeName: (value: string) => void;
+  onChangeLabel: (value: string) => void;
   onRemove: () => void;
 }) {
   const { colors } = useTheme();
-  const { ref, onFocus } = useScrollIntoViewOnFocus();
 
   return (
     <View style={[styles.pendingRow, { borderColor: colors.border }]}>
-      <View style={[styles.thumb, styles.pendingThumb, { backgroundColor: colors.background }]}>
-        {asset.mimeType?.startsWith('image/') ? (
+      <View style={[styles.thumb, styles.pendingThumb, { backgroundColor: colors.surfaceMuted }]}>
+        {asset.isImage ? (
           <Image source={{ uri: asset.uri }} style={styles.thumbImage} contentFit="cover" />
         ) : (
           <FileText size={20} color={colors.primary} />
         )}
       </View>
-      <TextInput
-        ref={ref}
-        onFocus={onFocus}
-        value={asset.fileName}
-        onChangeText={onChangeName}
-        placeholder="Document name"
+      <BottomSheetTextInput
+        value={asset.label}
+        onChangeText={onChangeLabel}
+        placeholder="Label (optional) e.g. Meter location"
         placeholderTextColor={colors.muted}
         style={[styles.pendingNameInput, { color: colors.text, borderColor: colors.border }]}
       />
@@ -461,7 +578,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   addButton: {
-    minHeight: 42,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -514,10 +631,10 @@ const styles = StyleSheet.create({
   },
   pendingNameInput: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
+    borderRadius: radius.input,
+    paddingHorizontal: 14,
     ...typography.label,
   },
   confirmRow: {
@@ -572,7 +689,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fileName: {
-    ...typography.caption,
+    ...typography.bodyMedium,
+    fontSize: 13,
+    lineHeight: 17,
   },
   fileActions: {
     alignItems: 'center',

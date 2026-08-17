@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -13,7 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 
 export default function LoginScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
   const [resetMode, setResetMode] = useState(false);
 
@@ -22,7 +23,8 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen contentStyle={[styles.screen, { backgroundColor: colors.background }]}>
+    <Screen scroll refreshable={false} contentStyle={[styles.screen, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.logoBlock}>
         <Image
           source={require("@/assets/images/logo.png")}
@@ -51,36 +53,32 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
-    paddingTop: spacing.xxl,
-    paddingHorizontal: 20,
+    justifyContent: "center",
+    gap: spacing.lg,
+    paddingVertical: spacing.xl,
   },
   logoBlock: {
     alignItems: "center",
-    gap: spacing.xs,
-    marginTop: spacing.md,
-    zIndex: 2,
   },
   logo: {
-    width: 240,
-    height: 146,
+    width: 200,
+    height: 120,
   },
   loginCard: {
     width: "100%",
-    marginTop: spacing.lg,
     gap: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.sm,
+    borderRadius: radius.card,
   },
   supportText: {
     ...typography.caption,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     textAlign: "center",
   },
   version: {
-    position: "absolute",
-    bottom: 18,
     ...typography.label,
+    textAlign: "center",
   },
 });

@@ -1,54 +1,70 @@
-import { router } from 'expo-router';
-import { ClipboardList, FileText } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from "expo-router";
+import {
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  type LucideIcon,
+} from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppHeader } from '@/components/shared/AppHeader';
-import { Card } from '@/components/ui/Card';
-import { Screen } from '@/components/ui/Screen';
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from "@/components/shared/AppHeader";
+import { Screen } from "@/components/ui/Screen";
+import { radius, spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
+import { guardNavigation } from "@/lib/navigation";
 
-const options = [
+type PlanningLink = {
+  title: string;
+  icon: LucideIcon;
+  route: "/planning/dpr" | "/planning/plan";
+};
+
+const links: PlanningLink[] = [
   {
-    title: 'Planning',
-    description: 'Create or edit today site-wise plan.',
-    icon: ClipboardList,
-    route: '/planning/plan',
-  },
-  {
-    title: 'DPR',
-    description: 'Submit completed work against today plan.',
+    title: "Daily Progress Reports",
     icon: FileText,
-    route: '/planning/dpr',
+    route: "/planning/dpr",
   },
-] as const;
+  {
+    title: "Work Planning",
+    icon: ClipboardList,
+    route: "/planning/plan",
+  },
+];
 
 export default function PlanningEntryScreen() {
   const { colors } = useTheme();
 
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
-      <AppHeader title="DPR / Planning" subtitle="Choose what you want to update" />
+    <Screen scroll edges={[]} refreshable={false} contentStyle={styles.screen}>
+      <AppHeader title="Planning/DPR" />
 
-      <View style={styles.optionList}>
-        {options.map((option) => {
-          const Icon = option.icon;
+      <View style={styles.list}>
+        {links.map((link) => {
+          const Icon = link.icon;
           return (
             <Pressable
-              key={option.title}
-              onPress={() => router.push(option.route)}
-              style={({ pressed }) => [pressed && { opacity: 0.82 }]}
+              key={link.route}
+              onPress={() => guardNavigation(() => router.push(link.route))}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                pressed && { opacity: 0.78 },
+              ]}
             >
-              <Card style={styles.optionCard}>
-                <View style={[styles.optionIcon, { backgroundColor: colors.softOrange }]}>
-                  <Icon size={23} color={colors.primary} />
-                </View>
-                <View style={styles.optionCopy}>
-                  <Text style={[styles.optionTitle, { color: colors.text }]}>{option.title}</Text>
-                  <Text style={[typography.caption, { color: colors.muted }]}>{option.description}</Text>
-                </View>
-              </Card>
+              <View style={[styles.icon, { backgroundColor: colors.softBlue }]}>
+                <Icon size={19} color={colors.accent} />
+              </View>
+              <View style={styles.copy}>
+                <Text
+                  style={[styles.title, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  {link.title}
+                </Text>
+              </View>
+              <ChevronRight size={19} color={colors.muted} />
             </Pressable>
           );
         })}
@@ -59,34 +75,40 @@ export default function PlanningEntryScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    gap: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  optionList: {
     gap: spacing.md,
+    paddingBottom: spacing.md,
   },
-  optionCard: {
-    minHeight: 94,
-    flexDirection: 'row',
-    alignItems: 'center',
+  list: {
+    gap: spacing.sm,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
-    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: radius.card,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  icon: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.sm,
   },
-  optionIcon: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-  },
-  optionCopy: {
+  copy: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 2,
   },
-  optionTitle: {
-    ...typography.h2,
-    fontSize: 17,
-    lineHeight: 22,
+  title: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  description: {
+    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

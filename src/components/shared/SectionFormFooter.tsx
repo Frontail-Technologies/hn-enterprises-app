@@ -1,10 +1,10 @@
-import { router } from 'expo-router';
-import { Upload } from 'lucide-react-native';
-import { View, StyleSheet } from 'react-native';
+import { router } from "expo-router";
+import { Upload } from "lucide-react-native";
+import { View, StyleSheet } from "react-native";
 
-import { StickyFooter } from '@/components/shared/StickyFooter';
-import { Button } from '@/components/ui/Button';
-import { spacing } from '@/constants/spacing';
+import { StickyFooter } from "@/components/shared/StickyFooter";
+import { Button } from "@/components/ui/Button";
+import { spacing } from "@/constants/spacing";
 
 type SectionFormFooterProps = {
   onSubmit: () => void;
@@ -14,14 +14,19 @@ type SectionFormFooterProps = {
 
 export function SectionFormFooter({
   onSubmit,
-  submitLabel = 'Submit',
+  submitLabel = "Submit",
   isSubmitting = false,
 }: SectionFormFooterProps) {
   return (
     <StickyFooter>
       <View style={styles.row}>
         <View style={styles.secondary}>
-          <Button label="Back" variant="outline" onPress={() => router.back()} disabled={isSubmitting} />
+          <Button
+            label="Back"
+            variant="outline"
+            onPress={() => router.back()}
+            disabled={isSubmitting}
+          />
         </View>
         <View style={styles.primary}>
           <Button
@@ -38,7 +43,7 @@ export function SectionFormFooter({
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   secondary: {

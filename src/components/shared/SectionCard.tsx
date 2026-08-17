@@ -16,9 +16,9 @@ export function SectionCard({ title, action, children }: SectionCardProps) {
   const { colors } = useTheme();
 
   return (
-    <Card style={styles.card}>
+    <Card>
       <View style={styles.header}>
-        <Text style={[typography.h2, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
         {action}
       </View>
       <View style={styles.body}>{children}</View>
@@ -33,10 +33,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  title: {
+    fontFamily: typography.h2.fontFamily,
+    fontSize: 16,
+    lineHeight: 21,
+  },
   body: {
     marginTop: spacing.sm,
-  },
-  card: {
-    padding: spacing.md,
   },
 });

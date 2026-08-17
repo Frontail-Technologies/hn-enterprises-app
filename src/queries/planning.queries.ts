@@ -15,6 +15,7 @@ type PlanningParams = {
   projectId?: string;
   siteId?: string;
   supervisorId?: string;
+  customerId?: string;
   date?: string;
 };
 
@@ -38,7 +39,7 @@ export function useUpsertSitePlanMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: { projectId: string; siteId: string; date: string; tasks: PlanTaskPayload[] }) =>
+    mutationFn: (body: { customerId: string; projectId: string; siteId: string; date: string; tasks: PlanTaskPayload[] }) =>
       planningApi.upsertSitePlan(body),
     onSuccess: (record: BackendSitePlan) => {
       queryClient.invalidateQueries({ queryKey: ["planning"] });
@@ -53,6 +54,7 @@ export function useUpsertDprRecordMutation() {
 
   return useMutation({
     mutationFn: (body: {
+      customerId: string;
       projectId: string;
       siteId: string;
       date: string;

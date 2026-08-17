@@ -13,7 +13,12 @@ export type UploadAsset = {
   mimeType?: string;
 };
 
-export async function uploadFile(asset: UploadAsset, module: string, recordId?: string): Promise<UploadedFile> {
+export async function uploadFile(
+  asset: UploadAsset,
+  module: string,
+  recordId?: string,
+  onProgress?: (fraction: number) => void,
+): Promise<UploadedFile> {
   const formData = new FormData();
   formData.append("file", {
     uri: asset.uri,
@@ -27,6 +32,7 @@ export async function uploadFile(asset: UploadAsset, module: string, recordId?: 
     // Camera photos can be several MB - the default request timeout is tuned for
     // quick JSON calls and is too short for a real upload over a mobile network.
     timeoutMs: 60000,
+    onProgress,
   });
 }
 

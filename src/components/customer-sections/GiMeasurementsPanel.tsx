@@ -14,7 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateGiMeasurementsMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
@@ -65,7 +65,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
       router.back();
     } catch (error) {
       console.error('[GiMeasurementsPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit GI measurements';
+      const message = normalizeError(error, 'Unable to submit GI measurements');
       showToast(message, 'error');
     }
   };

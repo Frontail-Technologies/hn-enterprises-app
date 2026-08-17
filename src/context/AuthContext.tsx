@@ -7,8 +7,11 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
+import { getStoredPushToken, setStoredPushToken } from "@/lib/pushNotifications";
 import { authService } from "@/services/auth.service";
+import { notificationsApi } from "@/services/notifications.service";
 import type { AuthUser, LoginCredentials } from "@/types/auth";
 import { resetAttendanceReminder } from "@/utils/attendanceReminder";
 
@@ -42,6 +45,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,10 +81,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authService.logout();
-    setUser(null);
-    resetAttendanceReminder();
-  }, []);
+    // Local sign-out must always complete, even if the server-side revoke (or
+    // secure-store clear inside it) throws - otherwise a failed network call
+    // would strand the previous user's session and cached data on the device.
+    // The `finally` guarantees local credential/user state and the query cache
+    // are cleared regardless. This is the explicit-logout path only; the silent
+    // token-refresh path in apiClient is untouched.
+    // Detach this device's push token from the current user first (while the
+    // session is still valid), so the next user on a shared device doesn't
+    // inherit the previous supervisor's notifications. Best-effort: a failed
+    // unregister must not block local sign-out.
+    const pushToken = getStoredPushToken();
+    if (pushToken) {
+      await notificationsApi.unregisterPushToken(pushToken).catch(() => undefined);
+    }
+
+    try {
+      await authService.logout();
+    } finally {
+      setStoredPushToken(null);
+      setUser(null);
+      resetAttendanceReminder();
+      // Drop all cached server data so the next user on a shared device can't
+      // see the previous supervisor's customers/expenses/stats/notifications
+      // while their own queries refetch.
+      queryClient.clear();
+    }
+  }, [queryClient]);
 
   const refreshUser = useCallback(async () => {
     const currentUser = await authService.getCurrentUser();

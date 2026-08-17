@@ -32,10 +32,10 @@ export function FilterChip({ label, active, onPress }: FilterChipProps) {
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 34,
+    minHeight: 32,
     justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
   },
 });

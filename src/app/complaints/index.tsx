@@ -1,9 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ComplaintBoxSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
@@ -12,7 +11,6 @@ import { FilterChip } from '@/components/shared/FilterChip';
 import { ComplaintUpdateSheet } from '@/components/complaints/ComplaintUpdateSheet';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
-import { Reveal } from '@/components/ui/Reveal';
 import { Screen } from '@/components/ui/Screen';
 import { complaintStatusFilters, complaintStatusLabels } from '@/constants/complaints';
 import { spacing } from '@/constants/spacing';
@@ -21,7 +19,6 @@ import { useComplaintsScreen } from '@/hooks/useComplaintsScreen';
 
 export default function ComplaintsScreen() {
   const { colors } = useTheme();
-  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const {
     isLoading,
@@ -33,19 +30,22 @@ export default function ComplaintsScreen() {
     setStatusFilter,
     activeComplaint,
     setActiveComplaint,
+    refetch,
   } = useComplaintsScreen();
+
+  const hasFilter = search.trim().length > 0 || statusFilter !== 'All';
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await queryClient.refetchQueries({ type: 'active' });
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [refetch]);
 
   return (
-    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader
         title="Complaints"
         subtitle={`${filteredComplaints.length} of ${complaints.length} records`}
@@ -61,9 +61,7 @@ export default function ComplaintsScreen() {
         data={filteredComplaints}
         keyExtractor={(complaint) => complaint.id}
         renderItem={({ item: complaint }) => (
-          <Reveal stagger={false}>
-            <ComplaintListItem complaint={complaint} onPress={() => setActiveComplaint(complaint)} />
-          </Reveal>
+          <ComplaintListItem complaint={complaint} onPress={() => setActiveComplaint(complaint)} />
         )}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshControl={
@@ -84,7 +82,7 @@ export default function ComplaintsScreen() {
               leftIcon={<Search size={18} color={colors.muted} />}
             />
 
-            <View style={styles.chips}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
               {complaintStatusFilters.map((item) => (
                 <FilterChip
                   key={item}
@@ -93,13 +91,18 @@ export default function ComplaintsScreen() {
                   onPress={() => setStatusFilter(item)}
                 />
               ))}
-            </View>
+            </ScrollView>
 
             {isLoading ? <ComplaintBoxSkeleton /> : null}
           </View>
         }
         ListEmptyComponent={
-          isLoading ? null : <EmptyState title="No complaints found" description="Try changing the filters or check back later." />
+          isLoading ? null : (
+            <EmptyState
+              title={hasFilter ? 'No matching complaints' : 'No complaints yet'}
+              description={hasFilter ? 'Try changing or clearing your filters.' : 'There are no complaints to show.'}
+            />
+          )
         }
         contentContainerStyle={styles.listContent}
       />
@@ -129,7 +132,6 @@ const styles = StyleSheet.create({
   },
   chips: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   listContent: {

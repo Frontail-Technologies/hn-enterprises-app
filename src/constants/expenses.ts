@@ -1,5 +1,5 @@
 import type { FilterableColumn } from '@/hooks/useColumnFilters';
-import type { ExpenseMode, ExpenseStatus } from '@/services/expenses.service';
+import { expenseCategoryOptions, type ExpenseCategory, type ExpenseMode, type ExpenseStatus } from '@/services/expenses.service';
 import type { ExpenseColumnKey, ExpenseStatusFilter } from '@/types/expenses';
 
 export const expenseStatusOptions: { label: string; value: ExpenseStatusFilter }[] = [
@@ -34,3 +34,28 @@ export const expenseGridColumns: FilterableColumn<ExpenseColumnKey>[] = [
   { key: 'date', label: 'Date' },
   { key: 'status', label: 'Status' },
 ];
+
+const EM_DASH = '—';
+
+const CATEGORY_LABELS = new Map(expenseCategoryOptions.map((option) => [option.value, option.label]));
+const MODE_LABELS = new Map(expenseModeOptions.map((option) => [option.value, option.label]));
+
+function humanizeToken(value: string) {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Shared label formatting for expense category/payment-mode tokens - used by
+// both the All Expenses table and the Overview tab so a raw enum value like
+// `worker_payment` never reaches the screen.
+export function formatExpenseCategory(value: ExpenseCategory) {
+  return CATEGORY_LABELS.get(value) ?? humanizeToken(value);
+}
+
+export function formatExpenseMode(value: string) {
+  if (!value) return EM_DASH;
+  return MODE_LABELS.get(value) ?? humanizeToken(value);
+}

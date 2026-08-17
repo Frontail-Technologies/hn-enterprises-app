@@ -1,22 +1,58 @@
-import { FlashList } from '@shopify/flash-list';
-import { Filter, Search } from 'lucide-react-native';
-import { useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from "@shopify/flash-list";
+import { Search, UsersRound } from "lucide-react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { AppHeader } from '@/components/shared/AppHeader';
-import { ColumnFilterSheet } from '@/components/shared/ColumnFilterSheet';
-import { TableSkeleton } from '@/components/shared/TableSkeleton';
-import { Input } from '@/components/ui/Input';
-import { Reveal } from '@/components/ui/Reveal';
-import { Screen } from '@/components/ui/Screen';
-import { customerGridColumns } from '@/constants/customers';
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useTheme } from '@/context/ThemeContext';
-import { useCustomersGrid } from '@/hooks/useCustomersGrid';
+import { AppHeader } from "@/components/shared/AppHeader";
+import { ColumnFilterSheet } from "@/components/shared/ColumnFilterSheet";
+import { FilterButton } from "@/components/shared/FilterButton";
+import { TableFilterSheet } from "@/components/shared/TableFilterSheet";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
+import { Screen } from "@/components/ui/Screen";
+import { customerGridColumns } from "@/constants/customers";
+import { radius, spacing } from "@/constants/spacing";
+import { tableDividers, tableMetrics, tableText } from "@/constants/table";
+import { typography } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
+import { useCustomersGrid } from "@/hooks/useCustomersGrid";
+import type { CustomerGridRow } from "@/types/customers";
+
+const EM_DASH = "—";
+
+type CustomerColumns = { bp: number; name: number; address: number };
+
+const CUSTOMER_RATIO = { bp: 0.27, name: 0.34 };
+const CUSTOMER_MIN = { bp: 88, name: 108, address: 96 };
+
+// Customers is a fixed 3-column table (BP/TR, Customer, Address) that must fill
+// the phone width with no horizontal scroll. Widths are derived once from the
+// measured table width and passed to header + rows as a stable config, so the
+// address column absorbs whatever space the first two don't need.
+function resolveCustomerColumns(width: number): CustomerColumns {
+  const usable = Math.max(
+    width,
+    CUSTOMER_MIN.bp + CUSTOMER_MIN.name + CUSTOMER_MIN.address,
+  );
+  const bp = Math.max(CUSTOMER_MIN.bp, Math.round(usable * CUSTOMER_RATIO.bp));
+  const name = Math.max(
+    CUSTOMER_MIN.name,
+    Math.round(usable * CUSTOMER_RATIO.name),
+  );
+  const address = Math.max(CUSTOMER_MIN.address, usable - bp - name);
+  return { bp, name, address };
+}
 
 export default function CustomersScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dividers = tableDividers(colors, isDark);
   const {
     search,
     setSearch,
@@ -27,135 +63,182 @@ export default function CustomersScreen() {
     total,
     filteredRows,
     openCustomer,
+    filters,
     activeColumn,
     pendingValues,
     filterSearch,
     setFilterSearch,
     activeValues,
-    isColumnActive,
     openFilter,
     closeFilter,
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
   } = useCustomersGrid();
 
-  // Narrow tables (few columns, or a wide screen) would otherwise size to
-  // their own content and leave blank space beside them - stretch to at
-  // least the visible container width so rows always span the full screen.
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
-  const handleTableLayout = (event: LayoutChangeEvent) => {
-    setContainerWidth(event.nativeEvent.layout.width);
-  };
-  const columnsTotalWidth = customerGridColumns.reduce((total, column) => total + column.width, 0);
-  const tableMinWidth = Math.max(columnsTotalWidth, containerWidth);
+  const hasQueryOrFilter = search.trim().length > 0 || activeFilterCount > 0;
+  const columns = resolveCustomerColumns(containerWidth);
 
   return (
-    // This screen sits directly inside the (tabs) navigator's docked tab bar,
-    // which already reserves its own height in the layout - unlike an
-    // overlaid tab bar, content here never renders underneath it, so neither
-    // tabBarAware's extra padding nor a bottom safe-area inset is needed.
-    // Without them, styles.screen's own paddingBottom is the only bottom gap.
-    <Screen edges={[]} contentStyle={styles.screen}>
-      <AppHeader title="Customers" subtitle="Search and open customer workspace" />
-      <Input
-        placeholder="Search customer, BP/TR, mobile or address"
-        value={search}
-        onChangeText={setSearch}
-        leftIcon={<Search size={18} color={colors.muted} />}
-      />
+    <Screen edges={[]} contentStyle={styles.screen} revealContent={false}>
+      <AppHeader title="Customers" />
 
-      <View style={styles.tablePanel}>
-        <Text style={[styles.resultText, { color: colors.muted }]}>
-          {isLoading ? 'Loading customers...' : `Showing ${filteredRows.length} of ${total} records`}
-        </Text>
-        {isLoading ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator
-            nestedScrollEnabled
-            style={styles.horizontalScroll}
-            onLayout={handleTableLayout}
-          >
-            <TableSkeleton columnWidths={customerGridColumns.map((column) => column.width)} />
-          </ScrollView>
+      <View style={styles.toolbar}>
+        <View style={styles.searchWrap}>
+          <Input
+            placeholder="Search customer, BP/TR, mobile or address"
+            value={search}
+            onChangeText={setSearch}
+            leftIcon={<Search size={18} color={colors.muted} />}
+          />
+        </View>
+        <FilterButton
+          activeCount={activeFilterCount}
+          onPress={() => setFilterMenuOpen(true)}
+        />
+      </View>
+
+      <Text style={[styles.resultText, { color: colors.muted }]}>
+        {isLoading
+          ? "Loading customers…"
+          : `${filteredRows.length} of ${total} customers`}
+      </Text>
+
+      <View
+        style={styles.tableCard}
+        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+      >
+        {isLoading || containerWidth === 0 ? (
+          <TableSkeleton
+            columnWidths={[columns.bp, columns.name, columns.address]}
+            rowHeight={tableMetrics.rowHeight}
+            headerHeight={tableMetrics.headerHeight}
+          />
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator
-            nestedScrollEnabled
-            style={styles.horizontalScroll}
-            onLayout={handleTableLayout}
-          >
-            <View style={[styles.table, { minWidth: tableMinWidth }]}>
-              <View style={[styles.headerRow, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-                {customerGridColumns.map((column) => {
-                  const active = isColumnActive(column.key);
-                  return (
-                    <Pressable
-                      key={column.key}
-                      onPress={() => openFilter(column)}
-                      style={[styles.headerCell, { width: column.width, borderColor: colors.border }]}
-                    >
-                      <Text style={[styles.headerText, { color: active ? colors.primary : colors.text }]} numberOfLines={1}>
-                        {column.label}
-                      </Text>
-                      <Filter size={12} color={active ? colors.primary : colors.muted} />
-                    </Pressable>
-                  );
-                })}
+          <View style={styles.table}>
+            <View
+              style={[
+                styles.headerRow,
+                {
+                  backgroundColor: colors.surfaceMuted,
+                  borderBottomColor: dividers.header,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  { width: columns.bp, borderRightColor: dividers.vertical },
+                ]}
+              >
+                <Text
+                  style={[styles.headerText, { color: colors.muted }]}
+                  numberOfLines={1}
+                >
+                  BP / TR
+                </Text>
               </View>
-
-              <FlashList
-                style={styles.bodyScroll}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator
-                data={filteredRows}
-                keyExtractor={(row) => row.id}
-                renderItem={({ item: row }) => (
-                  <Reveal stagger={false}>
-                    <Pressable
-                      disabled={!row.canOpen}
-                      onPress={() => openCustomer(row)}
-                      style={({ pressed }) => [
-                        styles.dataRow,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                          opacity: !row.canOpen ? 0.72 : pressed ? 0.62 : 1,
-                        },
-                      ]}
-                    >
-                      {customerGridColumns.map((column) => (
-                        <View key={column.key} style={[styles.dataCell, { width: column.width, borderColor: colors.border }]}>
-                          <Text style={[styles.cellText, { color: colors.text }]} numberOfLines={2}>
-                            {String(row[column.key]) || '-'}
-                          </Text>
-                        </View>
-                      ))}
-                    </Pressable>
-                  </Reveal>
-                )}
-                ListFooterComponent={
-                  hasNextPage ? (
-                    <Pressable
-                      onPress={loadMore}
-                      disabled={isFetchingNextPage}
-                      style={({ pressed }) => [styles.loadMoreRow, { borderColor: colors.border }, pressed && { opacity: 0.72 }]}
-                    >
-                      {isFetchingNextPage ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Text style={[typography.label, { color: colors.primary }]}>Load more</Text>
-                      )}
-                    </Pressable>
-                  ) : null
-                }
-              />
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  { width: columns.name, borderRightColor: dividers.vertical },
+                ]}
+              >
+                <Text
+                  style={[styles.headerText, { color: colors.muted }]}
+                  numberOfLines={1}
+                >
+                  Customer
+                </Text>
+              </View>
+              <View style={[styles.cell, { width: columns.address }]}>
+                <Text
+                  style={[styles.headerText, { color: colors.muted }]}
+                  numberOfLines={1}
+                >
+                  Address
+                </Text>
+              </View>
             </View>
-          </ScrollView>
+
+            <FlashList
+              style={styles.bodyScroll}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              data={filteredRows}
+              keyExtractor={(row) => row.id}
+              renderItem={({ item: row }) => (
+                <CustomerTableRow
+                  row={row}
+                  onOpen={openCustomer}
+                  columns={columns}
+                  verticalDivider={dividers.vertical}
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <EmptyState
+                  icon={<UsersRound size={22} color={colors.primary} />}
+                  title={
+                    hasQueryOrFilter
+                      ? "No matching customers"
+                      : "No customers yet"
+                  }
+                  description={
+                    hasQueryOrFilter
+                      ? "Try changing or clearing your search and filters."
+                      : "Customers assigned to you will appear here."
+                  }
+                />
+              }
+              ListFooterComponent={
+                hasNextPage ? (
+                  <Pressable
+                    onPress={loadMore}
+                    disabled={isFetchingNextPage}
+                    style={({ pressed }) => [
+                      styles.loadMoreRow,
+                      { borderColor: colors.border },
+                      pressed && { opacity: 0.72 },
+                    ]}
+                  >
+                    {isFetchingNextPage ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text
+                        style={[typography.label, { color: colors.primary }]}
+                      >
+                        Load more
+                      </Text>
+                    )}
+                  </Pressable>
+                ) : null
+              }
+            />
+          </View>
         )}
       </View>
+
+      <TableFilterSheet
+        visible={filterMenuOpen}
+        onClose={() => setFilterMenuOpen(false)}
+        columns={customerGridColumns}
+        filters={filters}
+        onPickColumn={(column) => {
+          setFilterMenuOpen(false);
+          openFilter(column);
+        }}
+        onClearAll={() => {
+          clearAllFilters();
+          setFilterMenuOpen(false);
+        }}
+      />
 
       <ColumnFilterSheet
         activeColumn={activeColumn}
@@ -172,76 +255,135 @@ export default function CustomersScreen() {
   );
 }
 
+function CustomerTableRow({
+  row,
+  onOpen,
+  columns,
+  verticalDivider,
+}: {
+  row: CustomerGridRow;
+  onOpen: (row: CustomerGridRow) => void;
+  columns: CustomerColumns;
+  verticalDivider: string;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      disabled={!row.canOpen}
+      onPress={() => onOpen(row)}
+      style={({ pressed }) => [
+        styles.dataRow,
+        {
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
+          opacity: !row.canOpen ? 0.6 : pressed ? 0.62 : 1,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.cell,
+          styles.cellDivider,
+          { width: columns.bp, borderRightColor: verticalDivider },
+        ]}
+      >
+        <Text style={[styles.bpText, { color: colors.text }]} numberOfLines={1}>
+          {row.trBpNo || EM_DASH}
+        </Text>
+      </View>
+      <View
+        style={[
+          styles.cell,
+          styles.cellDivider,
+          { width: columns.name, borderRightColor: verticalDivider },
+        ]}
+      >
+        <Text
+          style={[styles.nameText, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {row.customerName || EM_DASH}
+        </Text>
+      </View>
+      <View style={[styles.cell, { width: columns.address }]}>
+        <Text
+          style={[styles.addressText, { color: colors.muted }]}
+          numberOfLines={1}
+        >
+          {row.fullAddress || EM_DASH}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     gap: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  tablePanel: {
-    flex: 1,
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    // Bleed out of the screen's own horizontal padding so the table itself
-    // reaches the screen edges instead of floating in a narrower column.
-    marginHorizontal: -20,
+  },
+  searchWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   resultText: {
     ...typography.caption,
-    paddingHorizontal: 20,
   },
-  horizontalScroll: {
+  tableCard: {
     flex: 1,
   },
   table: {
     flex: 1,
   },
-  headerRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-  },
-  headerCell: {
-    minHeight: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    paddingHorizontal: spacing.sm,
-  },
-  headerText: {
-    flex: 1,
-    ...typography.label,
-    fontSize: 10,
-    lineHeight: 13,
-  },
   bodyScroll: {
     flex: 1,
+  },
+  headerRow: {
+    flexDirection: "row",
+    height: tableMetrics.headerHeight,
+    borderBottomWidth: 1,
+  },
+  headerText: {
+    ...tableText.header,
+  },
+  dataRow: {
+    flexDirection: "row",
+    height: tableMetrics.rowHeight,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  cell: {
+    justifyContent: "center",
+    paddingHorizontal: tableMetrics.cellPaddingH,
+  },
+  cellDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  bpText: {
+    ...tableText.medium,
+  },
+  nameText: {
+    ...tableText.primary,
+  },
+  addressText: {
+    ...tableText.secondary,
+  },
+  listContent: {
+    paddingBottom: spacing.md,
   },
   loadMoreRow: {
     minHeight: 44,
     marginTop: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderRadius: radius.sm,
-  },
-  dataRow: {
-    flexDirection: 'row',
-    borderLeftWidth: 1,
-    borderBottomWidth: 1,
-  },
-  dataCell: {
-    minHeight: 34,
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  cellText: {
-    ...typography.caption,
-    fontSize: 11,
-    lineHeight: 14,
   },
 });

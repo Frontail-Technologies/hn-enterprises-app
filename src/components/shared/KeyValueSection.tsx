@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { spacing } from '@/constants/spacing';
+import { tableDividers } from '@/constants/table';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -16,20 +17,27 @@ type KeyValueSectionProps = {
 };
 
 export function KeyValueSection({ title, items }: KeyValueSectionProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dividers = tableDividers(colors, isDark);
 
   return (
     <Card style={styles.card}>
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
       <View style={styles.rows}>
-        {items.map((item) => (
-          <View key={item.label} style={styles.row}>
-            <Text style={[styles.label, { color: colors.muted }]}>{item.label}</Text>
-            <Text style={[styles.separator, { color: colors.muted }]}>:</Text>
-            <Text style={[styles.value, { color: colors.text }]}>{formatValue(item.value)}</Text>
-          </View>
-        ))}
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1;
+          return (
+            <View
+              key={item.label}
+              style={[styles.row, !isLast && styles.rowDivider, !isLast && { borderBottomColor: dividers.vertical }]}
+            >
+              <Text style={[styles.label, { color: colors.muted }]}>{item.label}</Text>
+              <Text style={[styles.separator, { color: colors.muted }]}>:</Text>
+              <Text style={[styles.value, { color: colors.text }]}>{formatValue(item.value)}</Text>
+            </View>
+          );
+        })}
       </View>
     </Card>
   );
@@ -43,8 +51,8 @@ function formatValue(value: KeyValueItem['value']) {
 
 const styles = StyleSheet.create({
   card: {
-    gap: spacing.sm,
-    padding: spacing.sm,
+    gap: spacing.xs,
+    padding: spacing.md,
   },
   title: {
     ...typography.bodyMedium,
@@ -55,12 +63,16 @@ const styles = StyleSheet.create({
     height: 1,
   },
   rows: {
-    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   label: {
     ...typography.label,

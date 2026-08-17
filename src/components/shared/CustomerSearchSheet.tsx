@@ -10,6 +10,7 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useCustomerList } from '@/hooks/useCustomerRecord';
+import { guardNavigation } from '@/lib/navigation';
 import type { CustomerRecord } from '@/services/mockData';
 
 type CustomerSearchSheetProps = {
@@ -73,10 +74,12 @@ export function CustomerSearchSheet({
       return;
     }
 
-    router.push({
-      pathname: '/customers/[id]',
-      params: { id: customer.id },
-    });
+    guardNavigation(() =>
+      router.push({
+        pathname: '/customers/[id]',
+        params: { id: customer.id },
+      }),
+    );
   };
 
   return (
@@ -217,7 +220,7 @@ function SearchableSelect({
         onPress={() => setOpen((current) => !current)}
         style={({ pressed }) => [
           styles.selectButton,
-          { backgroundColor: colors.background, borderColor: open ? colors.primary : colors.border },
+          { backgroundColor: colors.surface, borderColor: open ? colors.primary : colors.border },
           pressed && { opacity: 0.84 },
         ]}
       >

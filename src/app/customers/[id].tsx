@@ -1,17 +1,16 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Navigation, Phone, StickyNote } from "lucide-react-native";
 import {
-  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import PagerView from "react-native-pager-view";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 
 import { useBillingRemarksPanel } from "@/components/customer-sections/BillingRemarksPanel";
 import { useCustomerComplaintsPanel } from "@/components/customer-sections/CustomerComplaintsPanel";
@@ -31,107 +30,363 @@ import { SectionTabBar } from "@/components/shared/SectionTabBar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
+import { StickyHeaderGroup } from "@/components/ui/StickyHeaderGroup";
+import { ConfirmSheet } from "@/components/ui/ConfirmSheet";
 import { Sheet } from "@/components/ui/Sheet";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { useCustomerRecord } from "@/hooks/useCustomerRecord";
 import { useSwipeableTabs } from "@/hooks/useSwipeableTabs";
-import { useCreateCustomerNoteMutation, useCustomerNotesQuery } from "@/queries";
-import type { CustomerRecord } from "@/services/mockData";
+import {
+  useCreateCustomerNoteMutation,
+  useCustomerNotesQuery,
+  useSetSectionCompletionMutation,
+} from "@/queries";
+import type {
+  CompletionSectionKey,
+  CustomerRecord,
+  CustomerSectionCompletion,
+  SectionCompletionResult,
+} from "@/services/mockData";
 import { formatDate, formatTime } from "@/utils/format";
+import { normalizeError } from "@/utils/normalizeError";
+
+type PanelProps = { customer: CustomerRecord; onRefetch: () => Promise<void> };
+
+function SectionPage({
+  children,
+  footer,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <View style={styles.page}>
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+      {footer}
+    </View>
+  );
+}
+
+function SectionCompletionBar({
+  customerId,
+  sectionKey,
+  sectionLabel,
+  result,
+}: {
+  customerId: string;
+  sectionKey: CompletionSectionKey;
+  sectionLabel: string;
+  result?: SectionCompletionResult;
+}) {
+  const { colors } = useTheme();
+  const { showToast } = useToast();
+  const mutation = useSetSectionCompletionMutation(customerId);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const isDone = result?.status === "DONE";
+  const tone =
+    result?.status === "DONE"
+      ? colors.green
+      : result?.status === "IN_PROGRESS"
+        ? colors.amber
+        : colors.muted;
+  const label = result
+    ? result.status === "DONE"
+      ? "Done"
+      : result.status === "IN_PROGRESS"
+        ? "In Progress"
+        : "Not Started"
+    : "";
+
+  const run = (completed: boolean) => {
+    if (mutation.isPending) return;
+    mutation.mutate(
+      { sectionKey, completed },
+      {
+        onSuccess: () => {
+          setConfirmOpen(false);
+          showToast(
+            completed
+              ? `${sectionLabel} marked complete.`
+              : `${sectionLabel} reopened.`,
+            "success",
+          );
+        },
+        onError: (error) => {
+          setConfirmOpen(false);
+          showToast(
+            error instanceof Error
+              ? error.message
+              : "Unable to update completion",
+            "error",
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <View
+      style={[
+        styles.completionBar,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <View style={styles.completionStatus}>
+        <View style={[styles.completionDot, { backgroundColor: tone }]} />
+        <Text style={[styles.completionLabel, { color: colors.text }]}>
+          {label}
+        </Text>
+      </View>
+      <Button
+        label={isDone ? "Reopen" : "Mark Complete"}
+        variant="outline"
+        size="compact"
+        fullWidth={false}
+        loading={mutation.isPending}
+        onPress={() => (isDone ? setConfirmOpen(true) : run(true))}
+      />
+      <ConfirmSheet
+        visible={confirmOpen}
+        title={`Reopen ${sectionLabel}?`}
+        message="This will mark the section as In Progress. Existing data will be kept."
+        confirmLabel="Reopen"
+        cancelLabel="Cancel"
+        onConfirm={() => run(false)}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </View>
+  );
+}
+
+function CustomerPanelPage({ customer }: PanelProps) {
+  const { content } = useCustomerInfoPanel(customer);
+  return (
+    <SectionPage>
+      <CustomerQuickActions customer={customer} />
+      {content}
+    </SectionPage>
+  );
+}
+
+function SurveyPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useSurveyPanel(customer, onRefetch);
+  return <SectionPage footer={footer}>{content}</SectionPage>;
+}
+
+function GiPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useGiMeasurementsPanel(customer, onRefetch);
+  return (
+    <SectionPage footer={footer}>
+      <SectionCompletionBar
+        customerId={customer.id}
+        sectionKey="giMeasurements"
+        sectionLabel="GI Measurements"
+        result={customer.sectionCompletion?.giMeasurements}
+      />
+      {content}
+    </SectionPage>
+  );
+}
+
+function IsolationPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useIsolationRegulatorsPanel(customer, onRefetch);
+  return (
+    <SectionPage footer={footer}>
+      <SectionCompletionBar
+        customerId={customer.id}
+        sectionKey="valvesRegulators"
+        sectionLabel="Isolation & Regulators"
+        result={customer.sectionCompletion?.valvesRegulators}
+      />
+      {content}
+    </SectionPage>
+  );
+}
+
+function FittingsPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useFittingsAccessoriesPanel(customer, onRefetch);
+  return (
+    <SectionPage footer={footer}>
+      <SectionCompletionBar
+        customerId={customer.id}
+        sectionKey="fittingsAccessories"
+        sectionLabel="Fittings & Accessories"
+        result={customer.sectionCompletion?.fittingsAccessories}
+      />
+      {content}
+    </SectionPage>
+  );
+}
+
+function LmcPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useLmcPipelinePanel(customer, onRefetch);
+  return <SectionPage footer={footer}>{content}</SectionPage>;
+}
+
+function CivilPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useCivilWorkForm(customer, onRefetch);
+  return <SectionPage footer={footer}>{content}</SectionPage>;
+}
+
+function MdpePanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useMdpeFittingsPanel(customer, onRefetch);
+  return (
+    <SectionPage footer={footer}>
+      <SectionCompletionBar
+        customerId={customer.id}
+        sectionKey="mdpeFittings"
+        sectionLabel="MDPE Fittings"
+        result={customer.sectionCompletion?.mdpeFittings}
+      />
+      {content}
+    </SectionPage>
+  );
+}
+
+function MeterPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useMeterCommissioningPanel(customer, onRefetch);
+  return <SectionPage footer={footer}>{content}</SectionPage>;
+}
+
+function BillingPanelPage({ customer, onRefetch }: PanelProps) {
+  const { content, footer } = useBillingRemarksPanel(customer, onRefetch);
+  return <SectionPage footer={footer}>{content}</SectionPage>;
+}
+
+function DocumentsPanelPage({ customer }: PanelProps) {
+  const { content } = useDocumentsPanel(customer);
+  return <SectionPage>{content}</SectionPage>;
+}
+
+function ComplaintsPanelPage({ customer }: PanelProps) {
+  const { content } = useCustomerComplaintsPanel(customer);
+  return <SectionPage>{content}</SectionPage>;
+}
+
+const SECTION_COMPLETION_KEY: Record<string, keyof CustomerSectionCompletion> =
+  {
+    survey: "survey",
+    "gi-measurements": "giMeasurements",
+    "isolation-regulators": "valvesRegulators",
+    "fittings-accessories": "fittingsAccessories",
+    lmc: "lmc",
+    "civil-work": "lmc",
+    "mdpe-fittings": "mdpeFittings",
+    "meter-commissioning": "commissioning",
+  };
+
+const FIXED_SECTIONS: {
+  key: string;
+  label: string;
+  Component: (props: PanelProps) => ReactNode;
+}[] = [
+  { key: "customer", label: "Customer", Component: CustomerPanelPage },
+  { key: "survey", label: "Survey", Component: SurveyPanelPage },
+  { key: "gi-measurements", label: "GI Measurements", Component: GiPanelPage },
+  {
+    key: "isolation-regulators",
+    label: "Isolation & Regulators",
+    Component: IsolationPanelPage,
+  },
+  {
+    key: "fittings-accessories",
+    label: "Fittings & Accessories",
+    Component: FittingsPanelPage,
+  },
+  { key: "lmc", label: "LMC Pipeline", Component: LmcPanelPage },
+  { key: "civil-work", label: "Civil Work", Component: CivilPanelPage },
+  { key: "mdpe-fittings", label: "MDPE Fittings", Component: MdpePanelPage },
+  {
+    key: "meter-commissioning",
+    label: "Meter & Commissioning",
+    Component: MeterPanelPage,
+  },
+  {
+    key: "billing-remarks",
+    label: "JMR / Billing Remarks",
+    Component: BillingPanelPage,
+  },
+  {
+    key: "documents",
+    label: "Photos / Documents",
+    Component: DocumentsPanelPage,
+  },
+  { key: "complaints", label: "Complaints", Component: ComplaintsPanelPage },
+];
 
 export default function CustomerWorkspaceScreen() {
-  const { colors } = useTheme();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const { customer, isLoading, error, refetch } = useCustomerRecord(params.id);
+  const params = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    trBp?: string;
+    site?: string;
+  }>();
+  const { customer, error, refetch } = useCustomerRecord(params.id);
 
-  if (isLoading) {
-    return (
-      <Screen edges={["bottom"]} contentStyle={styles.screen}>
-        <AppHeader title="Customer" left={<BackButton />} />
-        <View style={[styles.emptyState, styles.loadingState]}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      </Screen>
-    );
+  if (customer) {
+    return <CustomerWorkspaceContent customer={customer} onRefetch={refetch} />;
   }
 
-  if (error || !customer) {
+  if (error) {
     return (
-      <Screen edges={["bottom"]} contentStyle={styles.screen}>
-        <AppHeader title="Customer" left={<BackButton />} />
+      <Screen
+        edges={["bottom"]}
+        contentStyle={styles.screen}
+        revealContent={false}
+      >
+        <AppHeader title={params.name ?? "Customer"} left={<BackButton />} />
         <EmptyCustomer onRetry={refetch} />
       </Screen>
     );
   }
 
-  return <CustomerWorkspaceContent customer={customer} onRefetch={refetch} />;
+  return (
+    <CustomerWorkspaceSkeleton
+      name={params.name}
+      trBp={params.trBp}
+      site={params.site}
+    />
+  );
 }
 
-function CustomerWorkspaceContent({
-  customer,
-  onRefetch,
-}: {
-  customer: CustomerRecord;
-  onRefetch: () => Promise<void>;
-}) {
+function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
   const connection = customer.customerConnection;
 
-  // Every technical section is now an inline tab panel. Hooks must be called
-  // unconditionally regardless of which tab is active (Rules of Hooks).
-  const customerInfoPanel = useCustomerInfoPanel(customer);
-  const surveyPanel = useSurveyPanel(customer, onRefetch);
-  const giPanel = useGiMeasurementsPanel(customer, onRefetch);
-  const isolationPanel = useIsolationRegulatorsPanel(customer, onRefetch);
-  const fittingsPanel = useFittingsAccessoriesPanel(customer, onRefetch);
-  const lmcPanel = useLmcPipelinePanel(customer, onRefetch);
-  const civilWorkPanel = useCivilWorkForm(customer, onRefetch);
-  const mdpePanel = useMdpeFittingsPanel(customer, onRefetch);
-  const meterPanel = useMeterCommissioningPanel(customer, onRefetch);
-  const billingPanel = useBillingRemarksPanel(customer, onRefetch);
-  const documentsPanel = useDocumentsPanel(customer);
-  const complaintsPanel = useCustomerComplaintsPanel(customer);
-  // One tab per dynamic field group (mirrors the web dashboard) - empty when
-  // the signed-in supervisor has no visible custom fields, so no tab shows.
+  // Custom field groups are driven by a single shared hook (one draft/mutation
+  // spanning every group tab), so this one stays at the parent. The heavy fixed
+  // section hooks now live inside their own lazily-mounted panel components.
   const customFieldGroupTabs = useCustomFieldsPanel(customer, onRefetch);
 
   const tabs = [
-    { key: "customer", label: "Customer", panel: customerInfoPanel },
-    { key: "survey", label: "Survey", panel: surveyPanel },
-    { key: "gi-measurements", label: "GI Measurements", panel: giPanel },
-    {
-      key: "isolation-regulators",
-      label: "Isolation & Regulators",
-      panel: isolationPanel,
-    },
-    {
-      key: "fittings-accessories",
-      label: "Fittings & Accessories",
-      panel: fittingsPanel,
-    },
-    { key: "lmc", label: "LMC Pipeline", panel: lmcPanel },
-    { key: "civil-work", label: "Civil Work", panel: civilWorkPanel },
-    { key: "mdpe-fittings", label: "MDPE Fittings", panel: mdpePanel },
-    {
-      key: "meter-commissioning",
-      label: "Meter & Commissioning",
-      panel: meterPanel,
-    },
-    {
-      key: "billing-remarks",
-      label: "JMR / Billing Remarks",
-      panel: billingPanel,
-    },
-    { key: "documents", label: "Photos / Documents", panel: documentsPanel },
-    { key: "complaints", label: "Complaints", panel: complaintsPanel },
-    ...customFieldGroupTabs,
+    ...FIXED_SECTIONS.map((section) => ({
+      key: section.key,
+      label: section.label,
+      render: () => (
+        <section.Component customer={customer} onRefetch={onRefetch} />
+      ),
+    })),
+    ...customFieldGroupTabs.map((group) => ({
+      key: group.key,
+      label: group.label,
+      render: () => (
+        <SectionPage footer={group.panel.footer}>
+          {group.panel.content}
+        </SectionPage>
+      ),
+    })),
   ];
 
-  // Custom field groups load asynchronously and can append tabs after the
-  // first render, so this is recomputed every render rather than memoized
-  // once at mount.
   const tabKeys = tabs.map((tab) => tab.key);
 
   const {
@@ -143,15 +398,13 @@ function CustomerWorkspaceContent({
     selectTab: handleTabChange,
   } = useSwipeableTabs(tabKeys);
 
-  const activeTab = tabs.find((tab) => tab.key === activeSection) ?? tabs[0];
-
   return (
     <Screen
       edges={["bottom"]}
       contentStyle={styles.screen}
-      bottomAccessory={activeTab.panel.footer}
+      revealContent={false}
     >
-      <View>
+      <StickyHeaderGroup>
         <AppHeader
           title={connection.customerName}
           subtitle={`${connection.trBpNo} : ${customer.siteArea}`}
@@ -160,26 +413,30 @@ function CustomerWorkspaceContent({
         />
 
         <SectionTabBar
-          tabs={tabs.map((tab) => ({ key: tab.key, label: tab.label }))}
+          tabs={tabs.map((tab) => {
+            const completionKey = SECTION_COMPLETION_KEY[tab.key];
+            return {
+              key: tab.key,
+              label: tab.label,
+              status: completionKey
+                ? customer.sectionCompletion?.[completionKey]?.status
+                : undefined,
+            };
+          })}
           activeKey={activeSection}
           onChange={handleTabChange}
         />
-      </View>
+      </StickyHeaderGroup>
 
-      <PagerView ref={pagerRef} style={styles.pager} initialPage={initialIndex} onPageSelected={onPageSelected}>
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={initialIndex}
+        onPageSelected={onPageSelected}
+      >
         {tabs.map((tab) => (
           <View key={tab.key} style={styles.page}>
-            {isMounted(tab.key) ? (
-              <ScrollView
-                style={styles.pageScroll}
-                contentContainerStyle={styles.pageContent}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator={false}
-              >
-                {tab.key === "customer" ? <CustomerQuickActions customer={customer} /> : null}
-                {tab.panel.content}
-              </ScrollView>
-            ) : null}
+            {isMounted(tab.key) ? tab.render() : null}
           </View>
         ))}
       </PagerView>
@@ -187,17 +444,79 @@ function CustomerWorkspaceContent({
   );
 }
 
-function CustomerQuickActions({
-  customer,
+function CustomerWorkspaceSkeleton({
+  name,
+  trBp,
+  site,
 }: {
-  customer: CustomerRecord;
+  name?: string;
+  trBp?: string;
+  site?: string;
 }) {
+  return (
+    <Screen
+      edges={["bottom"]}
+      contentStyle={styles.screen}
+      revealContent={false}
+    >
+      <StickyHeaderGroup>
+        <AppHeader
+          title={name ?? "Customer"}
+          subtitle={trBp ? `${trBp} : ${site ?? ""}` : undefined}
+          left={<BackButton />}
+          style={styles.header}
+        />
+
+        <SectionTabBar
+          tabs={FIXED_SECTIONS.map((section) => ({
+            key: section.key,
+            label: section.label,
+          }))}
+          activeKey={FIXED_SECTIONS[0].key}
+          onChange={() => {}}
+        />
+      </StickyHeaderGroup>
+
+      <View style={styles.pager}>
+        <View style={styles.pageContent}>
+          <SectionBodySkeleton />
+        </View>
+      </View>
+    </Screen>
+  );
+}
+
+function SectionBodySkeleton() {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.skeletonBody}>
+      {[0, 1, 2].map((index) => (
+        <View
+          key={index}
+          style={[
+            styles.skeletonCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Skeleton width="55%" height={14} />
+          <Skeleton width="100%" height={38} />
+          <Skeleton width="82%" height={38} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CustomerQuickActions({ customer }: { customer: CustomerRecord }) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const connection = customer.customerConnection;
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
-  const { data: notes = [], isLoading: notesLoading } = useCustomerNotesQuery(noteOpen ? customer.id : undefined);
+  const { data: notes = [], isLoading: notesLoading } = useCustomerNotesQuery(
+    noteOpen ? customer.id : undefined,
+  );
   const createNoteMutation = useCreateCustomerNoteMutation(customer.id);
 
   const actions = [
@@ -210,15 +529,20 @@ function CustomerQuickActions({
       label: "Call Customer",
       icon: Phone,
       onPress: () => {
-        if (connection.mobileNo) void Linking.openURL(`tel:${connection.mobileNo}`);
+        if (connection.mobileNo)
+          void Linking.openURL(`tel:${connection.mobileNo}`);
       },
     },
     {
       label: "Navigate",
       icon: Navigation,
       onPress: () => {
-        const query = encodeURIComponent(`${connection.fullAddress}, ${customer.city}`);
-        void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+        const query = encodeURIComponent(
+          `${connection.fullAddress}, ${customer.city}`,
+        );
+        void Linking.openURL(
+          `https://www.google.com/maps/search/?api=1&query=${query}`,
+        );
       },
     },
   ];
@@ -226,7 +550,9 @@ function CustomerQuickActions({
   return (
     <>
       <Card style={styles.quickCard}>
-        <Text style={[styles.quickTitle, { color: colors.text }]}>Quick Actions</Text>
+        <Text style={[styles.quickTitle, { color: colors.text }]}>
+          Quick Actions
+        </Text>
         <View style={styles.quickGrid}>
           {actions.map((action) => {
             const Icon = action.icon;
@@ -240,10 +566,18 @@ function CustomerQuickActions({
                   pressed && { opacity: 0.82 },
                 ]}
               >
-                <View style={[styles.quickIcon, { backgroundColor: colors.softBlue }]}>
+                <View
+                  style={[
+                    styles.quickIcon,
+                    { backgroundColor: colors.softBlue },
+                  ]}
+                >
                   <Icon size={17} color={colors.accent} />
                 </View>
-                <Text style={[styles.quickLabel, { color: colors.text }]} numberOfLines={1}>
+                <Text
+                  style={[styles.quickLabel, { color: colors.text }]}
+                  numberOfLines={1}
+                >
                   {action.label}
                 </Text>
               </Pressable>
@@ -272,7 +606,12 @@ function CustomerQuickActions({
                   await createNoteMutation.mutateAsync(note.trim());
                   setNote("");
                   showToast("Note saved", "success");
-                } catch (error: any) { showToast(error?.message || "Unable to save note", "error"); }
+                } catch (error) {
+                  showToast(
+                    normalizeError(error, "Unable to save note"),
+                    "error",
+                  );
+                }
               }}
               disabled={!note.trim()}
               style={styles.noteFooterButton}
@@ -281,15 +620,22 @@ function CustomerQuickActions({
         }
       >
         <View style={styles.noteSheet}>
-          <View style={[styles.noteReference, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.noteCustomer, { color: colors.text }]}>{connection.customerName}</Text>
+          <View
+            style={[
+              styles.noteReference,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.noteCustomer, { color: colors.text }]}>
+              {connection.customerName}
+            </Text>
             <Text style={[typography.caption, { color: colors.muted }]}>
               {connection.trBpNo} : {customer.siteArea}
             </Text>
           </View>
           <View style={styles.noteField}>
             <Text style={[typography.label, { color: colors.text }]}>Note</Text>
-            <TextInput
+            <BottomSheetTextInput
               value={note}
               onChangeText={setNote}
               multiline
@@ -308,23 +654,38 @@ function CustomerQuickActions({
           </View>
 
           <View style={styles.noteHistory}>
-            <Text style={[typography.label, { color: colors.text }]}>Previous Notes</Text>
+            <Text style={[typography.label, { color: colors.text }]}>
+              Previous Notes
+            </Text>
             {notesLoading ? (
-              <Text style={[typography.caption, { color: colors.muted }]}>Loading notes...</Text>
+              <Text style={[typography.caption, { color: colors.muted }]}>
+                Loading notes...
+              </Text>
             ) : notes.length ? (
               notes.map((item) => (
                 <View
                   key={item.id}
-                  style={[styles.noteHistoryRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  style={[
+                    styles.noteHistoryRow,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
                 >
-                  <Text style={[typography.body, { color: colors.text }]}>{item.note}</Text>
+                  <Text style={[typography.body, { color: colors.text }]}>
+                    {item.note}
+                  </Text>
                   <Text style={[typography.caption, { color: colors.muted }]}>
-                    {item.authorName} : {formatDate(item.createdAt)} {formatTime(item.createdAt)}
+                    {item.authorName} : {formatDate(item.createdAt)}{" "}
+                    {formatTime(item.createdAt)}
                   </Text>
                 </View>
               ))
             ) : (
-              <Text style={[typography.caption, { color: colors.muted }]}>No notes yet.</Text>
+              <Text style={[typography.caption, { color: colors.muted }]}>
+                No notes yet.
+              </Text>
             )}
           </View>
         </View>
@@ -374,6 +735,40 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
   },
+  completionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  completionStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  completionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  completionLabel: {
+    ...typography.bodyMedium,
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  skeletonBody: {
+    gap: spacing.sm,
+  },
+  skeletonCard: {
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
   headerAction: {
     width: 36,
     height: 36,
@@ -384,9 +779,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     gap: spacing.lg,
-  },
-  loadingState: {
-    alignItems: "center",
   },
   quickCard: {
     gap: spacing.sm,

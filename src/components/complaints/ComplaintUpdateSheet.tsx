@@ -108,7 +108,7 @@ function ComplaintUpdateForm({ complaint, onClose }: { complaint: ComplaintRecor
 
   return (
     <View style={styles.content}>
-      <View style={[styles.reference, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      <View style={[styles.reference, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>{complaint.title}</Text>
         <Text style={[typography.caption, { color: colors.muted }]}>{complaint.customerName}</Text>
         <Text style={[typography.body, { color: colors.text }]}>{complaint.description}</Text>

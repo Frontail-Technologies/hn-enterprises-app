@@ -1,8 +1,9 @@
+import { StatusBar } from "expo-status-bar";
 import { ReactNode } from "react";
-import { StatusBar, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { spacing } from "@/constants/spacing";
+import { pagePadding, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -14,17 +15,19 @@ type AppHeaderProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function AppHeader({ title, subtitle, left, right, style }: AppHeaderProps) {
+export function AppHeader({
+  title,
+  subtitle,
+  left,
+  right,
+  style,
+}: AppHeaderProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={isDark ? colors.card : colors.accent}
-        translucent={false}
-      />
+      <StatusBar style="light" />
       <View
         style={[
           styles.header,
@@ -64,6 +67,7 @@ export function AppHeader({ title, subtitle, left, right, style }: AppHeaderProp
 }
 
 AppHeader.displayName = "AppHeader";
+AppHeader.isStickyHeader = true;
 
 const styles = StyleSheet.create({
   header: {
@@ -72,9 +76,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    marginHorizontal: -20,
     marginBottom: spacing.md,
-    paddingHorizontal: 20,
+    paddingHorizontal: pagePadding,
     paddingBottom: spacing.md,
     zIndex: 10,
   },

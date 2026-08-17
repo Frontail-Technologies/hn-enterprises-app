@@ -1,6 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
@@ -15,7 +16,7 @@ import type { ActivityLogEntry } from '@/services/mockData';
 
 export default function ActivityScreen() {
   const { user } = useAuth();
-  const { checkInAt, checkOutAt, checkInLocation, checkOutLocation } = useAttendanceStatus();
+  const { checkInAt, checkOutAt, checkInLocation, checkOutLocation, refetch: refetchAttendance } = useAttendanceStatus();
 
   const extra = useMemo<ActivityLogEntry[]>(() => {
     const activity: ActivityLogEntry[] = [];
@@ -46,9 +47,16 @@ export default function ActivityScreen() {
   }, [checkInAt, checkInLocation?.address, checkOutAt, checkOutLocation?.address]);
 
   const { items: activity } = useRecentActivity({ extra, limit: 50, supervisorId: user?.id });
+  const queryClient = useQueryClient();
+  const onRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['activity', 'recent'] }),
+      refetchAttendance(),
+    ]);
+  }, [queryClient, refetchAttendance]);
 
   return (
-    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader title="Recent Activity" left={<BackButton />} />
 
       {activity.length ? (

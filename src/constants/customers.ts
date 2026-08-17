@@ -2,9 +2,11 @@ import type { CustomerGridColumnKey } from '@/types/customers';
 import type { FilterableColumnWithWidth } from '@/types/table';
 
 export const customerGridColumns: FilterableColumnWithWidth<CustomerGridColumnKey>[] = [
-  { key: 'trBpNo', label: 'BP / TR', width: 116 },
-  { key: 'customerName', label: 'Name', width: 150 },
-  { key: 'fullAddress', label: 'Address', width: 260 },
-  { key: 'mobileNo', label: 'Phone', width: 126 },
-  { key: 'status', label: 'Status', width: 116 },
+  { key: 'trBpNo', label: 'BP / TR', width: 130 },
+  { key: 'customerName', label: 'Customer', width: 165 },
+  { key: 'siteArea', label: 'Site', width: 120 },
+  { key: 'status', label: 'Status', width: 110 },
+  { key: 'mobileNo', label: 'Mobile', width: 120 },
+  { key: 'supervisorName', label: 'Supervisor', width: 145 },
+  { key: 'fullAddress', label: 'Address', width: 210 },
 ];

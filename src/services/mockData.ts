@@ -247,6 +247,30 @@ export type CustomerDocument = {
   evidence?: EvidenceFile;
 };
 
+export type CompletionStatus = "NOT_STARTED" | "IN_PROGRESS" | "DONE";
+
+export type CompletionSectionKey =
+  | "giMeasurements"
+  | "valvesRegulators"
+  | "fittingsAccessories"
+  | "mdpeFittings";
+
+export type SectionCompletionResult = {
+  status: CompletionStatus;
+  requiredFields: string[];
+  missingRequiredFields: string[];
+};
+
+export type CustomerSectionCompletion = {
+  survey: SectionCompletionResult;
+  commissioning: SectionCompletionResult;
+  giMeasurements: SectionCompletionResult;
+  valvesRegulators: SectionCompletionResult;
+  fittingsAccessories: SectionCompletionResult;
+  mdpeFittings: SectionCompletionResult;
+  lmc: SectionCompletionResult;
+};
+
 export type CustomerRecord = {
   id: string;
   status: CustomerStatus;
@@ -265,6 +289,7 @@ export type CustomerRecord = {
   billingCompletion: BillingCompletion;
   documents: CustomerDocument[];
   customFields?: Record<string, string | boolean>;
+  sectionCompletion?: CustomerSectionCompletion;
 };
 
 export type WorkProgressRecord = {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "306762790714",
+    "project_id": "hn-enterprises",
+    "storage_bucket": "hn-enterprises.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:306762790714:android:cebca0d085c9bf99298203",
+        "android_client_info": {
+          "package_name": "com.hnenterprises.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxlKZVcvHDD9wX57jMaOD6hPUGOq1KB0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

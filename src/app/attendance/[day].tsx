@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CalendarDays, Clock3, ClipboardList, MapPin } from 'lucide-react-native';
+import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -23,7 +24,10 @@ export default function AttendanceDayDetailScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ day?: string; date?: string; status?: string }>();
   const day = Number(params.day ?? 28);
-  const { data: record = null, isLoading: loading } = useAttendanceDayQuery(params.date);
+  const { data: record = null, isLoading: loading, refetch } = useAttendanceDayQuery(params.date);
+  const onRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const status = record ? (STATUS_LABEL[record.status] ?? 'Not Marked') : 'Not Marked';
   const isAbsent = status === 'Absent' || status === 'Not Marked';
@@ -39,7 +43,7 @@ export default function AttendanceDayDetailScreen() {
     : 'Not captured';
 
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader
         title="Today Detail"
         left={

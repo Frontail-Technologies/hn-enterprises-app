@@ -26,6 +26,7 @@ export function useSupervisorStatDetails(type: string | undefined) {
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: Boolean(query.hasNextPage),
     loadMore,
+    refetch: query.refetch,
     error: query.error instanceof Error ? query.error : null,
   };
 }

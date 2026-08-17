@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useCallback, useContext, useMemo } from "react";
+import * as Notifications from "expo-notifications";
+import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
 import {
   useMarkAllNotificationsReadMutation,
@@ -10,6 +11,7 @@ import type { Notification } from "@/services/mockData";
 type NotificationsContextValue = {
   notifications: Notification[];
   unreadCount: number;
+  isLoading: boolean;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
 };
@@ -21,6 +23,13 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
   const markReadMutation = useMarkNotificationReadMutation();
   const markAllReadMutation = useMarkAllNotificationsReadMutation();
   const items = useMemo(() => notificationsQuery.data ?? [], [notificationsQuery.data]);
+  const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
+
+  // Keep the app-icon badge in step with the backend unread count (the single
+  // source of truth) rather than a separately-maintained counter.
+  useEffect(() => {
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
+  }, [unreadCount]);
 
   const markAsRead = useCallback(
     (id: string) => {
@@ -36,11 +45,12 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
   const value = useMemo<NotificationsContextValue>(
     () => ({
       notifications: items,
-      unreadCount: items.filter((item) => !item.read).length,
+      unreadCount,
+      isLoading: notificationsQuery.isLoading,
       markAsRead,
       markAllAsRead,
     }),
-    [items, markAllAsRead, markAsRead],
+    [items, unreadCount, markAllAsRead, markAsRead, notificationsQuery.isLoading],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

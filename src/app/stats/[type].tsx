@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check, Filter, Search } from 'lucide-react-native';
@@ -10,25 +9,39 @@ import { ScrollableTable } from '@/components/shared/ScrollableTable';
 import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Reveal } from '@/components/ui/Reveal';
 import { Screen } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import { statDetailStatusOptions } from '@/constants/stats';
+import { tableDividers, tableMetrics, tableText } from '@/constants/table';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useStatDetailFilters } from '@/hooks/useStatDetailFilters';
 import { useSupervisorStatDetails, useSupervisorStats } from '@/hooks/useMobileStats';
+import { guardNavigation } from '@/lib/navigation';
 import type { SupervisorStatDetailRow } from '@/services/mobileStats';
+
+const EM_DASH = '—';
+
+const STAT_COL_WIDTH = {
+  name: 150,
+  reference: 112,
+  site: 150,
+  status: 112,
+  date: 106,
+  helper: 190,
+};
+
+const STAT_TABLE_WIDTH = Object.values(STAT_COL_WIDTH).reduce((total, width) => total + width, 0);
 
 export default function StatDetailScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
-  const { colors } = useTheme();
-  const queryClient = useQueryClient();
+  const { colors, isDark } = useTheme();
+  const dividers = tableDividers(colors, isDark);
   const [refreshing, setRefreshing] = useState(false);
   const { stats } = useSupervisorStats();
   const stat = stats.find((item) => item.id === type) ?? null;
-  const { rows, total, isLoading, isFetchingNextPage, hasNextPage, loadMore } = useSupervisorStatDetails(
+  const { rows, total, isLoading, isFetchingNextPage, hasNextPage, loadMore, refetch } = useSupervisorStatDetails(
     type ? String(type) : undefined,
   );
   const {
@@ -50,14 +63,14 @@ export default function StatDetailScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await queryClient.refetchQueries({ type: 'active' });
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [refetch]);
 
   return (
-    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader title={stat?.label ?? 'Stat Details'} subtitle={`${filteredRows.length} records`} left={<BackButton />} />
 
       <Input
@@ -71,63 +84,66 @@ export default function StatDetailScreen() {
 
       <View style={styles.tablePanel}>
         <Text style={[styles.resultText, { color: colors.muted }]}>
-          {isLoading ? 'Loading...' : `Showing ${filteredRows.length} of ${total} records`}
+          {isLoading ? 'Loading…' : `${filteredRows.length} of ${total} records`}
         </Text>
-        {isLoading ? (
-          <TableSkeleton columnWidths={[150, 112, 150, 112, 106, 190]} />
-        ) : (
-          <ScrollableTable
-            listMode
-            minWidth={820}
-            header={
-              <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-                <Text style={[styles.headerCell, styles.nameCell, { color: colors.muted, borderColor: colors.border }]}>Name / Work</Text>
-                <Text style={[styles.headerCell, styles.refCell, { color: colors.muted, borderColor: colors.border }]}>Reference</Text>
-                <Text style={[styles.headerCell, styles.siteCell, { color: colors.muted, borderColor: colors.border }]}>Site</Text>
-                <Text style={[styles.headerCell, styles.statusCell, { color: colors.muted, borderColor: colors.border }]}>Status</Text>
-                <Text style={[styles.headerCell, styles.dateCell, { color: colors.muted, borderColor: colors.border }]}>Date</Text>
-                <Text style={[styles.headerCell, styles.helperCell, { color: colors.muted, borderColor: colors.border }]}>Detail</Text>
-              </View>
-            }
-          >
-            <FlashList
-              style={styles.flex}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-              data={filteredRows}
-              keyExtractor={(row) => row.id}
-              renderItem={({ item: row }) => (
-                <Reveal stagger={false}>
-                  <StatTableRow row={row} />
-                </Reveal>
-              )}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                  tintColor={colors.primaryDark}
-                  colors={[colors.primaryDark]}
-                  progressBackgroundColor={colors.card}
-                />
-              }
-              ListFooterComponent={
-                hasNextPage ? (
-                  <Pressable
-                    onPress={loadMore}
-                    disabled={isFetchingNextPage}
-                    style={({ pressed }) => [styles.loadMoreRow, { borderColor: colors.border }, pressed && { opacity: 0.72 }]}
-                  >
-                    {isFetchingNextPage ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Text style={[typography.label, { color: colors.primary }]}>Load more</Text>
-                    )}
-                  </Pressable>
-                ) : null
-              }
+        <View style={styles.tableCard}>
+          {isLoading ? (
+            <TableSkeleton
+              columnWidths={Object.values(STAT_COL_WIDTH)}
+              rowHeight={tableMetrics.rowHeight}
+              headerHeight={tableMetrics.headerHeight}
             />
-          </ScrollableTable>
-        )}
+          ) : (
+            <ScrollableTable
+              listMode
+              minWidth={STAT_TABLE_WIDTH}
+              header={
+                <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.surfaceMuted, borderBottomColor: dividers.header }]}>
+                  <HeaderCell label="Name / Work" width={STAT_COL_WIDTH.name} divider={dividers.vertical} color={colors.muted} />
+                  <HeaderCell label="Reference" width={STAT_COL_WIDTH.reference} divider={dividers.vertical} color={colors.muted} />
+                  <HeaderCell label="Site" width={STAT_COL_WIDTH.site} divider={dividers.vertical} color={colors.muted} />
+                  <HeaderCell label="Status" width={STAT_COL_WIDTH.status} divider={dividers.vertical} color={colors.muted} />
+                  <HeaderCell label="Date" width={STAT_COL_WIDTH.date} divider={dividers.vertical} color={colors.muted} />
+                  <HeaderCell label="Detail" width={STAT_COL_WIDTH.helper} color={colors.muted} />
+                </View>
+              }
+            >
+              <FlashList
+                style={styles.flex}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                data={filteredRows}
+                keyExtractor={(row) => row.id}
+                renderItem={({ item: row }) => <StatTableRow row={row} verticalDivider={dividers.vertical} />}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primaryDark}
+                    colors={[colors.primaryDark]}
+                    progressBackgroundColor={colors.card}
+                  />
+                }
+                ListFooterComponent={
+                  hasNextPage ? (
+                    <Pressable
+                      onPress={loadMore}
+                      disabled={isFetchingNextPage}
+                      style={({ pressed }) => [styles.loadMoreRow, { borderColor: colors.border }, pressed && { opacity: 0.72 }]}
+                    >
+                      {isFetchingNextPage ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Text style={[typography.label, { color: colors.primary }]}>Load more</Text>
+                      )}
+                    </Pressable>
+                  ) : null
+                }
+              />
+            </ScrollableTable>
+          )}
+        </View>
       </View>
 
       <Sheet
@@ -182,7 +198,17 @@ function BackButton() {
   );
 }
 
-function StatTableRow({ row }: { row: SupervisorStatDetailRow }) {
+function HeaderCell({ label, width, divider, color }: { label: string; width: number; divider?: string; color: string }) {
+  return (
+    <View style={[styles.cell, divider ? styles.cellDivider : null, { width, borderRightColor: divider }]}>
+      <Text style={[styles.headerText, { color }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function StatTableRow({ row, verticalDivider }: { row: SupervisorStatDetailRow; verticalDivider: string }) {
   const { colors } = useTheme();
   const canOpen = Boolean(row.customerId);
 
@@ -190,31 +216,44 @@ function StatTableRow({ row }: { row: SupervisorStatDetailRow }) {
     <Pressable
       disabled={!canOpen}
       onPress={() => {
-        if (!row.customerId) return;
-        router.push({ pathname: '/customers/[id]', params: { id: row.customerId } });
+        const customerId = row.customerId;
+        if (!customerId) return;
+        guardNavigation(() =>
+          router.push({ pathname: '/customers/[id]', params: { id: customerId } }),
+        );
       }}
-      style={({ pressed }) => pressed && canOpen && { opacity: 0.72 }}
+      style={({ pressed }) => [
+        styles.tableRow,
+        { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        pressed && canOpen && { opacity: 0.72 },
+      ]}
     >
-      <View style={[styles.tableRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.nameCell, styles.bodyCell, { borderColor: colors.border }]}>
-          <Text style={[styles.primaryCellText, { color: colors.text }]} numberOfLines={1}>
-            {row.title}
-          </Text>
-        </View>
-        <Text style={[styles.refCell, styles.bodyCell, styles.cellText, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-          {row.reference || '-'}
+      <View style={[styles.cell, styles.cellDivider, { width: STAT_COL_WIDTH.name, borderRightColor: verticalDivider }]}>
+        <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
+          {row.title || EM_DASH}
         </Text>
-        <Text style={[styles.siteCell, styles.bodyCell, styles.cellText, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-          {row.site || '-'}
+      </View>
+      <View style={[styles.cell, styles.cellDivider, { width: STAT_COL_WIDTH.reference, borderRightColor: verticalDivider }]}>
+        <Text style={[styles.secondaryText, { color: colors.text }]} numberOfLines={1}>
+          {row.reference || EM_DASH}
         </Text>
-        <View style={[styles.statusCell, styles.bodyCell, { borderColor: colors.border }]}>
-          <StatusPill status={row.status} />
-        </View>
-        <Text style={[styles.dateCell, styles.bodyCell, styles.cellText, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-          {row.updatedOn || '-'}
+      </View>
+      <View style={[styles.cell, styles.cellDivider, { width: STAT_COL_WIDTH.site, borderRightColor: verticalDivider }]}>
+        <Text style={[styles.secondaryText, { color: colors.muted }]} numberOfLines={1}>
+          {row.site || EM_DASH}
         </Text>
-        <Text style={[styles.helperCell, styles.bodyCell, styles.cellText, { color: colors.text, borderColor: colors.border }]} numberOfLines={1}>
-          {row.helper || '-'}
+      </View>
+      <View style={[styles.cell, styles.cellDivider, { width: STAT_COL_WIDTH.status, borderRightColor: verticalDivider }]}>
+        <StatusPill status={row.status} />
+      </View>
+      <View style={[styles.cell, styles.cellDivider, { width: STAT_COL_WIDTH.date, borderRightColor: verticalDivider }]}>
+        <Text style={[styles.secondaryText, { color: colors.text }]} numberOfLines={1}>
+          {row.updatedOn || EM_DASH}
+        </Text>
+      </View>
+      <View style={[styles.cell, { width: STAT_COL_WIDTH.helper }]}>
+        <Text style={[styles.secondaryText, { color: colors.muted }]} numberOfLines={1}>
+          {row.helper || EM_DASH}
         </Text>
       </View>
     </Pressable>
@@ -255,13 +294,16 @@ function StatusPill({ status }: { status: SupervisorStatDetailRow['status'] }) {
 
   return (
     <View style={[styles.pill, { backgroundColor: colors.softOrange }]}>
-      <Text style={[styles.pillText, { color }]}>{status}</Text>
+      <Text style={[styles.pillText, { color }]} numberOfLines={1}>
+        {status}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
+    flex: 1,
     gap: spacing.md,
     paddingBottom: spacing.lg,
   },
@@ -275,82 +317,57 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-    // Bleed out of the screen's own horizontal padding so the table itself
-    // reaches the screen edges instead of floating in a narrower column.
-    marginHorizontal: -20,
   },
   flex: {
     flex: 1,
   },
   resultText: {
     ...typography.caption,
-    paddingHorizontal: 20,
+  },
+  // No outer card chrome - header (surfaceMuted) and each row (surface) carry
+  // their own fill, so the list blends into the page only in the gaps.
+  tableCard: {
+    flex: 1,
+  },
+  tableRow: {
+    height: tableMetrics.rowHeight,
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  tableHeader: {
+    height: tableMetrics.headerHeight,
+    borderBottomWidth: 1,
+  },
+  cell: {
+    justifyContent: 'center',
+    paddingHorizontal: tableMetrics.cellPaddingH,
+  },
+  cellDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  headerText: {
+    ...tableText.header,
+  },
+  primaryText: {
+    ...tableText.primary,
+  },
+  secondaryText: {
+    ...tableText.secondary,
+  },
+  listContent: {
+    paddingBottom: spacing.md,
   },
   loadMoreRow: {
     minHeight: 44,
     marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: radius.sm,
   },
-  tableRow: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderLeftWidth: 1,
-  },
-  tableHeader: {
-    minHeight: 28,
-    borderTopWidth: 1,
-  },
-  headerCell: {
-    ...typography.caption,
-    fontSize: 10,
-    lineHeight: 13,
-    minHeight: 28,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    textTransform: 'uppercase',
-  },
-  bodyCell: {
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    paddingHorizontal: spacing.sm,
-  },
-  primaryCellText: {
-    ...typography.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  cellText: {
-    ...typography.body,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  nameCell: {
-    width: 150,
-  },
-  refCell: {
-    width: 112,
-  },
-  siteCell: {
-    width: 150,
-  },
-  statusCell: {
-    width: 112,
-  },
-  dateCell: {
-    width: 106,
-  },
-  helperCell: {
-    width: 190,
-  },
   pill: {
+    alignSelf: 'flex-start',
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,

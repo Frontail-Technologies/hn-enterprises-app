@@ -17,7 +17,7 @@ import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpdateCommissioningConversionMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
@@ -64,10 +64,12 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
       router.back();
     } catch (error) {
       console.error('[MeterCommissioningPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit meter & commissioning';
+      const message = normalizeError(error, 'Unable to submit meter & commissioning');
       showToast(message, 'error');
     }
   };
+
+  const required = customer.sectionCompletion?.commissioning.requiredFields ?? [];
 
   const content = (
     <>
@@ -75,21 +77,21 @@ export function useMeterCommissioningPanel(customer: CustomerRecord, onRefetch?:
 
       <Card style={styles.formCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Meter Details</Text>
-        <Input label="Meter Number" value={values.meterNo} onChangeText={(value) => updateField('meterNo', value)} />
-        <Input label="Meter Type" value={values.meterType} onChangeText={(value) => updateField('meterType', value)} />
+        <Input label="Meter Number" required={required.includes('meterNo')} value={values.meterNo} onChangeText={(value) => updateField('meterNo', value)} />
+        <Input label="Meter Type" required={required.includes('meterType')} value={values.meterType} onChangeText={(value) => updateField('meterType', value)} />
         <Input label="Regulator Pressure" value={values.regulatorPressure} onChangeText={(value) => updateField('regulatorPressure', value)} />
         <Input label="Regulator Number" value={values.regulatorNo} onChangeText={(value) => updateField('regulatorNo', value)} />
         <View style={styles.fieldGroup}>
-          <RequiredLabel label="Meter Reading" required />
+          <RequiredLabel label="Meter Reading" required={required.includes('meterReading')} />
           <MeterReadingInput value={values.meterReading} onChangeText={(value) => updateField('meterReading', value)} />
         </View>
       </Card>
 
       <Card style={styles.formCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Important Dates</Text>
-        <DateField label="Installation Date" value={values.installationDate} onChangeText={(value) => updateField('installationDate', value)} />
-        <DateField label="Commissioning Date" value={values.commissioningDate} onChangeText={(value) => updateField('commissioningDate', value)} />
-        <DateField label="Conversion Date" value={values.conversionDate} onChangeText={(value) => updateField('conversionDate', value)} />
+        <DateField label="Installation Date" required={required.includes('installationDate')} value={values.installationDate} onChangeText={(value) => updateField('installationDate', value)} />
+        <DateField label="Commissioning Date" required={required.includes('commissioningDate')} value={values.commissioningDate} onChangeText={(value) => updateField('commissioningDate', value)} />
+        <DateField label="Conversion Date" required={required.includes('conversionDate')} value={values.conversionDate} onChangeText={(value) => updateField('conversionDate', value)} />
       </Card>
 
       <Card style={styles.formCard}>

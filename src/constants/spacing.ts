@@ -7,10 +7,26 @@ export const spacing = {
   xxl: 24,
 };
 
+export const pagePadding = 20;
+
 export const radius = {
   sm: 6,
   md: 8,
   lg: 10,
   xl: 12,
   pill: 999,
+  badge: 6,
+  control: 8,
+  input: 10,
+  button: 12,
+  card: 12,
+  sheet: 16,
+};
+
+export const controlHeight = {
+  compact: 40,
+  input: 48,
+  cta: 52,
+  tableHeader: 40,
+  tableRow: 46,
 };

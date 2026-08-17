@@ -51,6 +51,7 @@ export function useCustomersGrid() {
         mobileNo: customer.customerConnection.mobileNo,
         projectName: customer.projectName,
         siteArea: customer.siteArea,
+        supervisorName: customer.customerConnection.supervisorName,
         status: customer.status,
         canOpen: true,
       })),
@@ -58,6 +59,7 @@ export function useCustomersGrid() {
   );
 
   const {
+    filters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -70,6 +72,8 @@ export function useCustomersGrid() {
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
   } = useColumnFilters(customerGridColumns, rows);
 
   // Free-text search already narrowed `rows` server-side - only the column
@@ -85,7 +89,12 @@ export function useCustomersGrid() {
     openingRowRef.current = row.id;
     router.push({
       pathname: '/customers/[id]',
-      params: { id: row.id },
+      params: {
+        id: row.id,
+        name: row.customerName,
+        trBp: row.trBpNo,
+        site: row.siteArea,
+      },
     });
     setTimeout(() => {
       if (openingRowRef.current === row.id) openingRowRef.current = null;
@@ -109,6 +118,7 @@ export function useCustomersGrid() {
     rows,
     filteredRows,
     openCustomer,
+    filters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -120,5 +130,7 @@ export function useCustomersGrid() {
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
   };
 }

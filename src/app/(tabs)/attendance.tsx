@@ -16,6 +16,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import type { CapturedLocation } from '@/hooks/useCurrentLocation';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
+import { guardNavigation } from '@/lib/navigation';
 import { formatDate, formatTime } from '@/utils/format';
 
 const SHORT_SHIFT_WARNING_MINUTES = 5;
@@ -39,6 +40,7 @@ export default function AttendanceScreen() {
     checkOutLocation,
     checkIn,
     checkOut,
+    refetch,
   } = useAttendanceStatus();
 
   const handleCheckIn = async () => {
@@ -92,11 +94,11 @@ export default function AttendanceScreen() {
   };
 
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen} onRefresh={refetch}>
       <AppHeader
         title="Attendance"
         right={
-          <Pressable onPress={() => router.push('/attendance/history')} style={styles.headerAction}>
+          <Pressable onPress={() => guardNavigation(() => router.push('/attendance/history'))} style={styles.headerAction}>
             <CalendarDays size={21} color="#FFFFFF" />
           </Pressable>
         }
@@ -111,7 +113,7 @@ export default function AttendanceScreen() {
         <View style={styles.content}>
           <Card style={styles.markedCard}>
             <View style={[styles.successIcon, { backgroundColor: '#DCFCE7' }]}>
-              <CheckCircle2 size={28} color={colors.green} />
+              <CheckCircle2 size={24} color={colors.green} />
             </View>
             <View style={styles.copy}>
               <Text style={[styles.title, { color: colors.text }]}>
@@ -166,7 +168,7 @@ export default function AttendanceScreen() {
         <View style={styles.content}>
           <Card style={styles.markCard}>
             <View style={[styles.pendingIcon, { backgroundColor: colors.softOrange }]}>
-              <Navigation size={28} color={colors.primary} />
+              <Navigation size={24} color={colors.primary} />
             </View>
             <Text style={[styles.title, { color: colors.text }]}>Check In</Text>
             <Text style={[styles.description, { color: colors.muted }]}>
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   content: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   remarksInput: {
     minHeight: 72,
@@ -224,49 +226,51 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     ...typography.body,
+    fontSize: 14,
     textAlignVertical: 'top',
   },
   markCard: {
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
-    borderRadius: radius.sm,
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radius.card,
   },
   markedCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.sm,
+    padding: spacing.md,
+    borderRadius: radius.card,
   },
   pendingIcon: {
-    width: 58,
-    height: 58,
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
   },
   successIcon: {
-    width: 54,
-    height: 54,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
-    marginTop: 2,
+    marginTop: 1,
   },
   copy: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 2,
   },
   title: {
     ...typography.h2,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 21,
   },
   description: {
-    ...typography.body,
+    ...typography.caption,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
-    lineHeight: 22,
   },
   locationLine: {
     flexDirection: 'row',

@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
-import { CheckSquare2, Square } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
@@ -9,13 +8,14 @@ import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Switch } from '@/components/ui/Switch';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useMasterValuesQuery, useUpdateBillingMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
 
 // No backend master category exists for payment status - matches the fixed
@@ -69,7 +69,7 @@ export function useBillingRemarksPanel(customer: CustomerRecord, onRefetch?: () 
       router.back();
     } catch (error) {
       console.error('[BillingRemarksPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit billing remarks';
+      const message = normalizeError(error, 'Unable to submit billing remarks');
       showToast(message, 'error');
     }
   };
@@ -132,13 +132,10 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   const { colors } = useTheme();
 
   return (
-    <Pressable
-      onPress={() => onChange(!value)}
-      style={[styles.toggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-    >
-      {value ? <CheckSquare2 size={22} color={colors.green} /> : <Square size={22} color={colors.muted} />}
+    <View style={[styles.toggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Text style={[styles.toggleText, { color: colors.text }]}>{label}</Text>
-    </Pressable>
+      <Switch value={value} onValueChange={onChange} />
+    </View>
   );
 }
 

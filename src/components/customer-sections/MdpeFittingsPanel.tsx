@@ -11,7 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateMdpeFittingsMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord } from '@/services/mockData';
 
 const mdpeFields = [
@@ -62,7 +62,7 @@ export function useMdpeFittingsPanel(customer: CustomerRecord, onRefetch?: () =>
       router.back();
     } catch (error) {
       console.error('[MdpeFittingsPanel] submit failed', { customerId: customer.id, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit MDPE fittings';
+      const message = normalizeError(error, 'Unable to submit MDPE fittings');
       showToast(message, 'error');
     }
   };

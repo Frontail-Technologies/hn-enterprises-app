@@ -1,83 +1,76 @@
 import { useMemo, useState } from 'react';
 
-import { expenseGridColumns, expenseStatusOptions } from '@/constants/expenses';
-import { useToast } from '@/context/ToastContext';
+import { expenseGridColumns } from '@/constants/expenses';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
-import {
-  useCreateExpenseMutation,
-  useExpensesQuery,
-  useUpdateExpenseMutation,
-} from '@/queries';
-import { ApiError } from '@/services/apiClient';
-import type { ExpenseRecord, ExpenseStatus } from '@/services/expenses.service';
-import type { ExpenseDraft, ExpenseGridRow } from '@/types/expenses';
+import { useExpensesQuery } from '@/queries';
+import type { ExpenseCategory } from '@/services/expenses.service';
+import type { ExpenseGridRow } from '@/types/expenses';
 
-export const draftStatusOptions = expenseStatusOptions.filter(
-  (option): option is { label: string; value: ExpenseStatus } => option.value !== 'All',
-);
+const ALL_MONTHS = 'All';
 
-function emptyDraft(): ExpenseDraft {
-  return {
-    category: 'worker_payment',
-    purpose: '',
-    paidTo: '',
-    plumberId: '',
-    customerId: '',
-    siteId: '',
-    address: '',
-    amount: '',
-    date: new Date().toISOString().slice(0, 10),
-    paymentMode: 'cash',
-    status: 'draft',
-    remarks: '',
-    evidence: [],
-  };
+function monthLabel(monthKey: string) {
+  return new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' }).format(new Date(`${monthKey}-01T00:00:00`));
 }
 
 export function useExpensesScreen() {
-  const { showToast } = useToast();
   const expensesQuery = useExpensesQuery();
-  const createExpenseMutation = useCreateExpenseMutation();
-  const updateExpenseMutation = useUpdateExpenseMutation();
   const expenses = useMemo(() => expensesQuery.data ?? [], [expensesQuery.data]);
   const isLoading = expensesQuery.isLoading;
-  const isSaving = createExpenseMutation.isPending || updateExpenseMutation.isPending;
+  const isError = expensesQuery.isError;
 
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [draftCategoryOpen, setDraftCategoryOpen] = useState(false);
-  const [draftPlumberOpen, setDraftPlumberOpen] = useState(false);
-  const [draftModeOpen, setDraftModeOpen] = useState(false);
-  const [draftStatusOpen, setDraftStatusOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<ExpenseDraft>(emptyDraft());
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | null>(null);
+  const [monthFilter, setMonthFilter] = useState(ALL_MONTHS);
+  const [monthSelectOpen, setMonthSelectOpen] = useState(false);
+
+  // Built from the full loaded set (not the filtered one) so the list of
+  // selectable months doesn't shrink as other filters get applied.
+  const monthOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const expense of expenses) {
+      if (expense.date) keys.add(expense.date.slice(0, 7));
+    }
+    const sorted = Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
+    return [
+      { label: 'All Time', value: ALL_MONTHS },
+      ...sorted.map((value) => ({ value, label: monthLabel(value) })),
+    ];
+  }, [expenses]);
 
   const rows = useMemo<ExpenseGridRow[]>(() => expenses, [expenses]);
 
   const {
+    filters,
     activeColumn,
     pendingValues,
     filterSearch,
     setFilterSearch,
     activeValues,
     matchesFilters,
-    isColumnActive,
     openFilter,
     closeFilter,
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
   } = useColumnFilters(expenseGridColumns, rows);
 
-  const filteredExpenses = useMemo(() => {
+  // Category is deliberately applied as a second pass on top of this, not
+  // folded into the same predicate - it's a drill-down into the All Expenses
+  // table only. The Overview tab's own totals/donut/breakdown are computed
+  // from `overviewExpenses` (below) so tapping a category and coming back to
+  // Overview doesn't collapse it down to that one slice.
+  const overviewExpenses = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return rows.filter((expense) => {
       const matchesFromDate = fromDate ? expense.date >= fromDate : true;
       const matchesToDate = toDate ? expense.date <= toDate : true;
+      const matchesMonth = monthFilter === ALL_MONTHS || expense.date.slice(0, 7) === monthFilter;
       const matchesSearch =
         !query ||
         [expense.purpose, expense.paidTo, expense.address, expense.paymentMode, expense.status]
@@ -85,81 +78,31 @@ export function useExpensesScreen() {
           .toLowerCase()
           .includes(query);
 
-      return matchesFromDate && matchesToDate && matchesSearch && matchesFilters(expense);
+      return matchesFromDate && matchesToDate && matchesMonth && matchesSearch && matchesFilters(expense);
     });
-  }, [rows, fromDate, matchesFilters, search, toDate]);
+  }, [rows, fromDate, toDate, monthFilter, matchesFilters, search]);
+
+  const filteredExpenses = useMemo(
+    () => overviewExpenses.filter((expense) => !categoryFilter || expense.category === categoryFilter),
+    [overviewExpenses, categoryFilter],
+  );
 
   const total = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-
-  const openAdd = () => {
-    setEditingId(null);
-    setDraft(emptyDraft());
-    setSheetOpen(true);
-  };
-
-  const openEdit = (expense: ExpenseRecord) => {
-    setEditingId(expense.id);
-    setDraft({
-      category: expense.category,
-      purpose: expense.purpose,
-      paidTo: expense.paidTo,
-      plumberId: expense.plumberId,
-      customerId: expense.customerId,
-      siteId: expense.siteId,
-      address: expense.address,
-      amount: expense.amount,
-      date: expense.date,
-      paymentMode: expense.paymentMode,
-      status: expense.status,
-      remarks: expense.remarks,
-      evidence: expense.evidence,
-    });
-    setSheetOpen(true);
-  };
-
-  const saveExpense = async () => {
-    if (!draft.purpose.trim() || !draft.amount.trim()) {
-      showToast('Purpose and amount are required', 'error');
-      return;
-    }
-
-    try {
-      if (editingId) {
-        await updateExpenseMutation.mutateAsync({ id: editingId, input: draft });
-        showToast('Expense updated', 'success');
-      } else {
-        await createExpenseMutation.mutateAsync(draft);
-        showToast('Expense added', 'success');
-      }
-      setSheetOpen(false);
-    } catch (error) {
-      console.error('[useExpensesScreen] save failed', {
-        editingId,
-        category: draft.category,
-        evidenceCount: draft.evidence.length,
-        error,
-      });
-      const message = error instanceof ApiError ? error.message : 'Unable to save expense';
-      showToast(message, 'error');
-    }
-  };
-
-  const updateDraft = <K extends keyof ExpenseDraft>(key: K, value: ExpenseDraft[K]) => {
-    setDraft((current) => ({ ...current, [key]: value }));
-  };
 
   const resetFilters = () => {
     setFromDate('');
     setToDate('');
+    clearAllFilters();
     setFilterSheetOpen(false);
   };
 
   return {
     isLoading,
-    isSaving,
+    isError,
+    refetch: expensesQuery.refetch,
     expenses,
-    rows,
     filteredExpenses,
+    overviewExpenses,
     total,
     search,
     setSearch,
@@ -169,33 +112,26 @@ export function useExpensesScreen() {
     setToDate,
     filterSheetOpen,
     setFilterSheetOpen,
-    sheetOpen,
-    setSheetOpen,
-    draftCategoryOpen,
-    setDraftCategoryOpen,
-    draftPlumberOpen,
-    setDraftPlumberOpen,
-    draftModeOpen,
-    setDraftModeOpen,
-    draftStatusOpen,
-    setDraftStatusOpen,
-    editingId,
-    draft,
-    openAdd,
-    openEdit,
-    saveExpense,
-    updateDraft,
-    resetFilters,
+    filters,
     activeColumn,
     pendingValues,
     filterSearch,
     setFilterSearch,
     activeValues,
-    isColumnActive,
     openFilter,
     closeFilter,
     togglePendingValue,
     applyFilter,
     clearFilter,
+    clearAllFilters,
+    activeFilterCount,
+    resetFilters,
+    categoryFilter,
+    setCategoryFilter,
+    monthFilter,
+    setMonthFilter,
+    monthOptions,
+    monthSelectOpen,
+    setMonthSelectOpen,
   };
 }

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
@@ -8,28 +8,20 @@ type RequiredLabelProps = {
   required?: boolean;
 };
 
+// Trailing asterisk ("Meter Reading *"), matching Input/DateField's own
+// required-field label convention.
 export function RequiredLabel({ label, required }: RequiredLabelProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={styles.row}>
-      {required ? <Text style={[styles.required, { color: colors.red }]}>*</Text> : null}
-      <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>
-    </View>
+    <Text style={[styles.label, { color: colors.muted }]}>
+      {label}
+      {required ? <Text style={{ color: colors.red }}> *</Text> : null}
+    </Text>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  required: {
-    ...typography.label,
-    fontSize: 14,
-    lineHeight: 16,
-  },
   label: {
     ...typography.label,
   },

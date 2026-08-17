@@ -1,34 +1,51 @@
-import { router } from 'expo-router';
-import { ArrowLeft, CheckCircle2, FileText } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from "expo-router";
+import { ArrowLeft, CheckCircle2, FileText } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { DateField } from '@/components/ui/DateField';
-import { Input } from '@/components/ui/Input';
-import { Screen } from '@/components/ui/Screen';
-import { AppHeader } from '@/components/shared/AppHeader';
-import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
-import { ScrollableTable } from '@/components/shared/ScrollableTable';
-import { SimpleSelect } from '@/components/shared/SimpleSelect';
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useTheme } from '@/context/ThemeContext';
-import { useDprForm } from '@/hooks/useDprForm';
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { DateField } from "@/components/ui/DateField";
+import { InlineFieldError } from "@/components/ui/InlineFieldError";
+import { Input } from "@/components/ui/Input";
+import { Screen } from "@/components/ui/Screen";
+import { AppHeader } from "@/components/shared/AppHeader";
+import { EvidenceUploader } from "@/components/shared/EvidenceUploader";
+import { ScrollableTable } from "@/components/shared/ScrollableTable";
+import { SimpleSelect } from "@/components/shared/SimpleSelect";
+import { radius, spacing } from "@/constants/spacing";
+import { tableDividers, tableMetrics, tableText } from "@/constants/table";
+import { typography } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
+import { useDprForm } from "@/hooks/useDprForm";
+
+const DPR_COL_WIDTH = {
+  task: 158,
+  planned: 80,
+  completed: 104,
+  worker: 118,
+  delay: 150,
+};
+const DPR_TABLE_WIDTH = Object.values(DPR_COL_WIDTH).reduce(
+  (total, width) => total + width,
+  0,
+);
 
 export default function DprScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dividers = tableDividers(colors, isDark);
   const {
     date,
     setDate,
-    projectId,
-    handleProjectChange,
-    siteId,
-    setSiteId,
-    projectSelectOpen,
-    setProjectSelectOpen,
-    siteSelectOpen,
-    setSiteSelectOpen,
+    customerId,
+    setCustomerId,
+    customerSelectOpen,
+    setCustomerSelectOpen,
+    customerSelectOptions,
+    customersLoading,
+    customersError,
+    refetchCustomers,
+    derivedContext,
+    errors,
     remarks,
     setRemarks,
     evidence,
@@ -37,22 +54,34 @@ export default function DprScreen() {
     items,
     updateItem,
     totalCompleted,
-    projectOptions,
-    siteSelectOptions,
     siteLabel,
     submitting,
     handleSubmit,
   } = useDprForm();
 
+  const inputStyle = {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    color: colors.text,
+  };
+
   return (
     <Screen
       scroll
-      edges={['bottom']}
+      edges={["bottom"]}
       contentStyle={styles.screen}
       bottomAccessory={
-        <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
           <Button
-            label="Submit DPR"
+            label={submitting ? "Submitting…" : "Submit DPR"}
             icon={<CheckCircle2 size={17} color="#FFFFFF" />}
             onPress={() => void handleSubmit()}
             loading={submitting}
@@ -61,116 +90,212 @@ export default function DprScreen() {
         </View>
       }
     >
-      <AppHeader title="DPR" subtitle="Submit completed work" left={<BackButton />} />
+      <AppHeader title="DPR" left={<BackButton />} />
 
       <Card style={styles.summaryCard}>
-        <View style={[styles.summaryIcon, { backgroundColor: colors.softOrange }]}>
+        <View
+          style={[styles.summaryIcon, { backgroundColor: colors.softOrange }]}
+        >
           <FileText size={20} color={colors.primary} />
         </View>
         <View style={styles.summaryCopy}>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>Completed Qty</Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>{siteLabel}</Text>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>
+            Completed Qty
+          </Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>
+            {siteLabel}
+          </Text>
         </View>
-        <Text style={[styles.totalText, { color: colors.primary }]}>{totalCompleted}</Text>
+        <Text style={[styles.totalText, { color: colors.primary }]}>
+          {totalCompleted}
+        </Text>
       </Card>
 
+      <Text style={[styles.sectionLabel, { color: colors.muted }]}>
+        Basic Details
+      </Text>
       <Card style={styles.contextCard}>
         <DateField label="DPR Date" value={date} onChangeText={setDate} />
-        <SimpleSelect
-          label="Project"
-          value={projectId}
-          options={projectOptions}
-          open={projectSelectOpen}
-          onOpenChange={setProjectSelectOpen}
-          onChange={handleProjectChange}
-          searchable
-        />
-        <SimpleSelect
-          label="Site"
-          value={siteId}
-          options={siteSelectOptions}
-          open={siteSelectOpen}
-          onOpenChange={setSiteSelectOpen}
-          onChange={setSiteId}
-          searchable
-        />
+        <View>
+          <SimpleSelect
+            label="Customer"
+            value={customerId}
+            options={customerSelectOptions}
+            open={customerSelectOpen}
+            onOpenChange={setCustomerSelectOpen}
+            onChange={setCustomerId}
+            searchable
+            loading={customersLoading}
+            error={Boolean(errors.customerId) || customersError}
+            onRetry={refetchCustomers}
+            emptyLabel="No customers available"
+          />
+          <InlineFieldError
+            message={errors.customerId ? "Select a customer" : undefined}
+          />
+        </View>
+        {derivedContext ? (
+          <View style={styles.derivedRow}>
+            <Text style={[styles.derivedLabel, { color: colors.muted }]}>
+              Project · Site
+            </Text>
+            <Text
+              style={[styles.derivedValue, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              {derivedContext}
+            </Text>
+          </View>
+        ) : null}
       </Card>
 
-      <EvidenceUploader
-        key={`dpr-evidence-${evidenceLoadToken}`}
-        title="DPR Photos"
-        initialFiles={evidence}
-        module="dpr"
-        onChange={setEvidence}
-      />
-
-      <View style={styles.tablePanel}>
+      <Text style={[styles.sectionLabel, { color: colors.muted }]}>
+        Work Details
+      </Text>
+      <View style={styles.tableCard}>
         <ScrollableTable
+          minWidth={DPR_TABLE_WIDTH}
           header={
-            <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: colors.softOrange, borderColor: colors.border }]}>
-              <Text style={[styles.headerCell, styles.taskCell, { color: colors.muted, borderColor: colors.border }]}>Task</Text>
-              <Text style={[styles.headerCell, styles.plannedCell, { color: colors.muted, borderColor: colors.border }]}>Planned</Text>
-              <Text style={[styles.headerCell, styles.completedCell, { color: colors.muted, borderColor: colors.border }]}>Completed</Text>
-              <Text style={[styles.headerCell, styles.workerCell, { color: colors.muted, borderColor: colors.border }]}>Worker</Text>
-              <Text style={[styles.headerCell, styles.delayCell, { color: colors.muted, borderColor: colors.border }]}>Delay Reason</Text>
+            <View
+              style={[
+                styles.tableHeader,
+                {
+                  backgroundColor: colors.surfaceMuted,
+                  borderBottomColor: dividers.header,
+                },
+              ]}
+            >
+              <HeaderCell
+                label="Task"
+                width={DPR_COL_WIDTH.task}
+                divider={dividers.vertical}
+                color={colors.muted}
+              />
+              <HeaderCell
+                label="Planned"
+                width={DPR_COL_WIDTH.planned}
+                divider={dividers.vertical}
+                color={colors.muted}
+              />
+              <HeaderCell
+                label="Completed"
+                width={DPR_COL_WIDTH.completed}
+                divider={dividers.vertical}
+                color={colors.muted}
+              />
+              <HeaderCell
+                label="Worker"
+                width={DPR_COL_WIDTH.worker}
+                divider={dividers.vertical}
+                color={colors.muted}
+              />
+              <HeaderCell
+                label="Delay Reason"
+                width={DPR_COL_WIDTH.delay}
+                color={colors.muted}
+              />
             </View>
           }
         >
           {items.map((item) => (
-            <View key={item.id} style={[styles.tableRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
-              <View style={[styles.bodyCell, styles.taskCell, { borderColor: colors.border }]}>
-                <Text style={[styles.taskText, { color: colors.text }]} numberOfLines={2}>
+            <View
+              key={item.id}
+              style={[styles.tableRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+            >
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  {
+                    width: DPR_COL_WIDTH.task,
+                    borderRightColor: dividers.vertical,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.taskText, { color: colors.text }]}
+                  numberOfLines={2}
+                >
                   {item.label}
                 </Text>
               </View>
-              <View style={[styles.bodyCell, styles.plannedCell, { borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  {
+                    width: DPR_COL_WIDTH.planned,
+                    borderRightColor: dividers.vertical,
+                  },
+                ]}
+              >
                 <TextInput
                   value={item.plannedQty}
-                  onChangeText={(value) => updateItem(item.id, 'plannedQty', value)}
+                  onChangeText={(value) =>
+                    updateItem(item.id, "plannedQty", value)
+                  }
                   keyboardType="numeric"
-                  placeholder="-"
+                  placeholder="—"
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
+                    styles.cellInputCentered,
+                    inputStyle,
                   ]}
                 />
               </View>
-              <View style={[styles.bodyCell, styles.completedCell, { borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  {
+                    width: DPR_COL_WIDTH.completed,
+                    borderRightColor: dividers.vertical,
+                  },
+                ]}
+              >
                 <TextInput
                   value={item.completedQty}
-                  onChangeText={(value) => updateItem(item.id, 'completedQty', value)}
+                  onChangeText={(value) =>
+                    updateItem(item.id, "completedQty", value)
+                  }
                   keyboardType="numeric"
-                  placeholder="-"
+                  placeholder="—"
                   placeholderTextColor={colors.muted}
                   style={[
                     styles.cellInput,
-                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
+                    styles.cellInputCentered,
+                    inputStyle,
                   ]}
                 />
               </View>
-              <View style={[styles.bodyCell, styles.workerCell, { borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellDivider,
+                  {
+                    width: DPR_COL_WIDTH.worker,
+                    borderRightColor: dividers.vertical,
+                  },
+                ]}
+              >
                 <TextInput
                   value={item.worker}
-                  onChangeText={(value) => updateItem(item.id, 'worker', value)}
-                  placeholder="-"
+                  onChangeText={(value) => updateItem(item.id, "worker", value)}
+                  placeholder="—"
                   placeholderTextColor={colors.muted}
-                  style={[
-                    styles.cellInputWide,
-                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
-                  ]}
+                  style={[styles.cellInput, inputStyle]}
                 />
               </View>
-              <View style={[styles.bodyCell, styles.delayCell, { borderColor: colors.border }]}>
+              <View style={[styles.cell, { width: DPR_COL_WIDTH.delay }]}>
                 <TextInput
                   value={item.delayReason}
-                  onChangeText={(value) => updateItem(item.id, 'delayReason', value)}
-                  placeholder="-"
+                  onChangeText={(value) =>
+                    updateItem(item.id, "delayReason", value)
+                  }
+                  placeholder="—"
                   placeholderTextColor={colors.muted}
-                  style={[
-                    styles.cellInputWide,
-                    { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
-                  ]}
+                  style={[styles.cellInput, inputStyle]}
                 />
               </View>
             </View>
@@ -182,7 +307,16 @@ export default function DprScreen() {
         label="Supervisor Remarks"
         value={remarks}
         onChangeText={setRemarks}
-        placeholder="Add DPR remarks"
+        placeholder="Add DPR remarks or issues"
+        multiline
+      />
+
+      <EvidenceUploader
+        key={`dpr-evidence-${evidenceLoadToken}`}
+        title="DPR Photos"
+        initialFiles={evidence}
+        module="dpr"
+        onChange={setEvidence}
       />
     </Screen>
   );
@@ -196,30 +330,56 @@ function BackButton() {
   );
 }
 
+function HeaderCell({
+  label,
+  width,
+  divider,
+  color,
+}: {
+  label: string;
+  width: number;
+  divider?: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.cell,
+        divider ? styles.cellDivider : null,
+        { width, borderRightColor: divider },
+      ]}
+    >
+      <Text style={[styles.headerText, { color }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingBottom: 116,
   },
   headerButton: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   summaryCard: {
-    minHeight: 78,
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.sm,
+    borderRadius: radius.card,
   },
   summaryIcon: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.sm,
   },
   summaryCopy: {
@@ -227,101 +387,73 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     ...typography.bodyMedium,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
   },
   totalText: {
     fontFamily: typography.h1.fontFamily,
-    fontSize: 27,
-    lineHeight: 32,
+    fontSize: 26,
+    lineHeight: 31,
+  },
+  sectionLabel: {
+    ...tableText.header,
+    marginBottom: -spacing.xs,
   },
   contextCard: {
     gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.sm,
+    padding: spacing.md,
+    borderRadius: radius.card,
   },
-  tablePanel: {
-    gap: spacing.sm,
-    // Bleed out of the screen's own horizontal padding so the table itself
-    // reaches the screen edges instead of floating in a narrower column.
-    marginHorizontal: -20,
+  derivedRow: {
+    gap: 2,
+  },
+  derivedLabel: {
+    ...tableText.header,
+  },
+  derivedValue: {
+    ...typography.bodyMedium,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  tableCard: {},
+  tableHeader: {
+    flexDirection: "row",
+    height: tableMetrics.headerHeight,
+    borderBottomWidth: 1,
   },
   tableRow: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderLeftWidth: 1,
+    flexDirection: "row",
+    minHeight: 52,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  tableHeaderRow: {
-    minHeight: 30,
-    borderTopWidth: 1,
-  },
-  headerCell: {
-    ...typography.caption,
-    fontSize: 10,
-    lineHeight: 13,
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    paddingHorizontal: spacing.sm,
+  cell: {
+    justifyContent: "center",
+    paddingHorizontal: tableMetrics.cellPaddingH,
     paddingVertical: spacing.xs,
-    textTransform: 'uppercase',
   },
-  bodyCell: {
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+  cellDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  headerText: {
+    ...tableText.header,
   },
   taskText: {
-    ...typography.caption,
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  bodyText: {
-    ...typography.body,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  taskCell: {
-    width: 160,
-  },
-  plannedCell: {
-    width: 68,
-  },
-  completedCell: {
-    width: 90,
-  },
-  workerCell: {
-    width: 122,
-  },
-  delayCell: {
-    width: 150,
+    ...tableText.medium,
   },
   cellInput: {
-    width: '100%',
-    minHeight: 34,
+    width: "100%",
+    minHeight: 36,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    ...typography.body,
-    fontSize: 12,
+    ...tableText.secondary,
   },
-  cellInputWide: {
-    width: '100%',
-    minHeight: 34,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    ...typography.body,
-    fontSize: 11,
+  cellInputCentered: {
+    textAlign: "center",
+    textAlignVertical: "center",
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
     borderTopWidth: 1,
     padding: spacing.md,
@@ -329,6 +461,6 @@ const styles = StyleSheet.create({
   footerButton: {
     flex: 1,
     minWidth: 0,
-    width: 'auto',
+    width: "auto",
   },
 });

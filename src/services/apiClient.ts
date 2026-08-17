@@ -162,12 +162,18 @@ export async function apiRequestPaginated<T>(
 export async function apiRequestFormData<T>(
   path: string,
   formData: FormData,
-  options: { method?: string; auth?: boolean; timeoutMs?: number; skipRefresh?: boolean } = {},
+  options: {
+    method?: string;
+    auth?: boolean;
+    timeoutMs?: number;
+    skipRefresh?: boolean;
+    onProgress?: (fraction: number) => void;
+  } = {},
 ): Promise<T> {
-  const { method = "POST", auth = true, timeoutMs = REQUEST_TIMEOUT_MS, skipRefresh = false } = options;
+  const { method = "POST", auth = true, timeoutMs = REQUEST_TIMEOUT_MS, skipRefresh = false, onProgress } = options;
   const token = auth ? await getAccessToken() : null;
 
-  const { status, payload } = await sendFormDataViaXhr(`${API_BASE_URL}${path}`, formData, method, token, timeoutMs);
+  const { status, payload } = await sendFormDataViaXhr(`${API_BASE_URL}${path}`, formData, method, token, timeoutMs, onProgress);
 
   if (status === 401 && auth && !skipRefresh) {
     const refreshed = await refreshAccessToken();
@@ -189,6 +195,7 @@ function sendFormDataViaXhr(
   method: string,
   token: string | null,
   timeoutMs: number,
+  onProgress?: (fraction: number) => void,
 ): Promise<{ status: number; payload: ApiResponse<unknown> | null }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -196,6 +203,12 @@ function sendFormDataViaXhr(
     xhr.open(method, url);
     xhr.setRequestHeader("Accept", "application/json");
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total);
+      };
+    }
 
     xhr.onload = () => {
       let payload: ApiResponse<unknown> | null = null;

@@ -1,6 +1,6 @@
 import { Clock3 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type TextInputProps } from 'react-native';
 
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -41,7 +41,7 @@ export function TimeField({ label, value, editable = true, onChangeText, minuteS
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title={label}>
-        <ScrollView contentContainerStyle={styles.optionGrid} showsVerticalScrollIndicator={false}>
+        <View style={styles.optionGrid}>
           {options.map((option) => {
             const active = value === option.value;
             return (
@@ -63,7 +63,7 @@ export function TimeField({ label, value, editable = true, onChangeText, minuteS
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </Sheet>
     </View>
   );
@@ -96,20 +96,22 @@ function formatDisplayTime(value: string) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: spacing.sm,
+    gap: 6,
   },
   label: {
     ...typography.label,
+    fontSize: 14,
+    lineHeight: 18,
   },
   inputRow: {
-    minHeight: 50,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
     borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.lg,
+    borderRadius: radius.input,
+    paddingHorizontal: 14,
   },
   inputText: {
     ...typography.body,

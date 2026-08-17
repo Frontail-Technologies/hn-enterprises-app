@@ -8,7 +8,6 @@ export function useComplaintsQuery(params: { supervisorId?: string; status?: Com
   return useQuery({
     queryKey: queryKeys.complaints.list(params),
     queryFn: () => complaintsApi.list(params),
-    enabled: Boolean(params.supervisorId),
   });
 }
 

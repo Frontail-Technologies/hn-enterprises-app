@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useState } from 'react';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { RequiredLabel } from '@/components/shared/RequiredLabel';
-import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
@@ -14,9 +15,8 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
-import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpsertLmcPipeMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord, EvidenceFile, LmcLayingStatus, LmcPurgingStatus, LmcTestingStatus } from '@/services/mockData';
 
 const layingOptions: LmcLayingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Not Required', 'On Hold'];
@@ -59,8 +59,6 @@ export function usePipeEditForm(
     jointFittingDetails: draftPipe.jointFittingDetails,
     remarks: draftPipe.remarks,
   });
-  const { ref: jointFittingRef, onFocus: jointFittingOnFocus } = useScrollIntoViewOnFocus();
-  const { ref: remarksRef, onFocus: remarksOnFocus } = useScrollIntoViewOnFocus();
   const [evidence, setEvidence] = useState<EvidenceFile[]>(draftPipe.evidence);
 
   const submit = async () => {
@@ -85,7 +83,7 @@ export function usePipeEditForm(
       else router.back();
     } catch (error) {
       console.error('[LmcPipeEditForm] submit failed', { customerId: customer.id, pipeSize: draftPipe.pipeSize, evidenceCount: evidence.length, error });
-      const message = error instanceof ApiError ? error.message : `Unable to submit ${draftPipe.pipeSize} pipe update`;
+      const message = normalizeError(error, `Unable to submit ${draftPipe.pipeSize} pipe update`);
       showToast(message, 'error');
     }
   };
@@ -111,9 +109,7 @@ export function usePipeEditForm(
       <Card style={styles.formCard}>
         <View style={styles.fieldGroup}>
           <RequiredLabel label="Joint / Fitting Details" />
-          <TextInput
-            ref={jointFittingRef}
-            onFocus={jointFittingOnFocus}
+          <BottomSheetTextInput
             value={values.jointFittingDetails}
             onChangeText={(value) => updateField('jointFittingDetails', value)}
             multiline
@@ -125,9 +121,7 @@ export function usePipeEditForm(
         </View>
         <View style={styles.fieldGroup}>
           <RequiredLabel label="Remarks" />
-          <TextInput
-            ref={remarksRef}
-            onFocus={remarksOnFocus}
+          <BottomSheetTextInput
             value={values.remarks}
             onChangeText={(value) => updateField('remarks', value)}
             multiline
@@ -152,8 +146,16 @@ export function usePipeEditForm(
     </>
   );
 
+  // A plain Cancel/Save row, not SectionFormFooter/StickyFooter - this footer
+  // renders inside the Sheet's own footer slot (Sheet.tsx), which already
+  // applies safe-area-aware bottom padding, so stacking StickyFooter's own
+  // padding on top of it doubled the gap above the Android nav bar. "Back"
+  // navigation also doesn't apply inside a sheet - closing it is `onDone`.
   const footer = (
-    <SectionFormFooter onSubmit={submit} isSubmitting={upsertLmcPipeMutation.isPending} />
+    <View style={styles.footerRow}>
+      <Button label="Cancel" variant="outline" onPress={() => onDone?.()} style={styles.footerButton} disabled={upsertLmcPipeMutation.isPending} />
+      <Button label="Save" onPress={submit} loading={upsertLmcPipeMutation.isPending} style={styles.footerButton} />
+    </View>
   );
 
   return { pipe, content, footer };
@@ -197,6 +199,16 @@ function StatusChooser<T extends string>({
 }
 
 const styles = StyleSheet.create({
+  footerRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+  },
+  footerButton: {
+    flex: 1,
+    minWidth: 0,
+    width: 'auto',
+  },
   formCard: {
     gap: spacing.sm,
     padding: spacing.sm,

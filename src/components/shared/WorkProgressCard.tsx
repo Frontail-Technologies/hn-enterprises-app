@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { guardNavigation } from '@/lib/navigation';
 import type { WorkProgressRecord } from '@/services/mockData';
 
 type WorkProgressCardProps = {
@@ -19,10 +20,12 @@ export function WorkProgressCard({ record }: WorkProgressCardProps) {
   return (
     <Pressable
       onPress={() =>
-        router.push({
-          pathname: '/work/[id]',
-          params: { id: record.id },
-        })
+        guardNavigation(() =>
+          router.push({
+            pathname: '/work/[id]',
+            params: { id: record.id },
+          }),
+        )
       }
       style={({ pressed }) => [pressed && { opacity: 0.84 }]}
     >
@@ -37,7 +40,7 @@ export function WorkProgressCard({ record }: WorkProgressCardProps) {
           <StatusBadge status={record.status} />
         </View>
 
-        <View style={[styles.referenceBox, { backgroundColor: colors.background }]}>
+        <View style={[styles.referenceBox, { backgroundColor: colors.surfaceMuted }]}>
           <View style={styles.referenceRow}>
             <MapPin size={15} color={colors.accent} />
             <Text style={[typography.caption, styles.referenceText, { color: colors.text }]} numberOfLines={1}>

@@ -12,6 +12,14 @@ export function useExpensesQuery() {
   });
 }
 
+export function useExpenseQuery(id?: string) {
+  return useQuery({
+    queryKey: queryKeys.expenses.detail(id),
+    queryFn: () => expensesApi.get(id as string),
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateExpenseMutation() {
   const queryClient = useQueryClient();
 

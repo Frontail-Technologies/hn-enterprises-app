@@ -1,9 +1,13 @@
-import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
 
+import {
+  ensureAndroidChannel,
+  ensurePushPermissionGranted,
+  getProjectId,
+  setStoredPushToken,
+} from '@/lib/pushNotifications';
 import { useRegisterPushTokenMutation } from '@/queries';
 
 export function usePushRegistration(enabled: boolean) {
@@ -14,42 +18,44 @@ export function usePushRegistration(enabled: boolean) {
 
     let cancelled = false;
 
+    async function fetchAndRegister() {
+      const projectId = getProjectId();
+      if (!projectId) return;
+      const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+      if (cancelled || !token) return;
+      setStoredPushToken(token);
+      await registerPushTokenMutation.mutateAsync(token);
+    }
+
     async function register() {
       try {
         if (!Device.isDevice) return;
+        if (!getProjectId()) return;
 
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        if (!projectId) return;
+        await ensureAndroidChannel();
 
-        const existing = await Notifications.getPermissionsAsync();
-        let status = existing.status;
-        if (status !== 'granted') {
-          const requested = await Notifications.requestPermissionsAsync();
-          status = requested.status;
-        }
-        if (status !== 'granted') return;
+        const granted = await ensurePushPermissionGranted();
+        if (!granted || cancelled) return;
 
-        if (Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.DEFAULT,
-          });
-        }
-
-        const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-        if (cancelled || !token) return;
-
-        await registerPushTokenMutation.mutateAsync(token);
+        await fetchAndRegister();
       } catch {
-        // Push isn't set up until an EAS project is linked (`eas init`); the in-app
-        // notifications list works fine without it, so this no-ops silently until then.
+        // Push isn't usable until an EAS project is linked (`eas init`) and the
+        // native credentials exist; the in-app notifications list works without
+        // it, so this stays a silent no-op until then.
       }
     }
 
     register();
 
+    // Native (FCM/APNs) tokens can rotate; re-derive and re-register the Expo
+    // token so the backend association stays current without a logout/login.
+    const rotationSub = Notifications.addPushTokenListener(() => {
+      fetchAndRegister().catch(() => undefined);
+    });
+
     return () => {
       cancelled = true;
+      rotationSub.remove();
     };
   }, [enabled, registerPushTokenMutation]);
 }

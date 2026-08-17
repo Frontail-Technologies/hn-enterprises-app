@@ -1,10 +1,17 @@
-import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react-native';
+import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from './ThemeContext';
 
-type ToastTone = 'success' | 'info' | 'error' | 'subtle';
+type ToastTone = 'success' | 'error' | 'warning' | 'info' | 'subtle';
+
+type ToastItem = { id: string; message: string; tone: ToastTone };
+
+type ToastState = { current: ToastItem | null; queue: ToastItem[] };
 
 type ToastContextValue = {
   showToast: (message: string, tone?: ToastTone) => void;
@@ -14,33 +21,73 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: PropsWithChildren) {
   const { colors } = useTheme();
-  const [message, setMessage] = useState('');
-  const [tone, setTone] = useState<ToastTone>('success');
+  const insets = useSafeAreaInsets();
+  const [state, setState] = useState<ToastState>({ current: null, queue: [] });
   const [opacity] = useState(() => new Animated.Value(0));
 
-  const showToast = useCallback(
-    (nextMessage: string, nextTone: ToastTone = 'success') => {
-      setMessage(nextMessage);
-      setTone(nextTone);
+  const showToast = useCallback((message: string, tone: ToastTone = 'success') => {
+    const item: ToastItem = { id: `${Date.now()}-${Math.random()}`, message, tone };
+    setState((prev) =>
+      prev.current ? { ...prev, queue: [...prev.queue, item] } : { current: item, queue: prev.queue },
+    );
+  }, []);
 
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.delay(1900),
-        Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
-      ]).start();
-    },
-    [opacity],
-  );
+  const advance = useCallback(() => {
+    setState((prev) =>
+      prev.queue.length ? { current: prev.queue[0], queue: prev.queue.slice(1) } : { current: null, queue: [] },
+    );
+  }, []);
+
+  const current = state.current;
+
+  useEffect(() => {
+    if (!current) return;
+
+    opacity.setValue(0);
+    const animation = Animated.sequence([
+      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.delay(1900),
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]);
+    animation.start(({ finished }) => {
+      if (finished) advance();
+    });
+
+    return () => animation.stop();
+  }, [current, opacity, advance]);
 
   const value = useMemo(() => ({ showToast }), [showToast]);
-  const messageColor =
-    tone === 'error' ? colors.red : tone === 'success' ? colors.green : colors.muted;
+  const tone = current?.tone ?? 'info';
+  const toneColor =
+    tone === 'success'
+      ? colors.green
+      : tone === 'error'
+        ? colors.red
+        : tone === 'warning'
+          ? colors.amber
+          : tone === 'info'
+            ? colors.blue
+            : colors.muted;
+  const Icon =
+    tone === 'success' ? CheckCircle2 : tone === 'error' ? XCircle : tone === 'warning' ? AlertTriangle : Info;
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <Animated.View pointerEvents="none" style={[styles.toast, { opacity }]}>
-        <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
+      <Animated.View pointerEvents="none" style={[styles.container, { opacity, bottom: insets.bottom + 84 }]}>
+        {current ? (
+          <View
+            style={[
+              styles.toast,
+              { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: toneColor },
+            ]}
+          >
+            <Icon size={18} color={toneColor} />
+            <Text style={[styles.message, { color: colors.text }]} numberOfLines={2}>
+              {current.message}
+            </Text>
+          </View>
+        ) : null}
       </Animated.View>
     </ToastContext.Provider>
   );
@@ -57,17 +104,26 @@ export function useToast() {
 }
 
 const styles = StyleSheet.create({
-  toast: {
+  container: {
     position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 96,
-    zIndex: 50,
+    left: spacing.xl,
+    right: spacing.xl,
     alignItems: 'center',
-    justifyContent: 'center',
+    zIndex: 50,
+  },
+  toast: {
+    maxWidth: 460,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   message: {
     ...typography.caption,
-    textAlign: 'center',
+    flexShrink: 1,
   },
 });

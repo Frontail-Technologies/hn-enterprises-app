@@ -10,13 +10,15 @@ import {
   View,
 } from "react-native";
 
-import { spacing } from "@/constants/spacing";
+import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
+import type { CompletionStatus } from "@/services/mockData";
 
 export type SectionTab = {
   key: string;
   label: string;
+  status?: CompletionStatus;
 };
 
 type SectionTabBarProps = {
@@ -36,7 +38,9 @@ export function SectionTabBar({
   const scrollViewRef = useRef<ScrollView>(null);
   const viewportWidthRef = useRef(0);
   const scrollOffsetRef = useRef(0);
-  const tabLayoutsRef = useRef<Map<string, { x: number; width: number }>>(new Map());
+  const tabLayoutsRef = useRef<Map<string, { x: number; width: number }>>(
+    new Map(),
+  );
   const isDraggingRef = useRef(false);
   const dragEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,27 +71,39 @@ export function SectionTabBar({
     tabLayoutsRef.current.set(key, { x, width });
   };
 
-  const scrollTabIntoView = useCallback((key: string) => {
-    if (tabs[0]?.key === key) {
-      scrollOffsetRef.current = 0;
-      scrollViewRef.current?.scrollTo({ x: 0, animated: true });
-      return;
-    }
+  const scrollTabIntoView = useCallback(
+    (key: string) => {
+      if (tabs[0]?.key === key) {
+        scrollOffsetRef.current = 0;
+        scrollViewRef.current?.scrollTo({ x: 0, animated: true });
+        return;
+      }
 
-    const layout = tabLayoutsRef.current.get(key);
-    const viewportWidth = viewportWidthRef.current;
-    if (!layout || !viewportWidth) return;
+      const layout = tabLayoutsRef.current.get(key);
+      const viewportWidth = viewportWidthRef.current;
+      if (!layout || !viewportWidth) return;
 
-    const currentOffset = scrollOffsetRef.current;
-    const tabStart = layout.x;
-    const tabEnd = layout.x + layout.width;
+      const currentOffset = scrollOffsetRef.current;
+      const tabStart = layout.x;
+      const tabEnd = layout.x + layout.width;
 
-    if (tabStart < currentOffset + SCROLL_INTO_VIEW_PADDING) {
-      scrollViewRef.current?.scrollTo({ x: Math.max(0, tabStart - SCROLL_INTO_VIEW_PADDING), animated: true });
-    } else if (tabEnd > currentOffset + viewportWidth - SCROLL_INTO_VIEW_PADDING) {
-      scrollViewRef.current?.scrollTo({ x: tabEnd - viewportWidth + SCROLL_INTO_VIEW_PADDING, animated: true });
-    }
-  }, [tabs]);
+      if (tabStart < currentOffset + SCROLL_INTO_VIEW_PADDING) {
+        scrollViewRef.current?.scrollTo({
+          x: Math.max(0, tabStart - SCROLL_INTO_VIEW_PADDING),
+          animated: true,
+        });
+      } else if (
+        tabEnd >
+        currentOffset + viewportWidth - SCROLL_INTO_VIEW_PADDING
+      ) {
+        scrollViewRef.current?.scrollTo({
+          x: tabEnd - viewportWidth + SCROLL_INTO_VIEW_PADDING,
+          animated: true,
+        });
+      }
+    },
+    [tabs],
+  );
 
   const handlePress = (key: string) => {
     if (isDraggingRef.current) return;
@@ -112,7 +128,7 @@ export function SectionTabBar({
       horizontal
       showsHorizontalScrollIndicator={false}
       nestedScrollEnabled
-      style={{ backgroundColor: colors.background }}
+      style={[styles.scroll, { backgroundColor: colors.surfaceMuted }]}
       contentContainerStyle={styles.scrollContent}
       onLayout={handleViewportLayout}
       onScroll={handleScroll}
@@ -131,22 +147,40 @@ export function SectionTabBar({
               key={tab.key}
               onPress={() => handlePress(tab.key)}
               onLayout={handleTabLayout(tab.key)}
+              hitSlop={{ top: 6, bottom: 6 }}
               style={[
                 styles.tab,
                 active && { borderBottomColor: colors.primary },
               ]}
             >
-              <Text
-                style={[
-                  typography.label,
-                  styles.label,
-                  { color: active ? colors.primary : colors.muted },
-                  active && styles.labelActive,
-                ]}
-                numberOfLines={1}
-              >
-                {tab.label}
-              </Text>
+              <View style={[styles.tabContent]}>
+                {tab.status ? (
+                  <View
+                    style={[
+                      styles.dot,
+                      {
+                        backgroundColor:
+                          tab.status === "DONE"
+                            ? colors.green
+                            : tab.status === "IN_PROGRESS"
+                              ? colors.amber
+                              : colors.muted,
+                      },
+                    ]}
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    typography.label,
+                    styles.label,
+                    { color: active ? colors.primary : colors.muted },
+                    active && styles.labelActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -156,8 +190,12 @@ export function SectionTabBar({
 }
 
 SectionTabBar.displayName = "SectionTabBar";
+SectionTabBar.isStickyHeader = true;
 
 const styles = StyleSheet.create({
+  scroll: {
+    marginBottom: spacing.md,
+  },
   scrollContent: {
     paddingTop: 0,
   },
@@ -172,6 +210,19 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
+  },
+  tabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   label: {
     fontSize: 11,

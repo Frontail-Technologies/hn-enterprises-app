@@ -13,7 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateFittingsAccessoriesMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomerRecord } from '@/services/mockData';
 
 export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
@@ -67,7 +67,7 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
       router.back();
     } catch (error) {
       console.error('[FittingsAccessoriesPanel] submit failed', { customerId: customer.id, evidenceCount: values.evidence?.length ?? 0, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit fittings';
+      const message = normalizeError(error, 'Unable to submit fittings');
       showToast(message, 'error');
     }
   };

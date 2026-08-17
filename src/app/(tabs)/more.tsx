@@ -17,11 +17,13 @@ import { ChangePasswordSheet } from "@/components/auth/ChangePasswordSheet";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
+import { Switch } from "@/components/ui/Switch";
 import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
+import { guardNavigation } from "@/lib/navigation";
 
 export default function MoreScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -35,12 +37,12 @@ export default function MoreScreen() {
   };
 
   return (
-    <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen}>
+    <Screen scroll tabBarAware edges={["bottom"]} refreshable={false} contentStyle={styles.screen}>
       <AppHeader
         title="Profile"
         right={
           <Pressable
-            onPress={() => router.push("/notifications")}
+            onPress={() => guardNavigation(() => router.push("/notifications"))}
             style={styles.bellButton}
           >
             <Bell size={20} color="#FFFFFF" />
@@ -85,7 +87,7 @@ export default function MoreScreen() {
         </Card>
 
         <Card flat style={styles.menuCard}>
-          <Pressable style={styles.menuRow} onPress={toggleTheme}>
+          <View style={styles.menuRow}>
             {isDark ? (
               <Sun size={17} color={colors.primary} />
             ) : (
@@ -94,23 +96,8 @@ export default function MoreScreen() {
             <Text style={[styles.menuLabel, { color: colors.text }]}>
               Theme
             </Text>
-            <View
-              style={[
-                styles.toggleTrack,
-                { backgroundColor: isDark ? colors.primary : colors.border },
-              ]}
-            >
-              <View
-                style={[
-                  styles.toggleThumb,
-                  {
-                    backgroundColor: colors.card,
-                    transform: [{ translateX: isDark ? 18 : 0 }],
-                  },
-                ]}
-              />
-            </View>
-          </Pressable>
+            <Switch value={isDark} onValueChange={toggleTheme} />
+          </View>
           <View
             style={[styles.menuDivider, { backgroundColor: colors.border }]}
           />
@@ -296,17 +283,6 @@ const styles = StyleSheet.create({
     ...typography.label,
     flex: 1,
     fontSize: 12,
-  },
-  toggleTrack: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    padding: 3,
-  },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
   },
   logoutRow: {
     height: 46,

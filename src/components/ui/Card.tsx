@@ -1,5 +1,5 @@
 import { PropsWithChildren } from "react";
-import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
+import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
 import { radius, spacing } from "@/constants/spacing";
 import { useTheme } from "@/context/ThemeContext";
@@ -10,14 +10,16 @@ type CardProps = PropsWithChildren<{
   flat?: boolean;
 }>;
 
-export function Card({ children, style }: CardProps) {
+export function Card({ children, style, elevated, flat }: CardProps) {
   const { colors } = useTheme();
 
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.card, borderColor: colors.border },
+        { backgroundColor: colors.card },
+        flat ? null : { borderWidth: 1, borderColor: colors.border },
+        elevated && styles.elevated,
         style,
       ]}
     >
@@ -28,8 +30,19 @@ export function Card({ children, style }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.md,
   },
+  elevated: Platform.select({
+    ios: {
+      shadowColor: "#0F172A",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+    },
+    android: {
+      elevation: 2,
+    },
+    default: {},
+  }),
 });

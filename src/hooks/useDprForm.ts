@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { dprTaskTemplates } from '@/constants/dprTasks';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { useDprRecordsQuery, useProjectSitesQuery, useProjectsQuery, useUpsertDprRecordMutation } from '@/queries';
+import { useCustomerOptionsQuery, useDprRecordsQuery, useUpsertDprRecordMutation } from '@/queries';
 import type { EvidenceFile } from '@/services/mockData';
 import type { DprTaskPayload, PlanningEvidenceFile } from '@/services/planning.service';
 import type { DprItem } from '@/types/planning';
@@ -45,27 +45,32 @@ export function useDprForm() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const [date, setDate] = useState('2026-07-22');
-  const [projectId, setProjectId] = useState('');
-  const [siteId, setSiteId] = useState('');
-  const projectsQuery = useProjectsQuery();
-  const siteOptionsQuery = useProjectSitesQuery(projectId);
+  const [customerId, setCustomerId] = useState('');
+
+  const customersQuery = useCustomerOptionsQuery();
+  const customerOptions = customersQuery.data ?? [];
+  const selectedCustomer = customerOptions.find((option) => option.id === customerId) ?? null;
+  const projectId = selectedCustomer?.projectId ?? '';
+  const siteId = selectedCustomer?.siteId ?? '';
+
+  // Matched by customer, not site - a site can have many customers, and each
+  // gets its own DPR record for the same date/supervisor.
   const dprRecordsQuery = useDprRecordsQuery(
-    { siteId, date, supervisorId: user?.id },
-    { enabled: Boolean(siteId && date && user?.id) },
+    { customerId, date, supervisorId: user?.id },
+    { enabled: Boolean(customerId && date && user?.id) },
   );
   const upsertDprRecordMutation = useUpsertDprRecordMutation();
-  const projects = projectsQuery.data ?? [];
-  const siteOptions = siteOptionsQuery.data ?? [];
-  const [projectSelectOpen, setProjectSelectOpen] = useState(false);
-  const [siteSelectOpen, setSiteSelectOpen] = useState(false);
+
+  const [customerSelectOpen, setCustomerSelectOpen] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
   const [evidenceLoadToken, setEvidenceLoadToken] = useState(0);
   const [items, setItems] = useState(initialItems);
+  const [errors, setErrors] = useState<{ customerId?: boolean }>({});
   const submitting = upsertDprRecordMutation.isPending;
 
   useEffect(() => {
-    if (!siteId || !date || !user?.id || dprRecordsQuery.isLoading) return;
+    if (!customerId || !date || !user?.id || dprRecordsQuery.isLoading) return;
 
     queueMicrotask(() => {
       const existing = dprRecordsQuery.data?.[0];
@@ -92,7 +97,7 @@ export function useDprForm() {
       }
       setEvidenceLoadToken((token) => token + 1);
     });
-  }, [siteId, date, user?.id, dprRecordsQuery.data, dprRecordsQuery.isLoading]);
+  }, [customerId, date, user?.id, dprRecordsQuery.data, dprRecordsQuery.isLoading]);
 
   const totalCompleted = useMemo(
     () => items.reduce((sum, item) => sum + (Number(item.completedQty) || 0), 0),
@@ -105,20 +110,32 @@ export function useDprForm() {
     );
   };
 
-  const handleProjectChange = (value: string) => {
-    setProjectId(value);
-    setSiteId('');
+  const handleCustomerChange = (value: string) => {
+    setCustomerId(value);
+    setErrors((current) => ({ ...current, customerId: false }));
   };
 
-  const projectOptions = projects.map((project) => ({ label: project.name, value: project.id }));
-  const siteSelectOptions = siteOptions.map((option) => ({ label: option.name, value: option.id }));
-  const siteLabel = siteOptions.find((option) => option.id === siteId)?.name ?? 'Select a site';
+  const customerSelectOptions = customerOptions.map((option) => ({
+    label: option.trBpNo ? `${option.trBpNo} — ${option.name}` : option.name,
+    value: option.id,
+  }));
+
+  const derivedContext = selectedCustomer
+    ? [selectedCustomer.projectName, selectedCustomer.siteArea].filter(Boolean).join(' · ')
+    : '';
+  const siteLabel = selectedCustomer ? derivedContext || 'Site linked to customer' : 'Select a customer';
 
   const handleSubmit = async () => {
-    if (!projectId || !siteId) {
-      showToast('Select a project and site first', 'error');
+    if (submitting) return;
+    if (!customerId || !projectId || !siteId) {
+      setErrors({ customerId: true });
+      if (customerId && (!projectId || !siteId)) {
+        showToast('This customer has no linked project or site', 'error');
+      }
       return;
     }
+
+    setErrors({});
 
     try {
       const tasks: DprTaskPayload[] = items.map((item) => ({
@@ -130,6 +147,7 @@ export function useDprForm() {
       }));
 
       await upsertDprRecordMutation.mutateAsync({
+        customerId,
         projectId,
         siteId,
         date,
@@ -147,14 +165,16 @@ export function useDprForm() {
   return {
     date,
     setDate,
-    projectId,
-    handleProjectChange,
-    siteId,
-    setSiteId,
-    projectSelectOpen,
-    setProjectSelectOpen,
-    siteSelectOpen,
-    setSiteSelectOpen,
+    customerId,
+    setCustomerId: handleCustomerChange,
+    customerSelectOpen,
+    setCustomerSelectOpen,
+    customerSelectOptions,
+    customersLoading: customersQuery.isLoading,
+    customersError: customersQuery.isError,
+    refetchCustomers: () => customersQuery.refetch(),
+    derivedContext,
+    errors,
     remarks,
     setRemarks,
     evidence,
@@ -163,8 +183,6 @@ export function useDprForm() {
     items,
     updateItem,
     totalCompleted,
-    projectOptions,
-    siteSelectOptions,
     siteLabel,
     submitting,
     handleSubmit,

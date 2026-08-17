@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useCustomFieldDefinitionsQuery, useUpdateCustomFieldsMutation } from '@/queries';
-import { ApiError } from '@/services/apiClient';
+import { normalizeError } from '@/utils/normalizeError';
 import type { CustomFieldDefinition } from '@/services/masters.service';
 import type { CustomerRecord } from '@/services/mockData';
 
@@ -65,7 +65,7 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
       router.back();
     } catch (error) {
       console.error('[CustomFieldsPanel] submit failed', { customerId: customer.id, error });
-      const message = error instanceof ApiError ? error.message : 'Unable to submit custom fields';
+      const message = normalizeError(error, 'Unable to submit custom fields');
       showToast(message, 'error');
     }
   };

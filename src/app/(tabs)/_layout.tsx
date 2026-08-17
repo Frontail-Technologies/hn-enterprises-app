@@ -1,4 +1,4 @@
-import { Redirect, Tabs, router, useSegments } from "expo-router";
+import { Redirect, Tabs, useSegments } from "expo-router";
 import {
   CalendarDays,
   FileText,
@@ -80,7 +80,6 @@ export default function TabsLayout() {
           height: 74 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 12),
-          overflow: "visible",
         },
         tabBarItemStyle: styles.tabItem,
         tabBarIconStyle: styles.tabIcon,
@@ -97,7 +96,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused}>
+            <TabIcon>
               <Home color={color} size={21} strokeWidth={focused ? 2.6 : 2} />
             </TabIcon>
           ),
@@ -108,7 +107,7 @@ export default function TabsLayout() {
         options={{
           title: "Attendance",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused}>
+            <TabIcon>
               <CalendarDays
                 color={color}
                 size={21}
@@ -121,19 +120,17 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="customers"
         options={{
-          title: "",
-          tabBarLabel: "",
+          title: "Customers",
           href: "/customers",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} center>
-              <UsersRound color="#FFFFFF" size={24} strokeWidth={2.8} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon>
+              <UsersRound
+                color={color}
+                size={21}
+                strokeWidth={focused ? 2.6 : 2}
+              />
             </TabIcon>
           ),
-        }}
-        listeners={{
-          tabPress: () => {
-            router.setParams({ reset: String(Date.now()) });
-          },
         }}
       />
       <Tabs.Screen
@@ -141,7 +138,7 @@ export default function TabsLayout() {
         options={{
           title: "DPR/Planning",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused}>
+            <TabIcon>
               <FileText
                 color={color}
                 size={21}
@@ -156,7 +153,7 @@ export default function TabsLayout() {
         options={{
           title: "Expenses",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused}>
+            <TabIcon>
               <IndianRupee
                 color={color}
                 size={21}
@@ -207,35 +204,8 @@ function TabButton({
   );
 }
 
-function TabIcon({
-  focused,
-  center,
-  children,
-}: {
-  focused: boolean;
-  center?: boolean;
-  children: ReactNode;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.iconPill,
-        center && {
-          ...styles.centerIcon,
-          backgroundColor: colors.primary,
-          borderColor: colors.card,
-        },
-        focused &&
-          !center && {
-            backgroundColor: "transparent",
-          },
-      ]}
-    >
-      {children}
-    </View>
-  );
+function TabIcon({ children }: { children: ReactNode }) {
+  return <View style={styles.iconPill}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -265,12 +235,5 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: "transparent",
     backgroundColor: "transparent",
-  },
-  centerIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
-    transform: [{ translateY: -8 }],
   },
 });

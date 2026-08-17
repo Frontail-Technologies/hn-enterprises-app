@@ -59,7 +59,10 @@ export function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
     setIsSubmitting(true);
     try {
       const result = await requestPasswordReset(parsed.data.identifier);
-      setDevOtp(result.resetOtp ?? null);
+      // The backend may echo the OTP back for local convenience. Never retain
+      // it outside a development build so it can't be rendered in production
+      // even if the response still carries it (see backend follow-up).
+      setDevOtp(__DEV__ ? (result.resetOtp ?? null) : null);
       setResetOtpSent(true);
       showToast("OTP sent if the account exists", "success");
     } catch {
@@ -173,7 +176,7 @@ export function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
             onRightIconPress={() => setShowConfirmPassword((value) => !value)}
             error={errors.confirmPassword}
           />
-          {devOtp ? (
+          {__DEV__ && devOtp ? (
             <Text style={[styles.devOtp, { color: colors.muted }]}>Development OTP: {devOtp}</Text>
           ) : null}
         </>

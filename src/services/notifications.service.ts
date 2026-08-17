@@ -52,4 +52,11 @@ export const notificationsApi = {
       body: JSON.stringify({ token }),
     });
   },
+
+  async unregisterPushToken(token: string): Promise<void> {
+    await apiRequest("/push-tokens", {
+      method: "DELETE",
+      body: JSON.stringify({ token }),
+    });
+  },
 };

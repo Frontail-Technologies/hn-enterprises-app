@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.hnenterprises.mobile",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow HN Enterprises to capture field evidence photos.",
         "NSPhotoLibraryUsageDescription": "Allow HN Enterprises to select field photos and upload evidence.",
@@ -27,7 +27,8 @@
         "ACCESS_FINE_LOCATION"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.hnenterprises.mobile"
+      "package": "com.hnenterprises.mobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -38,9 +39,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFF7ED",
+          "backgroundColor": "#F9F6EE",
           "image": "./assets/images/logo.png",
-          "imageWidth": 96
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       "expo-font",
@@ -68,6 +70,12 @@
         {
           "icon": "./assets/images/logo.png",
           "color": "#FF7A00"
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false
         }
       ]
     ],

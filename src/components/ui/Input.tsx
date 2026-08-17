@@ -1,13 +1,16 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { InlineFieldError } from './InlineFieldError';
 
 type InputProps = TextInputProps & {
   label?: string;
+  required?: boolean;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   onRightIconPress?: () => void;
@@ -16,84 +19,125 @@ type InputProps = TextInputProps & {
 
 export function Input({
   label,
+  required,
   leftIcon,
   rightIcon,
   onRightIconPress,
   error,
   style,
   onFocus,
+  onBlur,
+  multiline,
   ...rest
 }: InputProps) {
   const { colors } = useTheme();
   const { ref, onFocus: scrollOnFocus } = useScrollIntoViewOnFocus();
+  const [isFocused, setIsFocused] = useState(false);
+  // Inside a Sheet, BottomSheetTextInput registers focus with Gorhom's own
+  // keyboard coordination (interactive keyboardBehavior scrolls it into view
+  // automatically) - the manual scrollIntoView hack below is for the plain
+  // full-screen ScrollView case (Screen.tsx) and is a no-op here since Sheet
+  // no longer provides a ScrollIntoViewContext value.
+  const insideSheet = useBottomSheetInternal(true) !== null;
+
+  const fieldProps = {
+    multiline,
+    textAlignVertical: multiline ? ('top' as const) : undefined,
+    style: [
+      styles.input,
+      multiline && styles.inputMultiline,
+      { color: colors.text },
+      leftIcon ? styles.inputWithLeftIcon : null,
+      style,
+    ],
+    placeholderTextColor: colors.muted,
+    onFocus: (event: Parameters<NonNullable<TextInputProps['onFocus']>>[0]) => {
+      setIsFocused(true);
+      if (!insideSheet) scrollOnFocus();
+      onFocus?.(event);
+    },
+    onBlur: (event: Parameters<NonNullable<TextInputProps['onBlur']>>[0]) => {
+      setIsFocused(false);
+      onBlur?.(event);
+    },
+    ...rest,
+  };
 
   return (
     <View style={styles.wrapper}>
-      {label ? <Text style={[styles.label, { color: colors.text }]}>{label}</Text> : null}
+      {label ? (
+        <Text style={[styles.label, { color: colors.text }]}>
+          {label}
+          {required ? <Text style={{ color: colors.red }}> *</Text> : null}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.inputRow,
+          multiline && styles.inputRowMultiline,
           {
             backgroundColor: colors.card,
-            borderColor: error ? colors.red : colors.border,
+            borderColor: error ? colors.red : isFocused ? colors.primary : colors.border,
+            borderWidth: error || isFocused ? 1.5 : 1,
           },
         ]}
       >
         {leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
-        <TextInput
-          ref={ref}
-          style={[styles.input, { color: colors.text }, leftIcon ? styles.inputWithLeftIcon : null, style]}
-          placeholderTextColor={colors.muted}
-          onFocus={(event) => {
-            scrollOnFocus();
-            onFocus?.(event);
-          }}
-          {...rest}
-        />
+        {insideSheet ? (
+          <BottomSheetTextInput {...fieldProps} />
+        ) : (
+          <TextInput ref={ref} {...fieldProps} />
+        )}
         {rightIcon ? (
           <Pressable style={styles.iconRight} onPress={onRightIconPress}>
             {rightIcon}
           </Pressable>
         ) : null}
       </View>
-      {error ? <Text style={[styles.errorText, { color: colors.red }]}>{error}</Text> : null}
+      <InlineFieldError message={error} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: spacing.xs,
+    gap: 6,
   },
   label: {
     ...typography.label,
+    fontSize: 14,
+    lineHeight: 18,
   },
   inputRow: {
-    minHeight: 44,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: radius.sm,
+    borderRadius: radius.input,
+  },
+  inputRowMultiline: {
+    minHeight: 92,
+    alignItems: 'stretch',
   },
   input: {
     flex: 1,
-    minHeight: 44,
-    paddingHorizontal: spacing.lg,
+    minHeight: 48,
+    paddingHorizontal: 14,
     ...typography.body,
   },
+  inputMultiline: {
+    minHeight: 88,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
   inputWithLeftIcon: {
-    paddingLeft: spacing.md,
+    paddingLeft: spacing.sm,
   },
   iconLeft: {
-    paddingLeft: spacing.lg,
-    width: 42,
+    paddingLeft: 14,
+    width: 40,
   },
   iconRight: {
-    paddingRight: spacing.lg,
-  },
-  errorText: {
-    ...typography.caption,
-    fontSize: 11,
-    lineHeight: 14,
+    paddingRight: 14,
   },
 });

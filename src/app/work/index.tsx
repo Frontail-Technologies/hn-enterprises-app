@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { ArrowLeft, Search } from 'lucide-react-native';
@@ -12,7 +11,6 @@ import { WorkProgressCard } from '@/components/shared/WorkProgressCard';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
-import { Reveal } from '@/components/ui/Reveal';
 import { Screen } from '@/components/ui/Screen';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -23,9 +21,8 @@ import { useWorkQueue } from '@/hooks/useWorkProgress';
 
 export default function WorkQueueScreen() {
   const { colors } = useTheme();
-  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const { items: workProgressRecords, isLoading } = useWorkQueue();
+  const { items: workProgressRecords, isLoading, refetch } = useWorkQueue();
   const {
     search,
     setSearch,
@@ -50,14 +47,14 @@ export default function WorkQueueScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await queryClient.refetchQueries({ type: 'active' });
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [refetch]);
 
   return (
-    <Screen scroll={false} tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader
         title="Work Queue"
         subtitle={`${records.length} work-progress records`}
@@ -73,9 +70,7 @@ export default function WorkQueueScreen() {
         data={records}
         keyExtractor={(record) => record.id}
         renderItem={({ item: record }) => (
-          <Reveal stagger={false}>
-            <WorkProgressCard record={record} />
-          </Reveal>
+          <WorkProgressCard record={record} />
         )}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshControl={

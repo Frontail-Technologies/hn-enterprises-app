@@ -1,8 +1,10 @@
+import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
+import { ComplaintBoxSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
 import { NotificationListItem } from '@/components/shared/NotificationListItem';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -18,7 +20,7 @@ import { formatDate, formatTime } from '@/utils/format';
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
-  const { notifications: allNotifications, markAllAsRead } = useNotifications();
+  const { notifications: allNotifications, markAllAsRead, isLoading } = useNotifications();
   const {
     notifications,
     selectedNotification,
@@ -33,8 +35,10 @@ export default function NotificationsScreen() {
     setTypeSelectOpen,
   } = useNotificationsList(allNotifications);
 
+  const hasFilter = dateFilter !== 'All' || typeFilter !== 'All';
+
   return (
-    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader
         title="Notifications"
         left={<BackButton />}
@@ -45,34 +49,45 @@ export default function NotificationsScreen() {
         }
       />
 
-      <View style={styles.filtersRow}>
-        <SimpleSelect
-          label="Date"
-          value={dateFilter}
-          options={notificationDateFilters}
-          open={dateSelectOpen}
-          onOpenChange={setDateSelectOpen}
-          onChange={setDateFilter}
-        />
-        <SimpleSelect
-          label="Type"
-          value={typeFilter}
-          options={notificationTypeFilters}
-          open={typeSelectOpen}
-          onOpenChange={setTypeSelectOpen}
-          onChange={setTypeFilter}
-        />
-      </View>
-
-      {notifications.length ? (
-        <View style={styles.list}>
-          {notifications.map((item) => (
-            <NotificationListItem key={item.id} item={item} onPress={setSelectedNotification} />
-          ))}
-        </View>
-      ) : (
-        <EmptyState title="No notifications" description="Try changing the date or type filter." />
-      )}
+      <FlashList
+        style={styles.flex}
+        data={notifications}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <NotificationListItem item={item} onPress={setSelectedNotification} />}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={styles.filtersRow}>
+            <SimpleSelect
+              label="Date"
+              value={dateFilter}
+              options={notificationDateFilters}
+              open={dateSelectOpen}
+              onOpenChange={setDateSelectOpen}
+              onChange={setDateFilter}
+            />
+            <SimpleSelect
+              label="Type"
+              value={typeFilter}
+              options={notificationTypeFilters}
+              open={typeSelectOpen}
+              onOpenChange={setTypeSelectOpen}
+              onChange={setTypeFilter}
+            />
+          </View>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <ComplaintBoxSkeleton />
+          ) : (
+            <EmptyState
+              title={hasFilter ? 'No matching notifications' : 'No notifications'}
+              description={hasFilter ? 'Try changing or clearing your filters.' : "You're all caught up."}
+            />
+          )
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
       <Sheet
         visible={Boolean(selectedNotification)}
@@ -116,7 +131,9 @@ function BackButton() {
 const styles = StyleSheet.create({
   screen: {
     gap: spacing.lg,
-    paddingBottom: spacing.xl,
+  },
+  flex: {
+    flex: 1,
   },
   headerAction: {
     width: 36,
@@ -133,9 +150,10 @@ const styles = StyleSheet.create({
   filtersRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  list: {
-    gap: spacing.sm,
+  listContent: {
+    paddingBottom: spacing.xl,
   },
   sheetContent: {
     gap: spacing.md,

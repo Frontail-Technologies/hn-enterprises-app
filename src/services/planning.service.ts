@@ -39,6 +39,7 @@ export type PlanningEvidenceFile = {
 
 export type BackendSitePlan = {
   id: string;
+  customerId: string;
   projectId: string;
   siteId: string;
   date: string;
@@ -47,10 +48,12 @@ export type BackendSitePlan = {
   supervisor: { id: string; name: string } | null;
   site: { id: string; name: string; address: string | null } | null;
   project: { id: string; name: string } | null;
+  customer: { id: string; name: string; trBpNumber: string } | null;
 };
 
 export type BackendDprRecord = {
   id: string;
+  customerId: string;
   projectId: string;
   siteId: string;
   date: string;
@@ -63,6 +66,7 @@ export type BackendDprRecord = {
   supervisor: { id: string; name: string } | null;
   site: { id: string; name: string; address: string | null } | null;
   project: { id: string; name: string } | null;
+  customer: { id: string; name: string; trBpNumber: string } | null;
 };
 
 export const planningApi = {
@@ -71,16 +75,19 @@ export const planningApi = {
     date?: string;
     supervisorId?: string;
     projectId?: string;
+    customerId?: string;
   }): Promise<BackendSitePlan[]> {
     const query = new URLSearchParams();
     if (params.projectId) query.set("projectId", params.projectId);
     if (params.siteId) query.set("siteId", params.siteId);
     if (params.date) query.set("date", params.date);
     if (params.supervisorId) query.set("supervisorId", params.supervisorId);
+    if (params.customerId) query.set("customerId", params.customerId);
     return apiRequest<BackendSitePlan[]>(`/planning/site-plans?${query.toString()}`);
   },
 
   async upsertSitePlan(body: {
+    customerId: string;
     projectId: string;
     siteId: string;
     date: string;
@@ -97,16 +104,19 @@ export const planningApi = {
     date?: string;
     supervisorId?: string;
     projectId?: string;
+    customerId?: string;
   }): Promise<BackendDprRecord[]> {
     const query = new URLSearchParams();
     if (params.projectId) query.set("projectId", params.projectId);
     if (params.siteId) query.set("siteId", params.siteId);
     if (params.date) query.set("date", params.date);
     if (params.supervisorId) query.set("supervisorId", params.supervisorId);
+    if (params.customerId) query.set("customerId", params.customerId);
     return apiRequest<BackendDprRecord[]>(`/planning/dpr-records?${query.toString()}`);
   },
 
   async upsertDprRecord(body: {
+    customerId: string;
     projectId: string;
     siteId: string;
     date: string;

@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Clock3, FileText, MapPin, Upload } from 'lucide-react-native';
+import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -14,14 +15,18 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useCustomerRecord } from '@/hooks/useCustomerRecord';
 import { useWorkProgressHistory } from '@/hooks/useWorkProgress';
+import { guardNavigation } from '@/lib/navigation';
 import { STAGE_TO_MOBILE, STATUS_TO_MOBILE, buildDetailRecord, fromWorkProgressEvidence } from '@/services/workProgress.service';
 
 export default function WorkProgressDetailScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ id?: string }>();
   const customerId = params.id ?? '';
-  const { customer, isLoading: customerLoading } = useCustomerRecord(customerId);
-  const { history, isLoading: historyLoading } = useWorkProgressHistory(customerId);
+  const { customer, isLoading: customerLoading, refetch: refetchCustomer } = useCustomerRecord(customerId);
+  const { history, isLoading: historyLoading, refetch: refetchHistory } = useWorkProgressHistory(customerId);
+  const onRefresh = useCallback(async () => {
+    await Promise.all([refetchCustomer(), refetchHistory()]);
+  }, [refetchCustomer, refetchHistory]);
   const latest = history[0];
   const record = customer
     ? buildDetailRecord(
@@ -39,7 +44,7 @@ export default function WorkProgressDetailScreen() {
 
   if (customerLoading || historyLoading) {
     return (
-      <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
         <AppHeader
           title="Work Detail"
           left={
@@ -57,7 +62,7 @@ export default function WorkProgressDetailScreen() {
 
   if (!record) {
     return (
-      <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
         <AppHeader
           title="Work Detail"
           left={
@@ -77,7 +82,7 @@ export default function WorkProgressDetailScreen() {
   const isSentBack = record.status === 'Sent Back';
 
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader
         title={record.currentStage}
         subtitle={`${record.customerName} : ${record.bpTrNumber}`}
@@ -98,7 +103,7 @@ export default function WorkProgressDetailScreen() {
             <Text style={[typography.caption, { color: colors.muted }]}>{record.bpTrNumber}</Text>
           </View>
         </View>
-        <View style={[styles.referenceBox, { backgroundColor: colors.background }]}>
+        <View style={[styles.referenceBox, { backgroundColor: colors.surfaceMuted }]}>
           <InfoLine icon={<MapPin size={16} color={colors.accent} />} value={`${record.projectName} : ${record.siteArea}`} />
           <InfoLine icon={<Clock3 size={16} color={colors.primary} />} value={`${record.stageDate} : ${record.ageDays} days`} />
         </View>
@@ -156,10 +161,12 @@ export default function WorkProgressDetailScreen() {
         label={isSentBack ? 'Resubmit Update' : 'Submit Progress Update'}
         icon={<Upload size={18} color="#FFFFFF" />}
         onPress={() =>
-          router.push({
-            pathname: '/work/[id]/update',
-            params: { id: record.id },
-          })
+          guardNavigation(() =>
+            router.push({
+              pathname: '/work/[id]/update',
+              params: { id: record.id },
+            }),
+          )
         }
       />
     </Screen>

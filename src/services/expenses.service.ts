@@ -147,6 +147,11 @@ export const expensesApi = {
     return rows.map(mapExpense);
   },
 
+  async get(id: string): Promise<ExpenseRecord> {
+    const raw = await apiRequest<BackendPayment>(`/payments/${id}`);
+    return mapExpense(raw);
+  },
+
   async create(input: ExpenseInput): Promise<ExpenseRecord> {
     const raw = await apiRequestFormData<BackendPayment>("/payments", buildExpenseFormData(input), {
       method: "POST",

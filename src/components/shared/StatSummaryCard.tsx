@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import type { ClipboardCheck } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { type DimensionValue, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { guardNavigation } from '@/lib/navigation';
 import type { SupervisorStatTone } from '@/services/mobileStats';
 
 // Stat values arrive as "done/total" (e.g. "0/699") for progress-style stats,
@@ -22,17 +23,18 @@ type StatSummaryCardProps = {
   value: string;
   icon: typeof ClipboardCheck;
   tone: SupervisorStatTone;
+  widthPercent?: DimensionValue;
 };
 
-export function StatSummaryCard({ id, label, value, icon: Icon, tone }: StatSummaryCardProps) {
+export function StatSummaryCard({ id, label, value, icon: Icon, tone, widthPercent }: StatSummaryCardProps) {
   const { colors } = useTheme();
   const accentColor = getAccentColor(tone, colors);
   const softColor = getSoftColor(tone, colors);
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/stats/[type]', params: { type: id } })}
-      style={({ pressed }) => [styles.pressable, pressed && { opacity: 0.72 }]}
+      onPress={() => guardNavigation(() => router.push({ pathname: '/stats/[type]', params: { type: id } }))}
+      style={({ pressed }) => [styles.pressable, widthPercent ? { width: widthPercent } : null, pressed && { opacity: 0.72 }]}
     >
       <Card style={styles.card}>
         <View style={[styles.iconBox, { backgroundColor: softColor }]}>

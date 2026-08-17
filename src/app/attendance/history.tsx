@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -11,6 +13,7 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useAttendanceCalendar } from '@/hooks/useAttendanceCalendar';
+import { guardNavigation } from '@/lib/navigation';
 
 export default function AttendanceHistoryScreen() {
   const { colors } = useTheme();
@@ -25,9 +28,15 @@ export default function AttendanceHistoryScreen() {
     lateCount,
     absentCount,
   } = useAttendanceCalendar();
+  const queryClient = useQueryClient();
+  // Scoped to the attendance-month query group (covers whichever month is
+  // currently in view, since the visible month can change between pulls).
+  const onRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['attendance', 'month'] });
+  }, [queryClient]);
 
   return (
-    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader title="Attendance History" left={<BackButton />} />
 
       <View style={styles.monthRow}>
@@ -62,10 +71,12 @@ export default function AttendanceHistoryScreen() {
                 key={`${item.day}-${index}`}
                 disabled={item.disabled}
                 onPress={() =>
-                  router.push({
-                    pathname: '/attendance/[day]',
-                    params: { day: String(item.day), date: item.dateKey, status: item.status },
-                  })
+                  guardNavigation(() =>
+                    router.push({
+                      pathname: '/attendance/[day]',
+                      params: { day: String(item.day), date: item.dateKey, status: item.status },
+                    }),
+                  )
                 }
                 style={({ pressed }) => [styles.dayCell, pressed && !item.disabled ? { opacity: 0.72 } : null]}
               >

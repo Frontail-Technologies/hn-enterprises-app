@@ -4,23 +4,29 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
   useFonts,
-} from '@expo-google-fonts/inter';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+} from "@expo-google-fonts/inter";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+import { StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AttendanceProvider } from '@/context/AttendanceContext';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { NotificationsProvider } from '@/context/NotificationsContext';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
-import { ToastProvider } from '@/context/ToastContext';
-import { usePushRegistration } from '@/hooks/usePushRegistration';
-import { AppQueryProvider } from '@/queries';
+import { colors } from "@/constants/colors";
+import { AttendanceProvider } from "@/context/AttendanceContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { NotificationsProvider } from "@/context/NotificationsContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastProvider } from "@/context/ToastContext";
+import { useNotificationObserver } from "@/hooks/useNotificationObserver";
+import { usePushRegistration } from "@/hooks/usePushRegistration";
+import { configureNotificationHandler } from "@/lib/pushNotifications";
+import { AppQueryProvider } from "@/queries";
 
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 400, fade: true });
+configureNotificationHandler();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -30,40 +36,31 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
   if (!fontsLoaded) return null;
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <ToastProvider>
-          <AppQueryProvider>
-            <AuthProvider>
-              <NotificationsProvider>
-                <AttendanceProvider>
-                  <AuthRedirector />
-                  <ThemedStatusBar />
-                  <Stack screenOptions={{ headerShown: false }} />
-                  <AuthLoadingOverlay />
-                </AttendanceProvider>
-              </NotificationsProvider>
-            </AuthProvider>
-          </AppQueryProvider>
-        </ToastProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AppQueryProvider>
+              <AuthProvider>
+                <NotificationsProvider>
+                  <AttendanceProvider>
+                    <BottomSheetModalProvider>
+                      <SplashGate />
+                      <AuthRedirector />
+                      <Stack screenOptions={{ headerShown: false }} />
+                    </BottomSheetModalProvider>
+                  </AttendanceProvider>
+                </NotificationsProvider>
+              </AuthProvider>
+            </AppQueryProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
-}
-
-function ThemedStatusBar() {
-  const { isDark } = useTheme();
-
-  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
 
 function AuthRedirector() {
@@ -72,48 +69,40 @@ function AuthRedirector() {
   const router = useRouter();
 
   usePushRegistration(isAuthenticated);
+  useNotificationObserver();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const isAuthRoute = segments[0] === 'auth';
+    const isAuthRoute = segments[0] === "auth";
     if (!isAuthenticated && !isAuthRoute) {
-      router.replace('/auth/login');
+      router.replace("/auth/login");
       return;
     }
 
     if (isAuthenticated && isAuthRoute) {
-      router.replace('/home');
+      router.replace("/home");
     }
   }, [isAuthenticated, isLoading, router, segments]);
 
   return null;
 }
 
-// Covers the Stack while the stored session is being verified on launch, so
-// nothing (e.g. the login screen, mid-request) renders and gets torn down by
-// the redirect that follows a moment later.
-function AuthLoadingOverlay() {
+function SplashGate() {
   const { isLoading } = useAuth();
-  const { colors } = useTheme();
 
-  if (!isLoading) return null;
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
 
-  return (
-    <View style={[styles.overlay, { backgroundColor: colors.background }]}>
-      <ActivityIndicator size="large" color={colors.primary} />
-    </View>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
 });

@@ -1,5 +1,13 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { Children, PropsWithChildren, ReactNode, isValidElement, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Children,
+  PropsWithChildren,
+  ReactNode,
+  isValidElement,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   KeyboardAvoidingView,
   LayoutChangeEvent,
@@ -10,79 +18,101 @@ import {
   StyleSheet,
   View,
   ViewStyle,
-} from 'react-native';
-import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { Edge, SafeAreaView } from "react-native-safe-area-context";
 
-import { spacing } from '@/constants/spacing';
-import { ScrollIntoViewProvider } from '@/context/ScrollIntoViewContext';
-import { useTheme } from '@/context/ThemeContext';
-import { Reveal } from './Reveal';
+import { pagePadding, spacing } from "@/constants/spacing";
+import { ScrollIntoViewProvider } from "@/context/ScrollIntoViewContext";
+import { useTheme } from "@/context/ThemeContext";
+import { Reveal } from "./Reveal";
 
 type KeyboardScrollTarget = Parameters<
-  InstanceType<typeof ScrollView>['scrollResponderScrollNativeHandleToKeyboard']
+  InstanceType<typeof ScrollView>["scrollResponderScrollNativeHandleToKeyboard"]
 >[0];
+
+type ContentInset = "page" | "compact" | "none";
+
+const CONTENT_INSET: Record<ContentInset, number> = {
+  page: pagePadding,
+  compact: 8,
+  none: 0,
+};
 
 type ScreenProps = PropsWithChildren<{
   scroll?: boolean;
   edges?: Edge[];
   contentStyle?: StyleProp<ViewStyle>;
+  contentInset?: ContentInset;
   refreshable?: boolean;
+  onRefresh?: () => void | Promise<void>;
   tabBarAware?: boolean;
   stickyHeader?: boolean;
   bottomAccessory?: ReactNode;
+  revealContent?: boolean;
 }>;
 
 export function Screen({
   children,
   scroll = false,
-  edges = ['top', 'bottom'],
+  edges = ["top", "bottom"],
   contentStyle,
+  contentInset = "compact",
   refreshable = true,
+  onRefresh,
   tabBarAware,
   stickyHeader = true,
   bottomAccessory,
+  revealContent = true,
 }: ScreenProps) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const tabBarPadding = 16 + Math.max(insets.bottom, 0);
-  const safeEdges = tabBarAware ? edges.filter((edge) => edge !== 'bottom') : edges;
+  const tabBarAwarePadding = tabBarAware ? spacing.lg : 0;
+  const horizontalInset = CONTENT_INSET[contentInset];
+
   const contentChildren = useMemo(() => Children.toArray(children), [children]);
-  // bottomAccessory renders as a real flex sibling below the content (not an overlay), so it
-  // already reserves its own height. Adding footerHeight again here would double-count that
-  // space. In scroll mode the extra padding is just harmless scroll-past breathing room, but in
-  // the fixed (non-scroll) layout it directly shrinks the visible content area, so only the
-  // tab-bar-awareness padding applies there.
-  const tabBarAwarePadding = tabBarAware ? tabBarPadding : 0;
-  const scrollBottomPadding = Math.max(tabBarAwarePadding, bottomAccessory ? footerHeight + spacing.lg : 0);
+  const shouldStickFirstChild =
+    stickyHeader && isHeaderLike(contentChildren[0]);
+  const headerChild = shouldStickFirstChild ? contentChildren[0] : null;
+  const bodyChildren = shouldStickFirstChild
+    ? contentChildren.slice(1)
+    : contentChildren;
+
+  const safeEdges = edges.filter((edge) => {
+    if (tabBarAware && edge === "bottom") return false;
+    if (shouldStickFirstChild && edge === "top") return false;
+    return true;
+  });
+
+  const scrollBottomPadding = Math.max(
+    tabBarAwarePadding,
+    bottomAccessory ? footerHeight + spacing.lg : 0,
+  );
   const bottomPadding = scroll ? scrollBottomPadding : tabBarAwarePadding;
-  const shouldStickFirstChild = stickyHeader && isHeaderLike(contentChildren[0]);
-  const stickyHeaderIndices = shouldStickFirstChild ? [0] : undefined;
+
   const revealedChildren = useMemo(
     () =>
-      contentChildren.map((child, i) =>
-        shouldStickFirstChild && i === 0 ? (
-          child
-        ) : (
-          <Reveal key={i} index={shouldStickFirstChild ? i - 1 : i} style={getChildFlexStyle(child)}>
-            {child}
-          </Reveal>
-        ),
-      ),
-    [contentChildren, shouldStickFirstChild],
+      revealContent
+        ? bodyChildren.map((child, i) => (
+            <Reveal key={i} index={i} style={getChildFlexStyle(child)}>
+              {child}
+            </Reveal>
+          ))
+        : bodyChildren,
+    [bodyChildren, revealContent],
   );
 
+  const canRefresh = refreshable && Boolean(onRefresh);
   const handleRefresh = useCallback(async () => {
+    if (!onRefresh) return;
     setRefreshing(true);
     try {
-      await queryClient.refetchQueries({ type: 'active' });
+      await onRefresh();
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient]);
+  }, [onRefresh]);
 
   const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
     setFooterHeight(event.nativeEvent.layout.height);
@@ -101,17 +131,27 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={safeEdges}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      edges={safeEdges}
+    >
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {headerChild ? <View>{headerChild}</View> : null}
         <ScrollIntoViewProvider value={scrollIntoView}>
           {scroll ? (
             <ScrollView
               ref={scrollViewRef}
               style={styles.flex}
-              contentContainerStyle={[styles.content, contentStyle, bottomPadding > 0 && { paddingBottom: bottomPadding }]}
-              stickyHeaderIndices={stickyHeaderIndices}
+              contentContainerStyle={[
+                { paddingHorizontal: horizontalInset },
+                contentStyle,
+                bottomPadding > 0 && { paddingBottom: bottomPadding },
+              ]}
               refreshControl={
-                refreshable ? (
+                canRefresh ? (
                   <RefreshControl
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
@@ -127,28 +167,26 @@ export function Screen({
               {revealedChildren}
             </ScrollView>
           ) : (
-            <View style={[styles.content, styles.flex, contentStyle, bottomPadding > 0 && { paddingBottom: bottomPadding }]}>
+            <View
+              style={[
+                styles.flex,
+                { paddingHorizontal: horizontalInset },
+                contentStyle,
+                bottomPadding > 0 && { paddingBottom: bottomPadding },
+              ]}
+            >
               {revealedChildren}
             </View>
           )}
         </ScrollIntoViewProvider>
-        {bottomAccessory ? <View onLayout={handleFooterLayout}>{bottomAccessory}</View> : null}
+        {bottomAccessory ? (
+          <View onLayout={handleFooterLayout}>{bottomAccessory}</View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// A Reveal-wrapped child sits between the original element and its flex
-// parent - if the child relies on `flex` to fill remaining space, or on
-// `width`/`alignSelf` to stretch across the cross axis (e.g. Screen's own
-// container using `alignItems: "center"` instead of the flex default
-// "stretch"), the unstyled wrapper would break that sizing: `flex` only has
-// effect when the immediate parent is itself sized to distribute, and a
-// wrapper with no `alignItems: "stretch"` from ITS parent shrink-wraps to
-// content, making a child's `width: "100%"` resolve against that near-zero
-// width instead of the screen. Passing the same values through to the
-// wrapper keeps the original sizing intact; children with none of these in
-// their style are unaffected.
 function getChildFlexStyle(child: ReactNode): StyleProp<ViewStyle> {
   if (!isValidElement(child)) return undefined;
   const style = (child.props as { style?: StyleProp<ViewStyle> } | null)?.style;
@@ -156,20 +194,18 @@ function getChildFlexStyle(child: ReactNode): StyleProp<ViewStyle> {
   if (!flattened) return undefined;
 
   const passthrough: ViewStyle = {};
-  if (typeof flattened.flex === 'number') passthrough.flex = flattened.flex;
+  if (typeof flattened.flex === "number") passthrough.flex = flattened.flex;
   if (flattened.width !== undefined) passthrough.width = flattened.width;
-  if (flattened.alignSelf !== undefined) passthrough.alignSelf = flattened.alignSelf;
+  if (flattened.alignSelf !== undefined)
+    passthrough.alignSelf = flattened.alignSelf;
 
   return Object.keys(passthrough).length ? passthrough : undefined;
 }
 
 function isHeaderLike(child: ReactNode) {
   if (!isValidElement(child)) return false;
-
-  const type = child.type as { displayName?: string; name?: string };
-  const name = type.displayName ?? type.name;
-
-  return name === 'AppHeader' || name === 'CustomerSectionHeader' || name === 'SectionTabBar' || name === 'StickyHeaderGroup';
+  const type = child.type as { isStickyHeader?: boolean } | null;
+  return type?.isStickyHeader === true;
 }
 
 const styles = StyleSheet.create({
@@ -179,10 +215,4 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  content: {
-    paddingHorizontal: 20,
-  },
 });
-
-
-

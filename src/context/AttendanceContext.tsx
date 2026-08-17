@@ -25,6 +25,7 @@ type AttendanceState = {
 type AttendanceContextValue = AttendanceState & {
   checkIn: (location: CapturedLocation) => Promise<void>;
   checkOut: (location: CapturedLocation, remarks?: string) => Promise<void>;
+  refetch: () => Promise<void>;
 };
 
 const AttendanceContext = createContext<AttendanceContextValue | null>(null);
@@ -88,6 +89,20 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  // Re-fetches today's record from the server without the cache-paint step above -
+  // used by screens' pull-to-refresh (Screen's `onRefresh`), which already has
+  // something on screen and just wants the latest state.
+  const refetch = useCallback(async () => {
+    const todayKey = toDateKey(new Date());
+    try {
+      const record = await attendanceApi.getDay(todayKey);
+      setState({ loading: false, ...toState(record) });
+      await cacheRecord(todayKey, record);
+    } catch {
+      // keep showing the last known state if the refresh fails
+    }
+  }, []);
+
   const checkIn = useCallback(
     async (location: CapturedLocation) => {
       const rollback = state;
@@ -135,8 +150,8 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo<AttendanceContextValue>(
-    () => ({ ...state, checkIn, checkOut }),
-    [checkIn, checkOut, state],
+    () => ({ ...state, checkIn, checkOut, refetch }),
+    [checkIn, checkOut, refetch, state],
   );
 
   return <AttendanceContext.Provider value={value}>{children}</AttendanceContext.Provider>;

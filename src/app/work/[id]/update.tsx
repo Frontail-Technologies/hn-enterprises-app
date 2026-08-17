@@ -43,7 +43,7 @@ export default function WorkProgressUpdateScreen() {
 
   if (customerLoading || historyLoading) {
     return (
-      <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
         <AppHeader
           title="Update Work"
           left={
@@ -61,7 +61,7 @@ export default function WorkProgressUpdateScreen() {
 
   if (!record) {
     return (
-      <Screen tabBarAware edges={['bottom']} contentStyle={styles.screen}>
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
         <AppHeader
           title="Update Work"
           left={
@@ -146,7 +146,7 @@ function WorkProgressUpdateForm({
           </View>
           <StatusBadge status={record.status} />
         </View>
-        <View style={[styles.nextAction, { backgroundColor: colors.background }]}>
+        <View style={[styles.nextAction, { backgroundColor: colors.surfaceMuted }]}>
           <Text style={[typography.label, { color: colors.muted }]}>Next Required Action</Text>
           <Text style={[typography.caption, { color: colors.text }]}>{record.nextRequiredAction || '-'}</Text>
         </View>
@@ -175,7 +175,7 @@ function WorkProgressUpdateForm({
               style={[
                 styles.statusChip,
                 {
-                  backgroundColor: stage === item ? colors.softOrange : colors.background,
+                  backgroundColor: stage === item ? colors.accentSoft : colors.surfaceMuted,
                   borderColor: stage === item ? colors.primary : colors.border,
                 },
               ]}
@@ -201,7 +201,7 @@ function WorkProgressUpdateForm({
               style={[
                 styles.statusChip,
                 {
-                  backgroundColor: status === item ? colors.softOrange : colors.background,
+                  backgroundColor: status === item ? colors.accentSoft : colors.surfaceMuted,
                   borderColor: status === item ? colors.primary : colors.border,
                 },
               ]}
@@ -226,7 +226,7 @@ function WorkProgressUpdateForm({
           style={[
             styles.actionInput,
             {
-              backgroundColor: colors.background,
+              backgroundColor: colors.surfaceMuted,
               borderColor: colors.border,
               color: colors.text,
             },
@@ -251,7 +251,7 @@ function WorkProgressUpdateForm({
           style={[
             styles.remarksInput,
             {
-              backgroundColor: colors.background,
+              backgroundColor: colors.surfaceMuted,
               borderColor: colors.border,
               color: colors.text,
             },

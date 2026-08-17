@@ -14,6 +14,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppHeader } from '@/components/shared/AppHeader';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { Switch } from '@/components/ui/Switch';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useAuth } from '@/context/AuthContext';
@@ -29,7 +30,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen scroll edges={['bottom']} contentStyle={styles.screen}>
+    <Screen scroll edges={['bottom']} refreshable={false} contentStyle={styles.screen}>
       <AppHeader title="Profile" left={<BackButton />} />
 
       <View style={styles.content}>
@@ -49,21 +50,11 @@ export default function ProfileScreen() {
         </Card>
 
         <Card style={styles.menuCard}>
-          <Pressable style={styles.menuRow} onPress={toggleTheme}>
+          <View style={styles.menuRow}>
             {isDark ? <Sun size={17} color={colors.primary} /> : <Moon size={17} color={colors.primary} />}
             <Text style={[styles.menuLabel, { color: colors.text }]}>Theme</Text>
-            <View style={[styles.toggleTrack, { backgroundColor: isDark ? colors.primary : colors.border }]}>
-              <View
-                style={[
-                  styles.toggleThumb,
-                  {
-                    backgroundColor: colors.card,
-                    transform: [{ translateX: isDark ? 18 : 0 }],
-                  },
-                ]}
-              />
-            </View>
-          </Pressable>
+            <Switch value={isDark} onValueChange={toggleTheme} />
+          </View>
           <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
           <MenuRow icon={CircleHelp} label="Support & Help" />
           <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
@@ -180,17 +171,6 @@ const styles = StyleSheet.create({
     ...typography.label,
     flex: 1,
     fontSize: 12,
-  },
-  toggleTrack: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    padding: 3,
-  },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
   },
   logoutRow: {
     height: 46,
