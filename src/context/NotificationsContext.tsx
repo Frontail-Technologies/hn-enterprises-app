@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
 import {
+  useDeleteNotificationMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
   useNotificationsQuery,
@@ -14,6 +15,7 @@ type NotificationsContextValue = {
   isLoading: boolean;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  deleteNotification: (id: string) => void;
 };
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
@@ -22,6 +24,7 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
   const notificationsQuery = useNotificationsQuery();
   const markReadMutation = useMarkNotificationReadMutation();
   const markAllReadMutation = useMarkAllNotificationsReadMutation();
+  const deleteMutation = useDeleteNotificationMutation();
   const items = useMemo(() => notificationsQuery.data ?? [], [notificationsQuery.data]);
   const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
 
@@ -42,6 +45,13 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
     markAllReadMutation.mutate();
   }, [markAllReadMutation]);
 
+  const deleteNotification = useCallback(
+    (id: string) => {
+      deleteMutation.mutate(id);
+    },
+    [deleteMutation],
+  );
+
   const value = useMemo<NotificationsContextValue>(
     () => ({
       notifications: items,
@@ -49,8 +59,9 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
       isLoading: notificationsQuery.isLoading,
       markAsRead,
       markAllAsRead,
+      deleteNotification,
     }),
-    [items, unreadCount, markAllAsRead, markAsRead, notificationsQuery.isLoading],
+    [items, unreadCount, markAllAsRead, markAsRead, deleteNotification, notificationsQuery.isLoading],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

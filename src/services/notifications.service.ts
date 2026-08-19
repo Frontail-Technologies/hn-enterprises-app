@@ -46,6 +46,10 @@ export const notificationsApi = {
     await apiRequest("/notifications/mark-all-read", { method: "POST" });
   },
 
+  async remove(id: string): Promise<void> {
+    await apiRequest(`/notifications/${id}`, { method: "DELETE" });
+  },
+
   async registerPushToken(token: string): Promise<void> {
     await apiRequest("/push-tokens", {
       method: "POST",

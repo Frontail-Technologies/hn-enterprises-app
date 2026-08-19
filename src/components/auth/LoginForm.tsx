@@ -24,7 +24,7 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
   const { login } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,6 +62,8 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
       <Input
         placeholder="Username / Email / Mobile"
         autoCapitalize="none"
+        autoComplete="username"
+        textContentType="username"
         value={identifier}
         onChangeText={(value) => {
           setIdentifier(value);
@@ -72,6 +74,8 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
       />
       <Input
         placeholder="Password"
+        autoComplete="password"
+        textContentType="password"
         value={password}
         onChangeText={(value) => {
           setPassword(value);

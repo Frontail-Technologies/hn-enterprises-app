@@ -107,23 +107,28 @@ function DocumentSection({ customer }: { customer: CustomerRecord }) {
         </Text>
       </View>
       {customer.documents.length ? (
-        customer.documents.map((document) => (
-          <View key={document.id} style={[styles.documentRow, { borderColor: colors.border }]}>
-            <View style={[styles.documentIcon, { backgroundColor: colors.softOrange }]}>
-              <FileText size={17} color={colors.primary} />
+        <View style={styles.documentList}>
+          {customer.documents.map((document) => (
+            <View
+              key={document.id}
+              style={[styles.documentRow, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+            >
+              <View style={[styles.documentIcon, { backgroundColor: colors.softOrange }]}>
+                <FileText size={17} color={colors.primary} />
+              </View>
+              <View style={styles.documentCopy}>
+                <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={1}>
+                  {document.fileName}
+                </Text>
+                <Text style={[typography.caption, { color: colors.muted }]}>Uploaded on {formatDate(customer.createdDate)}</Text>
+              </View>
+              <Text style={[typography.caption, { color: colors.muted }]}>180 KB</Text>
+              <View style={[styles.previewButton, { borderColor: colors.border }]}>
+                <Eye size={15} color={colors.accent} />
+              </View>
             </View>
-            <View style={styles.documentCopy}>
-              <Text style={[styles.documentTitle, { color: colors.text }]} numberOfLines={1}>
-                {document.fileName}
-              </Text>
-              <Text style={[typography.caption, { color: colors.muted }]}>Uploaded on {formatDate(customer.createdDate)}</Text>
-            </View>
-            <Text style={[typography.caption, { color: colors.muted }]}>180 KB</Text>
-            <View style={[styles.previewButton, { borderColor: colors.border }]}>
-              <Eye size={15} color={colors.accent} />
-            </View>
-          </View>
-        ))
+          ))}
+        </View>
       ) : (
         <Text style={[typography.label, { color: colors.muted }]}>No documents uploaded.</Text>
       )}
@@ -222,13 +227,17 @@ const styles = StyleSheet.create({
     fontSize: 9,
     lineHeight: 12,
   },
+  documentList: {
+    gap: spacing.sm,
+  },
   documentRow: {
     minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    borderTopWidth: 1,
-    paddingTop: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
   },
   documentIcon: {
     width: 32,
