@@ -2,6 +2,7 @@
   "expo": {
     "name": "HN Enterprises",
     "slug": "hn-enterprises-mobile",
+    "owner": "frontail-technologies",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -9,6 +10,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.hnenterprises.mobile",
+      "icon": "./assets/ios/iTunesArtwork@2x.png",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow HN Enterprises to capture field evidence photos.",
@@ -22,7 +24,13 @@
         "backgroundColor": "#FFF7ED",
         "foregroundImage": "./assets/images/logo.png"
       },
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": false,
       "package": "com.hnenterprises.mobile",
       "googleServicesFile": "./google-services.json"
@@ -80,6 +88,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "enforceContrast": false
+      },
+      "eas": {
+        "projectId": "f2996aeb-8c6b-49b6-98f6-4d9e9089d8aa"
+      }
     }
   }
 }

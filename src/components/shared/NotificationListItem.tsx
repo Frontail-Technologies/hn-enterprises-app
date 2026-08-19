@@ -66,7 +66,7 @@ function getCategoryTone(category: NotificationCategory, colors: ReturnType<type
   if (category === 'Attendance') return { color: colors.green, background: '#DCFCE7' };
   if (category === 'Survey') return { color: colors.accent, background: colors.softBlue };
   if (category === 'System') return { color: colors.muted, background: '#F1F5F9' };
-  return { color: colors.primary, background: colors.softOrange };
+  return { color: colors.primary, background: colors.card };
 }
 
 const styles = StyleSheet.create({

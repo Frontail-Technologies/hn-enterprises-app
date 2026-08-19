@@ -772,7 +772,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pageContent: {
-    gap: spacing.sm,
+    gap: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
   completionBar: {
