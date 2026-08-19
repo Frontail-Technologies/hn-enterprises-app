@@ -1,54 +1,45 @@
 import { FlashList } from "@shopify/flash-list";
 import { Search, UsersRound } from "lucide-react-native";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
 import { ColumnFilterSheet } from "@/components/shared/ColumnFilterSheet";
 import { FilterButton } from "@/components/shared/FilterButton";
+import { PAGINATION_OVERLAY_SPACE, PaginationOverlay } from "@/components/shared/PaginationOverlay";
+import { ScrollableTable } from "@/components/shared/ScrollableTable";
 import { TableFilterSheet } from "@/components/shared/TableFilterSheet";
 import { TableSkeleton } from "@/components/shared/TableSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
 import { customerGridColumns } from "@/constants/customers";
-import { radius, spacing } from "@/constants/spacing";
+import { spacing } from "@/constants/spacing";
 import { tableDividers, tableMetrics, tableText } from "@/constants/table";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useCustomersGrid } from "@/hooks/useCustomersGrid";
-import type { CustomerGridRow } from "@/types/customers";
+import type { CustomerGridColumnKey, CustomerGridRow } from "@/types/customers";
+import { formatCount } from "@/utils/format";
 
 const EM_DASH = "—";
 
-type CustomerColumns = { bp: number; name: number; address: number };
+// Status and Supervisor stay filterable (TableFilterSheet still uses the
+// full customerGridColumns) but aren't shown as table columns - this is the
+// subset actually rendered.
+const CUSTOMER_TABLE_COLUMNS = customerGridColumns.filter(
+  (column) => column.key !== "status" && column.key !== "supervisorName",
+);
 
-const CUSTOMER_RATIO = { bp: 0.27, name: 0.34 };
-const CUSTOMER_MIN = { bp: 88, name: 108, address: 96 };
-
-// Customers is a fixed 3-column table (BP/TR, Customer, Address) that must fill
-// the phone width with no horizontal scroll. Widths are derived once from the
-// measured table width and passed to header + rows as a stable config, so the
-// address column absorbs whatever space the first two don't need.
-function resolveCustomerColumns(width: number): CustomerColumns {
-  const usable = Math.max(
-    width,
-    CUSTOMER_MIN.bp + CUSTOMER_MIN.name + CUSTOMER_MIN.address,
-  );
-  const bp = Math.max(CUSTOMER_MIN.bp, Math.round(usable * CUSTOMER_RATIO.bp));
-  const name = Math.max(
-    CUSTOMER_MIN.name,
-    Math.round(usable * CUSTOMER_RATIO.name),
-  );
-  const address = Math.max(CUSTOMER_MIN.address, usable - bp - name);
-  return { bp, name, address };
-}
+// Every column gets its own generously-sized fixed width (already curated in
+// customerGridColumns for exactly this purpose) and the table scrolls
+// horizontally instead of squeezing columns to fit the phone width - so a
+// cell only ever truncates if its own content is wider than that column's
+// deliberately-chosen width, not because the screen ran out of room.
+const CUSTOMER_TABLE_WIDTH = CUSTOMER_TABLE_COLUMNS.reduce(
+  (total, column) => total + column.width,
+  0,
+);
 
 export default function CustomersScreen() {
   const { colors, isDark } = useTheme();
@@ -57,6 +48,7 @@ export default function CustomersScreen() {
     search,
     setSearch,
     isLoading,
+    isError,
     isFetchingNextPage,
     hasNextPage,
     loadMore,
@@ -79,9 +71,10 @@ export default function CustomersScreen() {
   } = useCustomersGrid();
 
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(0);
   const hasQueryOrFilter = search.trim().length > 0 || activeFilterCount > 0;
-  const columns = resolveCustomerColumns(containerWidth);
+  const showSpinner = filteredRows.length > 0 && isFetchingNextPage;
+  const showRetry = filteredRows.length > 0 && !isFetchingNextPage && isError && hasNextPage;
+  const showPaginationFooter = showSpinner || showRetry;
 
   return (
     <Screen edges={[]} contentStyle={styles.screen} revealContent={false}>
@@ -103,70 +96,51 @@ export default function CustomersScreen() {
       </View>
 
       <Text style={[styles.resultText, { color: colors.muted }]}>
-        {isLoading
-          ? "Loading customers…"
-          : `${filteredRows.length} of ${total} customers`}
+        {isLoading ? "Loading customers…" : formatCount(filteredRows.length, total, "customers")}
       </Text>
 
-      <View
-        style={styles.tableCard}
-        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
-      >
-        {isLoading || containerWidth === 0 ? (
+      <View style={styles.tableCard}>
+        {isLoading ? (
           <TableSkeleton
-            columnWidths={[columns.bp, columns.name, columns.address]}
+            columnWidths={CUSTOMER_TABLE_COLUMNS.map((column) => column.width)}
             rowHeight={tableMetrics.rowHeight}
             headerHeight={tableMetrics.headerHeight}
           />
         ) : (
-          <View style={styles.table}>
-            <View
-              style={[
-                styles.headerRow,
-                {
-                  backgroundColor: colors.surfaceMuted,
-                  borderBottomColor: dividers.header,
-                },
-              ]}
-            >
+          <ScrollableTable
+            listMode
+            minWidth={CUSTOMER_TABLE_WIDTH}
+            header={
               <View
                 style={[
-                  styles.cell,
-                  styles.cellDivider,
-                  { width: columns.bp, borderRightColor: dividers.vertical },
+                  styles.headerRow,
+                  {
+                    backgroundColor: colors.surfaceMuted,
+                    borderBottomColor: dividers.header,
+                  },
                 ]}
               >
-                <Text
-                  style={[styles.headerText, { color: colors.muted }]}
-                  numberOfLines={1}
-                >
-                  BP / TR
-                </Text>
+                {CUSTOMER_TABLE_COLUMNS.map((column, index) => (
+                  <View
+                    key={column.key}
+                    style={[
+                      styles.cell,
+                      index < CUSTOMER_TABLE_COLUMNS.length - 1 &&
+                        styles.cellDivider,
+                      { width: column.width, borderRightColor: dividers.vertical },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.headerText, { color: colors.muted }]}
+                      numberOfLines={1}
+                    >
+                      {column.label}
+                    </Text>
+                  </View>
+                ))}
               </View>
-              <View
-                style={[
-                  styles.cell,
-                  styles.cellDivider,
-                  { width: columns.name, borderRightColor: dividers.vertical },
-                ]}
-              >
-                <Text
-                  style={[styles.headerText, { color: colors.muted }]}
-                  numberOfLines={1}
-                >
-                  Customer
-                </Text>
-              </View>
-              <View style={[styles.cell, { width: columns.address }]}>
-                <Text
-                  style={[styles.headerText, { color: colors.muted }]}
-                  numberOfLines={1}
-                >
-                  Address
-                </Text>
-              </View>
-            </View>
-
+            }
+          >
             <FlashList
               style={styles.bodyScroll}
               nestedScrollEnabled
@@ -177,11 +151,12 @@ export default function CustomersScreen() {
                 <CustomerTableRow
                   row={row}
                   onOpen={openCustomer}
-                  columns={columns}
                   verticalDivider={dividers.vertical}
                 />
               )}
-              contentContainerStyle={styles.listContent}
+              contentContainerStyle={showPaginationFooter ? styles.listContentWithFooter : styles.listContent}
+              onEndReachedThreshold={0.4}
+              onEndReached={loadMore}
               ListEmptyComponent={
                 <EmptyState
                   icon={<UsersRound size={22} color={colors.primary} />}
@@ -197,32 +172,18 @@ export default function CustomersScreen() {
                   }
                 />
               }
-              ListFooterComponent={
-                hasNextPage ? (
-                  <Pressable
-                    onPress={loadMore}
-                    disabled={isFetchingNextPage}
-                    style={({ pressed }) => [
-                      styles.loadMoreRow,
-                      { borderColor: colors.border },
-                      pressed && { opacity: 0.72 },
-                    ]}
-                  >
-                    {isFetchingNextPage ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Text
-                        style={[typography.label, { color: colors.primary }]}
-                      >
-                        Load more
-                      </Text>
-                    )}
-                  </Pressable>
-                ) : null
-              }
             />
-          </View>
+          </ScrollableTable>
         )}
+
+        {/* Sibling of the horizontally-scrollable ScrollableTable, not a
+            child of it - stays centered on the device viewport regardless
+            of horizontal scroll position (see PaginationOverlay). */}
+        <PaginationOverlay
+          isFetchingNextPage={showSpinner}
+          showRetry={showRetry}
+          onRetry={loadMore}
+        />
       </View>
 
       <TableFilterSheet
@@ -255,15 +216,18 @@ export default function CustomersScreen() {
   );
 }
 
+const EMPHASIZED_COLUMN_STYLE: Partial<Record<CustomerGridColumnKey, keyof typeof styles>> = {
+  trBpNo: "bpText",
+  customerName: "nameText",
+};
+
 function CustomerTableRow({
   row,
   onOpen,
-  columns,
   verticalDivider,
 }: {
   row: CustomerGridRow;
   onOpen: (row: CustomerGridRow) => void;
-  columns: CustomerColumns;
   verticalDivider: string;
 }) {
   const { colors } = useTheme();
@@ -281,39 +245,30 @@ function CustomerTableRow({
         },
       ]}
     >
-      <View
-        style={[
-          styles.cell,
-          styles.cellDivider,
-          { width: columns.bp, borderRightColor: verticalDivider },
-        ]}
-      >
-        <Text style={[styles.bpText, { color: colors.text }]} numberOfLines={1}>
-          {row.trBpNo || EM_DASH}
-        </Text>
-      </View>
-      <View
-        style={[
-          styles.cell,
-          styles.cellDivider,
-          { width: columns.name, borderRightColor: verticalDivider },
-        ]}
-      >
-        <Text
-          style={[styles.nameText, { color: colors.text }]}
-          numberOfLines={1}
-        >
-          {row.customerName || EM_DASH}
-        </Text>
-      </View>
-      <View style={[styles.cell, { width: columns.address }]}>
-        <Text
-          style={[styles.addressText, { color: colors.muted }]}
-          numberOfLines={1}
-        >
-          {row.fullAddress || EM_DASH}
-        </Text>
-      </View>
+      {CUSTOMER_TABLE_COLUMNS.map((column, index) => {
+        const emphasized = EMPHASIZED_COLUMN_STYLE[column.key];
+
+        return (
+          <View
+            key={column.key}
+            style={[
+              styles.cell,
+              index < CUSTOMER_TABLE_COLUMNS.length - 1 && styles.cellDivider,
+              { width: column.width, borderRightColor: verticalDivider },
+            ]}
+          >
+            <Text
+              style={[
+                emphasized ? styles[emphasized] : styles.cellText,
+                { color: emphasized ? colors.text : colors.muted },
+              ]}
+              numberOfLines={1}
+            >
+              {row[column.key] || EM_DASH}
+            </Text>
+          </View>
+        );
+      })}
     </Pressable>
   );
 }
@@ -337,9 +292,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
   tableCard: {
-    flex: 1,
-  },
-  table: {
     flex: 1,
   },
   bodyScroll: {
@@ -371,19 +323,15 @@ const styles = StyleSheet.create({
   nameText: {
     ...tableText.primary,
   },
-  addressText: {
+  cellText: {
     ...tableText.secondary,
   },
   listContent: {
     paddingBottom: spacing.md,
   },
-  loadMoreRow: {
-    minHeight: 44,
-    marginTop: spacing.sm,
-    marginHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderRadius: radius.sm,
+  // Extra bottom space so the last row never sits underneath the viewport-
+  // centered PaginationOverlay (see the tableCard wrapper below).
+  listContentWithFooter: {
+    paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,
   },
 });

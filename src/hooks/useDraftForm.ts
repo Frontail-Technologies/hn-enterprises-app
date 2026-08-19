@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/context/AuthContext';
+import { isEqualSnapshot } from '@/utils/isEqualSnapshot';
 
 type DraftState = 'idle' | 'loaded' | 'saved' | 'submitted';
 
@@ -28,7 +29,11 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
   // simply does no draft I/O (load or persist) in that state.
   const draftKey = userId ? scopedDraftKey(userId, logicalKey) : null;
 
-  const initialRef = useRef(initialValues);
+  // The dirty-comparison baseline. State, not a ref, so `isDirty` (below) can
+  // read it during render - the React Compiler disallows reading a ref's
+  // `.current` in render. Set once on mount (like the values below) and only
+  // ever reassigned via clearDraft() after a successful submit.
+  const [initialSnapshot, setInitialSnapshot] = useState<T>(() => initialValues);
   const [values, setValues] = useState<T>(() => initialValues);
   const [draftState, setDraftState] = useState<DraftState>('idle');
   const [loadingDraft, setLoadingDraft] = useState(true);
@@ -73,7 +78,7 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
         if (!mounted) return;
 
         if (stored) {
-          setValues({ ...initialRef.current, ...JSON.parse(stored) });
+          setValues((current) => ({ ...current, ...JSON.parse(stored) }));
           setDraftState('loaded');
         }
       } finally {
@@ -88,9 +93,6 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
     };
   }, [draftKey, logicalKey]);
 
-  // Best-effort write of the current values under the current scoped key.
-  // No-ops until the form is dirty (so pristine forms never leave a draft) and
-  // when there is no authenticated scope.
   const persistDraft = useCallback(async () => {
     const key = draftKeyRef.current;
     if (!key || !dirtyRef.current) return;
@@ -108,7 +110,6 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
     setDraftState('idle');
   }, []);
 
-  // Debounced autosave: reschedule on every edit, write once the user pauses.
   useEffect(() => {
     if (loadingDraft || !dirtyRef.current) return;
 
@@ -161,7 +162,18 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (draftKey) await AsyncStorage.removeItem(draftKey);
     setDraftState('submitted');
+    // Every caller invokes this right after a successful submit - re-baseline
+    // to what was just saved, so `isDirty` (below) goes back to false instead
+    // of staying true forever relative to the pre-edit values.
+    setInitialSnapshot(valuesRef.current);
   }, [draftKey]);
+
+  // Compares the live values against the snapshot this form was opened
+  // with (or last successfully saved to, see clearDraft above) - `T` is
+  // already whatever narrow, user-editable shape the caller constructed
+  // (e.g. { meterNo, meterReading, ... }, never a raw server record with
+  // id/createdAt/etc mixed in), so no extra field-filtering is needed here.
+  const isDirty = useMemo(() => !isEqualSnapshot(values, initialSnapshot), [values, initialSnapshot]);
 
   return {
     values,
@@ -171,5 +183,6 @@ export function useDraftForm<T extends Record<string, unknown>>(logicalKey: stri
     clearDraft,
     draftState,
     loadingDraft,
+    isDirty,
   };
 }

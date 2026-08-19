@@ -3,8 +3,10 @@ import { useState } from "react";
 
 import { useToast } from "@/context/ToastContext";
 import { useCreateWorkProgressMutation } from "@/queries";
-import type { EvidenceFile, WorkProgressStatus, WorkStage } from "@/services/mockData";
-import { toWorkProgressEvidence, type buildDetailRecord } from "@/services/workProgress.service";
+import type { EvidenceFile } from "@/types/evidence";
+import type { WorkProgressStatus, WorkStage } from "@/types/workProgress";
+import { isSentBack, toWorkProgressEvidence, type buildDetailRecord } from "@/services/workProgress.service";
+import { normalizeError } from "@/utils/normalizeError";
 
 export function useWorkProgressUpdateForm({
   customerId,
@@ -37,9 +39,12 @@ export function useWorkProgressUpdateForm({
         remarks: remarks.trim() || undefined,
         evidence: toWorkProgressEvidence(evidence),
       });
-      showToast(record.status === "Sent Back" ? "Work update resubmitted" : "Work progress submitted", "success");
+      showToast(isSentBack(record.status) ? "Work update resubmitted" : "Work progress submitted", "success");
       router.back();
-    } catch (error: any) { showToast(error?.message || "Unable to submit work update", "error"); }
+    } catch (error) {
+      console.error('[useWorkProgressUpdateForm] submit failed', { customerId, error });
+      showToast(normalizeError(error, "Unable to submit work update"), "error");
+    }
   };
 
   return {

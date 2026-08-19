@@ -1,16 +1,10 @@
-import { router } from 'expo-router';
-import {
-  ArrowLeft,
-  ChevronRight,
-  CircleHelp,
-  Info,
-  LogOut,
-  Moon,
-  Sun,
-  UserRound,
-} from 'lucide-react-native';
+import { Redirect, router } from 'expo-router';
+import { ArrowLeft, CircleHelp, Info, Moon, Sun } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AccountMenuDivider, AccountMenuRow } from '@/components/profile/AccountMenuRow';
+import { LogoutButton } from '@/components/profile/LogoutButton';
+import { ProfileIdentityRow } from '@/components/profile/ProfileIdentityRow';
 import { AppHeader } from '@/components/shared/AppHeader';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
@@ -19,15 +13,17 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useAccountLogout } from '@/hooks/useAccountLogout';
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { logout, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const handleLogout = useAccountLogout();
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/auth/login');
-  };
+  // No _layout.tsx covers this route - it guards itself like ProtectedStack
+  // does elsewhere.
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/auth/login" />;
 
   return (
     <Screen scroll edges={['bottom']} refreshable={false} contentStyle={styles.screen}>
@@ -35,18 +31,7 @@ export default function ProfileScreen() {
 
       <View style={styles.content}>
         <Card style={styles.profileCard}>
-          <View style={styles.profileRow}>
-            <View style={[styles.avatar, { backgroundColor: colors.softOrange }]}>
-              <UserRound size={30} color={colors.primary} />
-            </View>
-            <View style={styles.profileCopy}>
-              <Text style={[styles.nameText, { color: colors.text }]}>{user?.name ?? '-'}</Text>
-              <Text style={[styles.roleText, { color: colors.muted }]}>{formatRole(user?.role)}</Text>
-              <Text style={[styles.emailText, { color: colors.muted }]}>{user?.email ?? '-'}</Text>
-              <Text style={[styles.phoneText, { color: colors.text }]}>{user?.mobile ?? '-'}</Text>
-            </View>
-            <ChevronRight size={20} color={colors.muted} />
-          </View>
+          <ProfileIdentityRow user={user} />
         </Card>
 
         <Card style={styles.menuCard}>
@@ -55,50 +40,22 @@ export default function ProfileScreen() {
             <Text style={[styles.menuLabel, { color: colors.text }]}>Theme</Text>
             <Switch value={isDark} onValueChange={toggleTheme} />
           </View>
-          <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-          <MenuRow icon={CircleHelp} label="Support & Help" />
-          <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-          <MenuRow icon={Info} label="About HN Enterprises" />
+          <AccountMenuDivider />
+          <AccountMenuRow icon={CircleHelp} label="Support & Help" />
+          <AccountMenuDivider />
+          <AccountMenuRow icon={Info} label="About HN Enterprises" />
         </Card>
 
-        <Pressable
-          style={[styles.logoutRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={handleLogout}
-        >
-          <LogOut size={17} color={colors.red} />
-          <Text style={[styles.logoutText, { color: colors.red }]}>Logout</Text>
-        </Pressable>
+        <LogoutButton onPress={handleLogout} borderRadius={radius.sm} />
       </View>
     </Screen>
   );
-}
-
-function formatRole(role?: string) {
-  if (!role) return '-';
-  return role.replace(/_/g, ' ').replace(/\b\w/g, (value) => value.toUpperCase());
 }
 
 function BackButton() {
   return (
     <Pressable onPress={() => router.back()} style={styles.backButton}>
       <ArrowLeft size={22} color="#FFFFFF" />
-    </Pressable>
-  );
-}
-
-type MenuRowProps = {
-  icon: typeof CircleHelp;
-  label: string;
-};
-
-function MenuRow({ icon: Icon, label }: MenuRowProps) {
-  const { colors } = useTheme();
-
-  return (
-    <Pressable style={styles.menuRow}>
-      <Icon size={17} color={colors.muted} />
-      <Text style={[styles.menuLabel, { color: colors.text }]}>{label}</Text>
-      <ChevronRight size={17} color={colors.muted} />
     </Pressable>
   );
 }
@@ -120,37 +77,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.sm,
   },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  avatar: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  nameText: {
-    ...typography.caption,
-    fontSize: 13,
-  },
-  roleText: {
-    ...typography.label,
-    fontSize: 11,
-  },
-  emailText: {
-    ...typography.label,
-  },
-  phoneText: {
-    ...typography.label,
-    marginTop: 1,
-  },
   menuCard: {
     padding: 0,
     overflow: 'hidden',
@@ -163,26 +89,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
   },
-  menuDivider: {
-    height: 1,
-    marginLeft: 42,
-  },
   menuLabel: {
     ...typography.label,
     flex: 1,
-    fontSize: 12,
-  },
-  logoutRow: {
-    height: 46,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  logoutText: {
-    ...typography.label,
     fontSize: 12,
   },
 });

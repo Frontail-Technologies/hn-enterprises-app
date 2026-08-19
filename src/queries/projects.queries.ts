@@ -17,3 +17,10 @@ export function useProjectSitesQuery(projectId: string | undefined) {
     enabled: Boolean(projectId),
   });
 }
+
+export function useAllProjectSitesQuery() {
+  return useQuery({
+    queryKey: queryKeys.projects.allSites,
+    queryFn: () => projectsApi.listAllSites(),
+  });
+}

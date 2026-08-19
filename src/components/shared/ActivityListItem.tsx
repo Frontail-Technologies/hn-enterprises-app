@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import type { ActivityLogEntry, NotificationCategory } from '@/services/mockData';
+import type { ActivityLogEntry } from '@/types/activity';
+import type { NotificationCategory } from '@/types/notifications';
 import { getRelativeTime } from '@/utils/date';
 
 export function ActivityListItem({ item }: { item: ActivityLogEntry }) {

@@ -1,11 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 
+import { isAttendanceQueryEnabled } from '@/context/attendanceGating';
+import { useAuth } from '@/context/AuthContext';
 import type { CapturedLocation } from '@/hooks/useCurrentLocation';
-import { attendanceApi, type BackendAttendanceRecord } from '@/services/attendance.service';
+import { queryKeys } from '@/queries/keys';
+import { useAttendanceDayQuery, useCheckInMutation, useCheckOutMutation } from '@/queries/attendance.queries';
+import type { BackendAttendanceRecord } from '@/services/attendance.service';
 import { toDateKey } from '@/utils/date';
 
-const CACHE_KEY = 'attendance:today:v1';
+// Paints today's attendance instantly on a cold launch, before the network
+// responds (React Query's cache is in-memory only and starts empty). This is
+// a mirror of the query cache, not a second source of truth - read once to
+// prime the query's own cache entry, written back only from that query's
+// settled result.
+//
+// Scoped by user id, like `useDraftForm`'s drafts - otherwise a check-in on
+// a shared device could prime the next logged-in user's "today" as the
+// previous user's.
+function cacheKey(userId: string) {
+  return `attendance:today:v1:${userId}`;
+}
 
 type CachedAttendance = {
   dateKey: string;
@@ -23,6 +39,8 @@ type AttendanceState = {
 };
 
 type AttendanceContextValue = AttendanceState & {
+  checkingIn: boolean;
+  checkingOut: boolean;
   checkIn: (location: CapturedLocation) => Promise<void>;
   checkOut: (location: CapturedLocation, remarks?: string) => Promise<void>;
   refetch: () => Promise<void>;
@@ -30,7 +48,7 @@ type AttendanceContextValue = AttendanceState & {
 
 const AttendanceContext = createContext<AttendanceContextValue | null>(null);
 
-function toState(record: BackendAttendanceRecord | null): Omit<AttendanceState, 'loading'> {
+function toState(record: BackendAttendanceRecord | null | undefined): Omit<AttendanceState, 'loading'> {
   return {
     isCheckedInToday: Boolean(record?.checkInAt),
     isCheckedOutToday: Boolean(record?.checkOutAt),
@@ -41,117 +59,89 @@ function toState(record: BackendAttendanceRecord | null): Omit<AttendanceState, 
   };
 }
 
-async function cacheRecord(dateKey: string, record: BackendAttendanceRecord | null) {
-  const payload: CachedAttendance = { dateKey, record };
-  await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-}
-
 export function AttendanceProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<AttendanceState>({
-    loading: true,
-    isCheckedInToday: false,
-    isCheckedOutToday: false,
-  });
+  const todayKey = toDateKey(new Date());
+  const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
 
+  // Same query/mutation hooks the Attendance History/Day-detail screens use,
+  // so a check-in/out here updates the one cache entry every screen reads.
+  //
+  // Gated on auth being resolved AND a user existing: this provider is
+  // mounted at the root, above any route-level auth guard, so without this
+  // the query would fire before a token exists (during boot) or after
+  // logout - not a retry-worthy error, just a request with no business being
+  // made yet.
+  const dayQuery = useAttendanceDayQuery(todayKey, { enabled: isAttendanceQueryEnabled(authLoading, userId) });
+  const checkInMutation = useCheckInMutation();
+  const checkOutMutation = useCheckOutMutation();
+
+  // Cold-start priming: read the last known on-device snapshot once and, if
+  // the query hasn't already resolved (from a real fetch) by the time this
+  // resolves, seed its cache entry so the first render has something to show.
+  // Guarded against the live query state (not a captured value) so a fast
+  // network response that lands first is never clobbered by a stale snapshot.
+  // No-ops without an authenticated user, same as `useDraftForm`.
   useEffect(() => {
-    let mounted = true;
+    if (!userId) return;
+    let cancelled = false;
 
-    async function loadAttendance() {
-      const todayKey = toDateKey(new Date());
+    AsyncStorage.getItem(cacheKey(userId))
+      .then((cached) => {
+        if (!cached || cancelled) return;
+        const parsed = JSON.parse(cached) as CachedAttendance;
+        if (parsed.dateKey !== todayKey) return;
 
-      // Paint the cached value first for instant UI, then reconcile with the server below.
-      try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
-        if (cached && mounted) {
-          const parsed = JSON.parse(cached) as CachedAttendance;
-          if (parsed.dateKey === todayKey) {
-            setState({ loading: true, ...toState(parsed.record) });
-          }
-        }
-      } catch {
-        // ignore corrupt cache, server fetch below is authoritative
-      }
+        const dayKey = queryKeys.attendance.day(todayKey);
+        const current = queryClient.getQueryState<BackendAttendanceRecord | null>(dayKey);
+        if (current?.data !== undefined) return;
 
-      try {
-        const record = await attendanceApi.getDay(todayKey);
-        if (!mounted) return;
-        setState({ loading: false, ...toState(record) });
-        await cacheRecord(todayKey, record);
-      } catch {
-        if (mounted) setState((current) => ({ ...current, loading: false }));
-      }
-    }
-
-    loadAttendance();
+        queryClient.setQueryData(dayKey, parsed.record);
+      })
+      .catch(() => undefined);
 
     return () => {
-      mounted = false;
+      cancelled = true;
     };
-  }, []);
+  }, [queryClient, todayKey, userId]);
 
-  // Re-fetches today's record from the server without the cache-paint step above -
-  // used by screens' pull-to-refresh (Screen's `onRefresh`), which already has
-  // something on screen and just wants the latest state.
+  // Mirrors the settled query result back to disk for the next cold start.
+  useEffect(() => {
+    if (!userId || dayQuery.isLoading || dayQuery.data === undefined) return;
+    const payload: CachedAttendance = { dateKey: todayKey, record: dayQuery.data };
+    void AsyncStorage.setItem(cacheKey(userId), JSON.stringify(payload)).catch(() => undefined);
+  }, [todayKey, userId, dayQuery.data, dayQuery.isLoading]);
+
   const refetch = useCallback(async () => {
-    const todayKey = toDateKey(new Date());
-    try {
-      const record = await attendanceApi.getDay(todayKey);
-      setState({ loading: false, ...toState(record) });
-      await cacheRecord(todayKey, record);
-    } catch {
-      // keep showing the last known state if the refresh fails
-    }
-  }, []);
+    await dayQuery.refetch();
+  }, [dayQuery]);
 
   const checkIn = useCallback(
     async (location: CapturedLocation) => {
-      const rollback = state;
-      const todayKey = toDateKey(new Date());
-      setState((current) => ({
-        ...current,
-        isCheckedInToday: true,
-        checkInAt: location.capturedAt,
-        checkInLocation: location,
-      }));
-
-      try {
-        const record = await attendanceApi.checkIn(todayKey, location);
-        setState({ loading: false, ...toState(record) });
-        await cacheRecord(todayKey, record);
-      } catch (error) {
-        setState(rollback);
-        throw error;
-      }
+      await checkInMutation.mutateAsync({ date: todayKey, location });
     },
-    [state],
+    [checkInMutation, todayKey],
   );
 
   const checkOut = useCallback(
     async (location: CapturedLocation, remarks?: string) => {
-      const rollback = state;
-      const todayKey = toDateKey(new Date());
-      setState((current) => ({
-        ...current,
-        isCheckedOutToday: true,
-        checkOutAt: location.capturedAt,
-        checkOutLocation: location,
-      }));
-
-      try {
-        const record = await attendanceApi.checkOut(todayKey, location, remarks);
-        setState({ loading: false, ...toState(record) });
-        await cacheRecord(todayKey, record);
-      } catch (error) {
-        setState(rollback);
-        throw error;
-      }
+      await checkOutMutation.mutateAsync({ date: todayKey, location, remarks });
     },
-    [state],
+    [checkOutMutation, todayKey],
   );
 
   const value = useMemo<AttendanceContextValue>(
-    () => ({ ...state, checkIn, checkOut, refetch }),
-    [checkIn, checkOut, refetch, state],
+    () => ({
+      loading: dayQuery.isLoading,
+      ...toState(dayQuery.data),
+      checkingIn: checkInMutation.isPending,
+      checkingOut: checkOutMutation.isPending,
+      checkIn,
+      checkOut,
+      refetch,
+    }),
+    [dayQuery.isLoading, dayQuery.data, checkInMutation.isPending, checkOutMutation.isPending, checkIn, checkOut, refetch],
   );
 
   return <AttendanceContext.Provider value={value}>{children}</AttendanceContext.Provider>;

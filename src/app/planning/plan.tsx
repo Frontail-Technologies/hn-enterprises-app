@@ -1,14 +1,13 @@
-import { router } from "expo-router";
-import { ArrowLeft, ClipboardList, Plus } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { ArrowLeft, ClipboardList } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
-import { SimpleSelect } from "@/components/shared/SimpleSelect";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { DateField } from "@/components/ui/DateField";
 import { Screen } from "@/components/ui/Screen";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { dprTaskTemplates } from "@/constants/dprTasks";
 import { radius, spacing } from "@/constants/spacing";
 import { tableText } from "@/constants/table";
@@ -16,138 +15,96 @@ import { typography } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
-import {
-  useCustomerOptionsQuery,
-  useSitePlansQuery,
-  useUpsertSitePlanMutation,
-} from "@/queries";
+import { blankTasks, normalizeTasks, type PlanTask, type TaskSnapshot } from "@/hooks/workPlanningDraft";
+import { successHaptic } from "@/lib/haptics";
+import { useSitePlansQuery, useUpsertSitePlanMutation } from "@/queries";
 import type { PlanTaskPayload } from "@/services/planning.service";
-import type { CustomerOption } from "@/services/customers.service";
-
-type PlanTask = {
-  id: string;
-  label: string;
-  qty: string;
-  worker: string;
-};
-
-type PlanSite = {
-  id: string;
-  customerId: string;
-  tasks: PlanTask[];
-};
-
-function blankTasks(): PlanTask[] {
-  return dprTaskTemplates.map((task) => ({ ...task, qty: "", worker: "" }));
-}
-
-function createSitePlan(index: number): PlanSite {
-  return {
-    id: `site-plan-${index}`,
-    customerId: "",
-    tasks: blankTasks(),
-  };
-}
+import { formatDate } from "@/utils/format";
+import { isEqualSnapshot } from "@/utils/isEqualSnapshot";
 
 export default function PlanScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { user } = useAuth();
-  const [date, setDate] = useState("2026-07-22");
-  const [sitePlans, setSitePlans] = useState<PlanSite[]>([createSitePlan(1)]);
-  const customersQuery = useCustomerOptionsQuery();
-  const upsertSitePlanMutation = useUpsertSitePlanMutation();
-  const customerOptions = customersQuery.data ?? [];
+  const { customerId, customerName, trBpNumber, projectId, siteId, siteName, date } = useLocalSearchParams<{
+    customerId: string;
+    customerName?: string;
+    trBpNumber?: string;
+    projectId: string;
+    siteId: string;
+    siteName?: string;
+    date: string;
+  }>();
 
-  const totalQty = useMemo(
-    () =>
-      sitePlans.reduce(
-        (sum, site) =>
-          sum +
-          site.tasks.reduce(
-            (inner, task) => inner + (Number(task.qty) || 0),
-            0,
-          ),
-        0,
-      ),
-    [sitePlans],
+  const [tasks, setTasks] = useState<PlanTask[]>(blankTasks());
+  // The snapshot Save compares against - captured once hydration finishes
+  // (see below) and reset to the newly-saved state after a successful save,
+  // so a second Save with no further edits is a no-op again.
+  const [initialSnapshot, setInitialSnapshot] = useState<TaskSnapshot | null>(null);
+  // Stays true across the one microtask of delay after isLoading flips, so
+  // the screen doesn't paint a blank table for a frame before snapping to
+  // the real values once an existing plan loads.
+  const [hydrated, setHydrated] = useState(false);
+
+  const sitePlansQuery = useSitePlansQuery(
+    { customerId, date, supervisorId: user?.id },
+    { enabled: Boolean(customerId && date && user?.id) },
+  );
+  const upsertSitePlanMutation = useUpsertSitePlanMutation();
+
+  useEffect(() => {
+    if (sitePlansQuery.isLoading) return;
+
+    queueMicrotask(() => {
+      const existing = sitePlansQuery.data?.[0];
+      const hydratedTasks = !existing
+        ? blankTasks()
+        : dprTaskTemplates.map((task) => {
+            const match = existing.tasks.find((item) => item.id === task.id);
+            return { ...task, qty: match?.qty ?? "", worker: match?.worker ?? "" };
+          });
+      setTasks(hydratedTasks);
+      setInitialSnapshot(normalizeTasks(hydratedTasks));
+      setHydrated(true);
+    });
+  }, [sitePlansQuery.data, sitePlansQuery.isLoading]);
+
+  const isLoading = !hydrated;
+
+  // No changes → false. A field changed then reverted to its original value
+  // → also false, since this compares against the snapshot, not against
+  // "has any onChange fired".
+  const isDirty = useMemo(
+    () => initialSnapshot !== null && !isEqualSnapshot(normalizeTasks(tasks), initialSnapshot),
+    [tasks, initialSnapshot],
   );
 
-  const updateSite = (
-    siteId: string,
-    patch: Partial<Pick<PlanSite, "customerId">>,
-  ) => {
-    setSitePlans((current) =>
-      current.map((site) =>
-        site.id === siteId ? { ...site, ...patch } : site,
-      ),
-    );
-  };
+  const totalQty = tasks.reduce((sum, task) => sum + (Number(task.qty) || 0), 0);
 
-  const setSiteTasks = useCallback((siteId: string, tasks: PlanTask[]) => {
-    setSitePlans((current) =>
-      current.map((site) => (site.id === siteId ? { ...site, tasks } : site)),
-    );
-  }, []);
-
-  const updateTask = (
-    siteId: string,
-    taskId: string,
-    key: keyof Pick<PlanTask, "qty" | "worker">,
-    value: string,
-  ) => {
-    setSitePlans((current) =>
-      current.map((site) =>
-        site.id === siteId
-          ? {
-              ...site,
-              tasks: site.tasks.map((task) =>
-                task.id === taskId ? { ...task, [key]: value } : task,
-              ),
-            }
-          : site,
-      ),
-    );
-  };
-
-  const addSitePlan = () => {
-    setSitePlans((current) => [...current, createSitePlan(current.length + 1)]);
+  const updateTask = (taskId: string, key: keyof Pick<PlanTask, "qty" | "worker">, value: string) => {
+    setTasks((current) => current.map((task) => (task.id === taskId ? { ...task, [key]: value } : task)));
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    const readySites = sitePlans.filter((site) => site.customerId);
-    if (!readySites.length) {
-      showToast("Select a customer for at least one plan", "error");
-      return;
-    }
+    // Defensive - the button is already disabled in this state, but a
+    // stale press (e.g. queued before the disabled state applied) must
+    // still not reach the mutation, invalidate anything, or toast a fake
+    // success.
+    if (!isDirty) return;
 
     try {
-      for (const site of readySites) {
-        const customer = customerOptions.find((option) => option.id === site.customerId);
-        if (!customer?.projectId || !customer?.siteId) {
-          showToast("This customer has no linked project or site", "error");
-          continue;
-        }
-        const tasks: PlanTaskPayload[] = site.tasks.map((task) => ({
-          id: task.id as PlanTaskPayload["id"],
-          qty: task.qty || undefined,
-          worker: task.worker || undefined,
-        }));
-        await upsertSitePlanMutation.mutateAsync({
-          customerId: site.customerId,
-          projectId: customer.projectId,
-          siteId: customer.siteId,
-          date,
-          tasks,
-        });
-      }
+      const payload: PlanTaskPayload[] = tasks.map((task) => ({
+        id: task.id as PlanTaskPayload["id"],
+        qty: task.qty || undefined,
+        worker: task.worker || undefined,
+      }));
+      await upsertSitePlanMutation.mutateAsync({ customerId, projectId, siteId, date, tasks: payload });
+      setInitialSnapshot(normalizeTasks(tasks));
+      successHaptic();
       showToast("Plan saved", "success");
+      router.back();
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : "Unable to save plan",
-        "error",
-      );
+      showToast(error instanceof Error ? error.message : "Unable to save plan", "error");
     }
   };
 
@@ -157,72 +114,69 @@ export default function PlanScreen() {
       edges={["bottom"]}
       contentStyle={styles.screen}
       bottomAccessory={
-        <View
-          style={[
-            styles.footer,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-            },
-          ]}
-        >
-          <Button
-            label="Add Site"
-            variant="outline"
-            icon={<Plus size={17} color={colors.primary} />}
-            onPress={addSitePlan}
-            style={styles.footerButton}
-          />
+        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           <Button
             label="Save Plan"
             onPress={() => void handleSave()}
             loading={upsertSitePlanMutation.isPending}
+            disabled={!isDirty}
             style={styles.footerButton}
           />
         </View>
       }
     >
-      <AppHeader title="Planning" left={<BackButton />} />
+      <AppHeader title="Work Planning" subtitle={`${siteName || ""} · ${formatDate(date)}`} left={<BackButton />} />
 
       <Card style={styles.summaryCard}>
-        <View
-          style={[styles.summaryIcon, { backgroundColor: colors.softOrange }]}
-        >
+        <View style={[styles.summaryIcon, { backgroundColor: colors.softOrange }]}>
           <ClipboardList size={20} color={colors.primary} />
         </View>
         <View style={styles.summaryCopy}>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>
-            Total Planned Qty
+          <Text style={[styles.summaryTitle, { color: colors.text }]} numberOfLines={1}>
+            {customerName || "Customer"}
           </Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>
-            {sitePlans.length} site plan{sitePlans.length > 1 ? "s" : ""}
+          <Text style={[typography.caption, { color: colors.muted }]} numberOfLines={1}>
+            {trBpNumber || "-"}
           </Text>
         </View>
-        <Text style={[styles.totalText, { color: colors.primary }]}>
-          {totalQty}
-        </Text>
+        {isLoading ? null : <Text style={[styles.totalText, { color: colors.primary }]}>{totalQty}</Text>}
       </Card>
 
-      <DateField label="Plan Date" value={date} onChangeText={setDate} />
-
-      <View style={styles.siteList}>
-        {sitePlans.map((site, index) => (
-          <SitePlanCard
-            key={site.id}
-            index={index + 1}
-            site={site}
-            date={date}
-            supervisorId={user?.id}
-            customerOptions={customerOptions}
-            customersLoading={customersQuery.isLoading}
-            customersError={customersQuery.isError}
-            onRetryCustomers={() => void customersQuery.refetch()}
-            onChangeSite={updateSite}
-            onTasksLoaded={setSiteTasks}
-            onTaskChange={updateTask}
-          />
-        ))}
-      </View>
+      {isLoading ? (
+        <View style={styles.skeletonBlock}>
+          <Skeleton height={220} borderRadius={radius.sm} />
+        </View>
+      ) : (
+        <View style={[styles.workTable, { borderColor: colors.border }]}>
+          <View style={[styles.workHeaderRow, { backgroundColor: colors.surfaceMuted, borderBottomColor: colors.border }]}>
+            <Text style={[styles.workHeaderText, { color: colors.muted }]}>TASK</Text>
+            <Text style={[styles.qtyHeaderText, { color: colors.muted }]}>QTY</Text>
+            <Text style={[styles.workerHeaderText, { color: colors.muted }]}>PLUMBER/LABOUR</Text>
+          </View>
+          {tasks.map((task) => (
+            <View key={task.id} style={[styles.workRow, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.workLabel, { color: colors.text }]} numberOfLines={1}>
+                {task.label}
+              </Text>
+              <TextInput
+                value={task.qty}
+                onChangeText={(value) => updateTask(task.id, "qty", value)}
+                keyboardType="numeric"
+                placeholder="-"
+                placeholderTextColor={colors.muted}
+                style={[styles.qtyInput, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }]}
+              />
+              <TextInput
+                value={task.worker}
+                onChangeText={(value) => updateTask(task.id, "worker", value)}
+                placeholder="-"
+                placeholderTextColor={colors.muted}
+                style={[styles.workerInput, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }]}
+              />
+            </View>
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
@@ -232,172 +186,6 @@ function BackButton() {
     <Pressable onPress={() => router.back()} style={styles.headerButton}>
       <ArrowLeft size={22} color="#FFFFFF" />
     </Pressable>
-  );
-}
-
-function SitePlanCard({
-  index,
-  site,
-  date,
-  supervisorId,
-  customerOptions,
-  customersLoading,
-  customersError,
-  onRetryCustomers,
-  onChangeSite,
-  onTasksLoaded,
-  onTaskChange,
-}: {
-  index: number;
-  site: PlanSite;
-  date: string;
-  supervisorId?: string;
-  customerOptions: CustomerOption[];
-  customersLoading: boolean;
-  customersError: boolean;
-  onRetryCustomers: () => void;
-  onChangeSite: (
-    siteId: string,
-    patch: Partial<Pick<PlanSite, "customerId">>,
-  ) => void;
-  onTasksLoaded: (siteId: string, tasks: PlanTask[]) => void;
-  onTaskChange: (
-    siteId: string,
-    taskId: string,
-    key: keyof Pick<PlanTask, "qty" | "worker">,
-    value: string,
-  ) => void;
-}) {
-  const { colors } = useTheme();
-  const [customerSelectOpen, setCustomerSelectOpen] = useState(false);
-  const customerSelectOptions = customerOptions.map((option) => ({
-    label: option.trBpNo ? `${option.trBpNo} — ${option.name}` : option.name,
-    value: option.id,
-  }));
-  const selectedCustomer = customerOptions.find((option) => option.id === site.customerId) ?? null;
-  const derivedContext = selectedCustomer
-    ? [selectedCustomer.projectName, selectedCustomer.siteArea].filter(Boolean).join(" · ")
-    : "";
-
-  // Matched by customer, not site - a site can have many customers, and each
-  // gets its own plan for the same date/supervisor.
-  const sitePlansQuery = useSitePlansQuery(
-    { customerId: site.customerId, date, supervisorId },
-    { enabled: Boolean(site.customerId && date && supervisorId) },
-  );
-
-  useEffect(() => {
-    const existing = sitePlansQuery.data?.[0];
-    if (!existing) return;
-
-    onTasksLoaded(
-      site.id,
-      dprTaskTemplates.map((task) => {
-        const match = existing.tasks.find((item) => item.id === task.id);
-        return { ...task, qty: match?.qty ?? "", worker: match?.worker ?? "" };
-      }),
-    );
-  }, [site.id, sitePlansQuery.data, onTasksLoaded]);
-
-  return (
-    <Card style={styles.siteCard}>
-      <Text style={[styles.cardTitle, { color: colors.text }]}>
-        Site Plan {index}
-      </Text>
-      <View>
-        <SimpleSelect
-          label="Customer"
-          value={site.customerId}
-          options={customerSelectOptions}
-          open={customerSelectOpen}
-          onOpenChange={setCustomerSelectOpen}
-          onChange={(value) => onChangeSite(site.id, { customerId: value })}
-          searchable
-          loading={customersLoading}
-          error={customersError}
-          onRetry={onRetryCustomers}
-          emptyLabel="No customers available"
-        />
-      </View>
-      {derivedContext ? (
-        <View style={styles.derivedRow}>
-          <Text style={[styles.derivedLabel, { color: colors.muted }]}>
-            Project · Site
-          </Text>
-          <Text style={[styles.derivedValue, { color: colors.text }]} numberOfLines={2}>
-            {derivedContext}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={[styles.workTable, { borderColor: colors.border }]}>
-        <View
-          style={[
-            styles.workHeaderRow,
-            {
-              backgroundColor: colors.surfaceMuted,
-              borderBottomColor: colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.workHeaderText, { color: colors.muted }]}>
-            TASK
-          </Text>
-          <Text style={[styles.qtyHeaderText, { color: colors.muted }]}>
-            QTY
-          </Text>
-          <Text style={[styles.workerHeaderText, { color: colors.muted }]}>
-            PLUMBER/LABOUR
-          </Text>
-        </View>
-        {site.tasks.map((task) => (
-          <View
-            key={task.id}
-            style={[styles.workRow, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[styles.workLabel, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {task.label}
-            </Text>
-            <TextInput
-              value={task.qty}
-              onChangeText={(value) =>
-                onTaskChange(site.id, task.id, "qty", value)
-              }
-              keyboardType="numeric"
-              placeholder="-"
-              placeholderTextColor={colors.muted}
-              style={[
-                styles.qtyInput,
-                {
-                  backgroundColor: colors.surfaceMuted,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-            />
-            <TextInput
-              value={task.worker}
-              onChangeText={(value) =>
-                onTaskChange(site.id, task.id, "worker", value)
-              }
-              placeholder="-"
-              placeholderTextColor={colors.muted}
-              style={[
-                styles.workerInput,
-                {
-                  backgroundColor: colors.surfaceMuted,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-            />
-          </View>
-        ))}
-      </View>
-    </Card>
   );
 }
 
@@ -429,6 +217,7 @@ const styles = StyleSheet.create({
   },
   summaryCopy: {
     flex: 1,
+    minWidth: 0,
   },
   summaryTitle: {
     ...typography.bodyMedium,
@@ -440,29 +229,8 @@ const styles = StyleSheet.create({
     fontSize: 27,
     lineHeight: 32,
   },
-  siteList: {
+  skeletonBlock: {
     gap: spacing.md,
-  },
-  siteCard: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.sm,
-  },
-  cardTitle: {
-    ...typography.bodyMedium,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  derivedRow: {
-    gap: 2,
-  },
-  derivedLabel: {
-    ...tableText.header,
-  },
-  derivedValue: {
-    ...typography.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
   },
   workTable: {
     borderRadius: radius.sm,

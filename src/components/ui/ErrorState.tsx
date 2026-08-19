@@ -1,18 +1,16 @@
-import { AlertTriangle } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { AlertTriangle } from "lucide-react-native";
+import { StyleSheet, Text, View } from "react-native";
 
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useTheme } from '@/context/ThemeContext';
-import { Button } from './Button';
+import { radius, spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
+import { Button } from "./Button";
 
 type ErrorStateProps = {
   title?: string;
   description?: string;
   onRetry?: () => void;
   retryLabel?: string;
-  // For use inside sheets/tables/list areas - trims padding/icon size and
-  // uses a compact Retry button instead of the full-page presentation.
   compact?: boolean;
 };
 
@@ -27,14 +25,32 @@ export function ErrorState({
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
-      <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { backgroundColor: `${colors.red}1A` }]}>
+      <View
+        style={[
+          styles.iconWrap,
+          compact && styles.iconWrapCompact,
+          { backgroundColor: `${colors.red}1A` },
+        ]}
+      >
         <AlertTriangle size={compact ? 18 : 22} color={colors.red} />
       </View>
-      <Text style={[typography.h2, styles.centered, { color: colors.text }]}>{title}</Text>
-      <Text style={[typography.caption, styles.centered, { color: colors.muted }]}>{description}</Text>
+      <Text style={[typography.h2, styles.centered, { color: colors.text }]}>
+        {title}
+      </Text>
+      <Text
+        style={[typography.caption, styles.centered, { color: colors.muted }]}
+      >
+        {description}
+      </Text>
       {onRetry ? (
         <View style={compact ? undefined : styles.action}>
-          <Button label={retryLabel} variant="secondary" size={compact ? 'compact' : undefined} fullWidth={!compact} onPress={onRetry} />
+          <Button
+            label={retryLabel}
+            variant="secondary"
+            size={compact ? "compact" : undefined}
+            fullWidth={!compact}
+            onPress={onRetry}
+          />
         </View>
       ) : null}
     </View>
@@ -43,8 +59,8 @@ export function ErrorState({
 
 const styles = StyleSheet.create({
   wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.md,
     paddingVertical: spacing.xxl,
   },
@@ -55,8 +71,8 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 48,
     height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.pill,
   },
   iconWrapCompact: {
@@ -64,7 +80,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   centered: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   action: {
     width: 180,

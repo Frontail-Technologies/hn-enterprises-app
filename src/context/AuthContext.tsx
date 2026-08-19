@@ -81,16 +81,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Local sign-out must always complete, even if the server-side revoke (or
-    // secure-store clear inside it) throws - otherwise a failed network call
-    // would strand the previous user's session and cached data on the device.
-    // The `finally` guarantees local credential/user state and the query cache
-    // are cleared regardless. This is the explicit-logout path only; the silent
-    // token-refresh path in apiClient is untouched.
-    // Detach this device's push token from the current user first (while the
-    // session is still valid), so the next user on a shared device doesn't
-    // inherit the previous supervisor's notifications. Best-effort: a failed
-    // unregister must not block local sign-out.
+    // Local sign-out must always complete even if the server-side revoke
+    // throws, otherwise a failed network call strands the session on the
+    // device - the `finally` below guarantees local state is cleared
+    // regardless.
+    //
+    // Detach this device's push token first, while the session is still
+    // valid, so the next user on a shared device doesn't inherit the
+    // previous supervisor's notifications. Best-effort: a failed unregister
+    // must not block local sign-out.
     const pushToken = getStoredPushToken();
     if (pushToken) {
       await notificationsApi.unregisterPushToken(pushToken).catch(() => undefined);

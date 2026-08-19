@@ -18,6 +18,7 @@ import type { CapturedLocation } from '@/hooks/useCurrentLocation';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { guardNavigation } from '@/lib/navigation';
 import { formatDate, formatTime } from '@/utils/format';
+import { normalizeError } from '@/utils/normalizeError';
 
 const SHORT_SHIFT_WARNING_MINUTES = 5;
 
@@ -38,6 +39,8 @@ export default function AttendanceScreen() {
     checkOutAt,
     checkInLocation,
     checkOutLocation,
+    checkingIn,
+    checkingOut,
     checkIn,
     checkOut,
     refetch,
@@ -54,7 +57,8 @@ export default function AttendanceScreen() {
       await checkIn(captured);
       showToast('Checked in successfully', 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to check in - try again', 'error');
+      console.error('[AttendanceScreen] check-in failed', { error });
+      showToast(normalizeError(error, 'Unable to check in - try again'), 'error');
     }
   };
 
@@ -64,7 +68,8 @@ export default function AttendanceScreen() {
       setRemarks('');
       showToast('Checked out successfully', 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to check out - try again', 'error');
+      console.error('[AttendanceScreen] check-out failed', { error });
+      showToast(normalizeError(error, 'Unable to check out - try again'), 'error');
     }
   };
 
@@ -157,7 +162,7 @@ export default function AttendanceScreen() {
               />
               <Button
                 label="Check Out"
-                loading={captureLoading}
+                loading={captureLoading || checkingOut}
                 onPress={handleCheckOut}
                 icon={<Navigation size={18} color="#FFFFFF" />}
               />
@@ -181,7 +186,7 @@ export default function AttendanceScreen() {
 
           <Button
             label="Check In"
-            loading={captureLoading}
+            loading={captureLoading || checkingIn}
             onPress={handleCheckIn}
             icon={<Navigation size={18} color="#FFFFFF" />}
           />

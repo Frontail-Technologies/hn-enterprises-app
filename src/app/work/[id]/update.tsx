@@ -16,30 +16,23 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useCustomerRecord } from '@/hooks/useCustomerRecord';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
-import { useWorkProgressHistory } from '@/hooks/useWorkProgress';
 import { useWorkProgressUpdateForm } from '@/hooks/useWorkProgressUpdateForm';
-import { WORK_STAGE_ORDER, buildDetailRecord } from '@/services/workProgress.service';
+import { useWorkProgressHistoryQuery } from '@/queries';
+import { WORK_STAGE_ORDER, adaptCustomerForWorkDetail, buildDetailRecord, isSentBack } from '@/services/workProgress.service';
 
 export default function WorkProgressUpdateScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ id?: string; mode?: string }>();
   const customerId = params.id ?? '';
-  const { customer, isLoading: customerLoading } = useCustomerRecord(customerId);
-  const { history, isLoading: historyLoading } = useWorkProgressHistory(customerId);
+  const { customer, isLoading: customerLoading, error: customerError, refetch: refetchCustomer } = useCustomerRecord(customerId);
+  const {
+    data: history = [],
+    isLoading: historyLoading,
+    isError: historyIsError,
+    refetch: refetchHistory,
+  } = useWorkProgressHistoryQuery(customerId);
   const latest = history[0];
-  const record = customer
-    ? buildDetailRecord(
-        {
-          id: customer.id,
-          customerName: customer.customerConnection.customerName,
-          mobileNumber: customer.customerConnection.mobileNo,
-          bpTrNumber: customer.customerConnection.trBpNo,
-          siteArea: customer.siteArea,
-          supervisor: customer.customerConnection.supervisorName,
-        },
-        latest,
-      )
-    : null;
+  const record = customer ? buildDetailRecord(adaptCustomerForWorkDetail(customer), latest) : null;
 
   if (customerLoading || historyLoading) {
     return (
@@ -54,6 +47,32 @@ export default function WorkProgressUpdateScreen() {
         />
         <View style={styles.emptyState}>
           <Text style={[typography.bodyMedium, { color: colors.text }]}>Loading...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (customerError || historyIsError) {
+    return (
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
+        <AppHeader
+          title="Update Work"
+          left={
+            <Pressable onPress={() => router.back()} style={styles.headerAction}>
+              <ArrowLeft size={22} color="#FFFFFF" />
+            </Pressable>
+          }
+        />
+        <View style={styles.emptyState}>
+          <Text style={[typography.bodyMedium, { color: colors.text }]}>Couldn&apos;t load this record</Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>Check your connection and try again.</Text>
+          <Button
+            label="Retry"
+            onPress={() => {
+              void refetchCustomer();
+              void refetchHistory();
+            }}
+          />
         </View>
       </Screen>
     );
@@ -118,7 +137,7 @@ function WorkProgressUpdateForm({
       bottomAccessory={
         <StickyFooter>
           <Button
-            label={record.status === 'Sent Back' ? 'Resubmit Update' : 'Submit Update'}
+            label={isSentBack(record.status) ? 'Resubmit Update' : 'Submit Update'}
             icon={<Upload size={18} color="#FFFFFF" />}
             onPress={() => void handleSubmit()}
             loading={isSubmitting}

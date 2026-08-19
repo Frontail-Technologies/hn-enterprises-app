@@ -5,20 +5,34 @@ import { DonutChart } from '@/components/expenses/DonutChart';
 import { formatExpenseCategory } from '@/constants/expenses';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { expenseCategoryVisuals } from '@/constants/expenseVisuals';
+import { getExpenseCategoryVisual } from '@/constants/expenseVisuals';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { FilterButton } from '@/components/shared/FilterButton';
+import { RevealGroup } from '@/components/ui/RevealGroup';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { useTheme } from '@/context/ThemeContext';
 import type { CategoryBreakdownItem } from '@/hooks/useExpensesOverview';
 import type { ExpenseCategory, ExpenseRecord } from '@/services/expenses.service';
-import { formatDate } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
 
 const EM_DASH = '—';
 const DONUT_SIZE = 188;
+// Blended toward white for the donut ring only - the category rows below
+// keep the full-saturation color for their icon/tint, this just lightens
+// the chart itself, which read too dark/heavy at full strength.
+const DONUT_LIGHTEN_AMOUNT = 0.32;
+
+function lightenHex(hex: string, amount: number) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const channel = (shift: number) => {
+    const value = (num >> shift) & 0xff;
+    return Math.round(value + (255 - value) * amount);
+  };
+  return `#${[channel(16), channel(8), channel(0)].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
 
 type MonthOption = { label: string; value: string };
 
@@ -115,7 +129,7 @@ export function ExpensesOverview({
           description="Try changing your filters."
         />
       ) : (
-        <>
+        <RevealGroup>
           <Card style={styles.totalCard}>
             <DonutChart
               size={DONUT_SIZE}
@@ -123,11 +137,11 @@ export function ExpensesOverview({
               segments={categoryBreakdown.map((item) => ({
                 key: item.category,
                 value: item.total,
-                color: colors[expenseCategoryVisuals[item.category].colorKey],
+                color: lightenHex(colors[getExpenseCategoryVisual(item.category).colorKey], DONUT_LIGHTEN_AMOUNT),
               }))}
             >
               <Text style={[styles.totalValue, { color: colors.text }]} numberOfLines={1}>
-                Rs. {Math.round(filteredTotal).toLocaleString('en-IN')}
+                {formatCurrency(filteredTotal)}
               </Text>
               <Text style={[styles.totalLabel, { color: colors.muted }]}>Total Expenses</Text>
             </DonutChart>
@@ -165,7 +179,7 @@ export function ExpensesOverview({
               ))}
             </Card>
           </View>
-        </>
+        </RevealGroup>
       )}
     </ScrollView>
   );
@@ -181,7 +195,7 @@ function CategoryRow({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  const visual = expenseCategoryVisuals[item.category];
+  const visual = getExpenseCategoryVisual(item.category);
   const Icon = visual.icon;
   const tint = colors[visual.colorKey];
 
@@ -206,7 +220,7 @@ function CategoryRow({
         </Text>
       </View>
       <Text style={[styles.rowAmount, { color: colors.text }]} numberOfLines={1}>
-        Rs. {Math.round(item.total).toLocaleString('en-IN')}
+        {formatCurrency(item.total)}
       </Text>
     </Pressable>
   );
@@ -243,7 +257,7 @@ function RecentExpenseRow({
           {paidTo}
         </Text>
         <Text style={[styles.recentAmount, { color: colors.primary }]} numberOfLines={1}>
-          Rs. {Math.round(Number(expense.amount) || 0).toLocaleString('en-IN')}
+          {formatCurrency(expense.amount)}
         </Text>
       </View>
       <Text style={[styles.recentMeta, { color: colors.muted }]} numberOfLines={1}>

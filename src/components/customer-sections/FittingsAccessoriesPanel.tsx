@@ -1,9 +1,10 @@
-import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { QuantityFieldRow } from '@/components/shared/QuantityFieldRow';
+import { SectionBodySkeleton } from '@/components/shared/SectionBodySkeleton';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -13,8 +14,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateFittingsAccessoriesMutation } from '@/queries';
+import { isEvidenceDirty } from '@/utils/evidenceSnapshot';
 import { normalizeError } from '@/utils/normalizeError';
-import type { CustomerRecord } from '@/services/mockData';
+import type { CustomerRecord } from '@/types/customers';
+import type { EvidenceFile } from '@/types/evidence';
 
 export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
@@ -37,13 +40,20 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
     fittingsOneAndHalfInch: '0',
     fittingsTwoInch: '0',
     remarks: '',
-    evidence: [],
+    evidence: [] as EvidenceFile[],
   };
-  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:fittings`, fallback);
+  const { evidence: fallbackEvidenceRaw, ...fallbackValues } = fallback;
+  const fallbackEvidence = fallbackEvidenceRaw ?? [];
+  const { values, updateField, clearDraft, draftState, loadingDraft, isDirty: valuesDirty } = useDraftForm(`customer:${customer.id}:fittings`, fallbackValues);
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(fallbackEvidence);
+  const [initialEvidence, setInitialEvidence] = useState<EvidenceFile[]>(fallbackEvidence);
+  const isDirty = valuesDirty || isEvidenceDirty(evidence, initialEvidence);
 
   const submit = async () => {
+    if (!isDirty) return;
+
     try {
-      await updateFittingsAccessoriesMutation.mutateAsync( {
+      const updated = await updateFittingsAccessoriesMutation.mutateAsync( {
         clampHalfInch: values.clampHalfInch,
         clampThreeInchToHalfInch: values.clampThreeInchToHalfInch,
         elbowHalfInch: values.elbowHalfInch,
@@ -59,20 +69,22 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
         plugHalfInch: values.plugHalfInch,
         fittingsOneAndHalfInch: values.fittingsOneAndHalfInch,
         fittingsTwoInch: values.fittingsTwoInch,
-        evidence: values.evidence,
+        evidence,
       });
+      setInitialEvidence(updated.fittingsAccessories?.evidence ?? []);
       await clearDraft();
       await onRefetch?.();
       showToast('Fittings submitted', 'success');
-      router.back();
     } catch (error) {
-      console.error('[FittingsAccessoriesPanel] submit failed', { customerId: customer.id, evidenceCount: values.evidence?.length ?? 0, error });
+      console.error('[FittingsAccessoriesPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
       const message = normalizeError(error, 'Unable to submit fittings');
       showToast(message, 'error');
     }
   };
 
-  const content = (
+  const content = loadingDraft ? (
+    <SectionBodySkeleton />
+  ) : (
     <>
       <FormStateBanner state={draftState} />
 
@@ -107,10 +119,10 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
         <Input label="Remarks" value={values.remarks ?? ''} onChangeText={(value) => updateField('remarks', value)} />
         <EvidenceUploader
           title="Fittings Evidence"
-          initialFiles={values.evidence}
+          initialFiles={fallbackEvidence}
           module="customers"
           recordId={customer.id}
-          onChange={(files) => updateField('evidence', files)}
+          onChange={setEvidence}
           deferUpload
         />
       </Card>
@@ -118,7 +130,7 @@ export function useFittingsAccessoriesPanel(customer: CustomerRecord, onRefetch?
   );
 
   const footer = (
-    <SectionFormFooter onSubmit={submit} isSubmitting={updateFittingsAccessoriesMutation.isPending} />
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateFittingsAccessoriesMutation.isPending} disabled={!isDirty} />
   );
 
   return { content, footer };

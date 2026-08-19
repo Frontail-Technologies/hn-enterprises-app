@@ -5,15 +5,23 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
+import { InlineFieldError } from '@/components/ui/InlineFieldError';
 
 type MeterReadingInputProps = {
   value: string;
   onChangeText: (value: string) => void;
   digits?: number;
   leadingZeroCount?: number;
+  error?: string;
 };
 
-export function MeterReadingInput({ value, onChangeText, digits = 8, leadingZeroCount = 4 }: MeterReadingInputProps) {
+export function MeterReadingInput({
+  value,
+  onChangeText,
+  digits = 8,
+  leadingZeroCount = 4,
+  error,
+}: MeterReadingInputProps) {
   const characters = useMemo(() => {
     const padded = value.padEnd(digits, ' ').slice(0, digits).split('');
     return padded.map((character, index) => (character === ' ' && index < leadingZeroCount ? '0' : character));
@@ -33,27 +41,33 @@ export function MeterReadingInput({ value, onChangeText, digits = 8, leadingZero
   };
 
   return (
-    <View style={styles.row}>
-      {characters.map((character, index) => (
-        <MeterDigitInput
-          key={`meter-digit-${index}`}
-          character={character}
-          onChangeText={(nextValue) => handleChange(index, nextValue)}
-          inputRef={(node) => {
-            inputRefs.current[index] = node;
-          }}
-        />
-      ))}
+    <View style={styles.wrapper}>
+      <View style={styles.row}>
+        {characters.map((character, index) => (
+          <MeterDigitInput
+            key={`meter-digit-${index}`}
+            character={character}
+            error={Boolean(error)}
+            onChangeText={(nextValue) => handleChange(index, nextValue)}
+            inputRef={(node) => {
+              inputRefs.current[index] = node;
+            }}
+          />
+        ))}
+      </View>
+      <InlineFieldError message={error} />
     </View>
   );
 }
 
 function MeterDigitInput({
   character,
+  error,
   onChangeText,
   inputRef,
 }: {
   character: string;
+  error: boolean;
   onChangeText: (value: string) => void;
   inputRef: (node: TextInput | null) => void;
 }) {
@@ -76,7 +90,8 @@ function MeterDigitInput({
         styles.input,
         {
           backgroundColor: colors.card,
-          borderColor: character === ' ' ? colors.border : colors.primary,
+          borderColor: error ? colors.red : character === ' ' ? colors.border : colors.primary,
+          borderWidth: error ? 1.5 : 1,
           color: colors.text,
         },
       ]}
@@ -85,6 +100,9 @@ function MeterDigitInput({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    gap: 6,
+  },
   row: {
     flexDirection: 'row',
     gap: spacing.xs,

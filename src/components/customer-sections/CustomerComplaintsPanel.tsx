@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { ComplaintListItem } from "@/components/shared/ComplaintListItem";
 import { ComplaintUpdateSheet } from "@/components/complaints/ComplaintUpdateSheet";
 import { useComplaintsQuery } from "@/queries/complaints.queries";
-import type { CustomerRecord } from "@/services/mockData";
+import type { CustomerRecord } from "@/types/customers";
 import type { ComplaintRecord } from "@/services/complaints.service";
 import { EmptyState } from "@/components/ui/EmptyState";
 

@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -13,6 +13,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { notificationDateFilters, notificationTypeFilters } from '@/constants/notifications';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useNotificationsList } from '@/hooks/useNotificationsList';
@@ -20,6 +21,7 @@ import { formatDate, formatTime } from '@/utils/format';
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { notifications: allNotifications, markAllAsRead, isLoading } = useNotifications();
   const {
     notifications,
@@ -37,6 +39,12 @@ export default function NotificationsScreen() {
 
   const hasFilter = dateFilter !== 'All' || typeFilter !== 'All';
 
+  // No shared route-group layout covers this screen, so it guards itself
+  // like ProtectedStack does elsewhere - important here since it's also the
+  // route most likely opened directly from a notification tap.
+  if (authLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/auth/login" />;
+
   return (
     <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader
@@ -44,7 +52,7 @@ export default function NotificationsScreen() {
         left={<BackButton />}
         right={
           <Pressable onPress={markAllAsRead} hitSlop={10} style={styles.markAllButton}>
-            <Text style={[typography.label, { color: colors.primary }]}>Mark all read</Text>
+            <Text style={[typography.label, styles.markAllText]}>Mark all read</Text>
           </Pressable>
         }
       />
@@ -142,10 +150,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   markAllButton: {
-    minWidth: 96,
     minHeight: 36,
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+  },
+  markAllText: {
+    color: '#FFFFFF',
   },
   filtersRow: {
     flexDirection: 'row',

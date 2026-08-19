@@ -98,7 +98,12 @@ export function ExpenseFormScreen({ expenseId }: { expenseId?: string }) {
   const showForm = !loading && !loadError && !notFound;
   const footer = showForm ? (
     <StickyFooter>
-      <Button label={isEdit ? 'Save Expense' : 'Add Expense'} loading={isSaving} onPress={handleSave} />
+      <Button
+        label={isEdit ? 'Save Expense' : 'Add Expense'}
+        loading={isSaving}
+        disabled={isEdit && !dirty}
+        onPress={handleSave}
+      />
     </StickyFooter>
   ) : undefined;
 

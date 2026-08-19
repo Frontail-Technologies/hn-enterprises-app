@@ -1,21 +1,28 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
 import { AppHeader } from '@/components/shared/AppHeader';
+import { RecentActivitySkeleton } from '@/components/shared/RecentActivitySkeleton';
+import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
+import { activityDateFilters, activityTypeFilters } from '@/constants/activity';
 import { spacing } from '@/constants/spacing';
+import { typography } from '@/constants/typography';
 import { useAttendanceStatus } from '@/context/AttendanceContext';
 import { useAuth } from '@/context/AuthContext';
-import { useRecentActivity } from '@/hooks/useRecentActivity';
-import type { ActivityLogEntry } from '@/services/mockData';
+import { useTheme } from '@/context/ThemeContext';
+import { useActivityListFilters } from '@/hooks/useActivityListFilters';
+import { queryKeys, useRecentActivityQuery } from '@/queries';
+import type { ActivityLogEntry } from '@/types/activity';
 
 export default function ActivityScreen() {
-  const { user } = useAuth();
+  const { colors } = useTheme();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const { checkInAt, checkOutAt, checkInLocation, checkOutLocation, refetch: refetchAttendance } = useAttendanceStatus();
 
   const extra = useMemo<ActivityLogEntry[]>(() => {
@@ -46,27 +53,74 @@ export default function ActivityScreen() {
     return activity;
   }, [checkInAt, checkInLocation?.address, checkOutAt, checkOutLocation?.address]);
 
-  const { items: activity } = useRecentActivity({ extra, limit: 50, supervisorId: user?.id });
+  const { data, isLoading } = useRecentActivityQuery({ extra, limit: 50, supervisorId: user?.id });
+  const activity = data?.items ?? [];
+  const {
+    filteredActivity,
+    dateFilter,
+    setDateFilter,
+    typeFilter,
+    setTypeFilter,
+    dateSelectOpen,
+    setDateSelectOpen,
+    typeSelectOpen,
+    setTypeSelectOpen,
+  } = useActivityListFilters(activity);
+  const hasFilter = dateFilter !== 'All' || typeFilter !== 'All';
+
   const queryClient = useQueryClient();
   const onRefresh = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['activity', 'recent'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activity.all }),
       refetchAttendance(),
     ]);
   }, [queryClient, refetchAttendance]);
+
+  // No _layout.tsx covers this route - it guards itself like ProtectedStack
+  // does elsewhere. Placed after all hook calls above, not before, so hook
+  // call order stays stable every render.
+  if (authLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/auth/login" />;
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
       <AppHeader title="Recent Activity" left={<BackButton />} />
 
-      {activity.length ? (
+      <View style={styles.filtersRow}>
+        <SimpleSelect
+          label="Date"
+          value={dateFilter}
+          options={activityDateFilters}
+          open={dateSelectOpen}
+          onOpenChange={setDateSelectOpen}
+          onChange={setDateFilter}
+        />
+        <SimpleSelect
+          label="Type"
+          value={typeFilter}
+          options={activityTypeFilters}
+          open={typeSelectOpen}
+          onOpenChange={setTypeSelectOpen}
+          onChange={setTypeFilter}
+        />
+      </View>
+
+      {isLoading ? (
+        <RecentActivitySkeleton />
+      ) : filteredActivity.length ? (
         <View style={styles.list}>
-          {activity.map((item) => (
+          {filteredActivity.map((item) => (
             <ActivityListItem key={item.id} item={item} />
           ))}
+          {data?.partial ? (
+            <Text style={[typography.caption, { color: colors.muted }]}>Some activity may be missing right now.</Text>
+          ) : null}
         </View>
       ) : (
-        <EmptyState title="No recent activity" description="Your work updates and submissions will appear here." />
+        <EmptyState
+          title={hasFilter ? 'No matching activity' : 'No recent activity'}
+          description={hasFilter ? 'Try changing or clearing your filters.' : 'Your work updates and submissions will appear here.'}
+        />
       )}
     </Screen>
   );
@@ -90,6 +144,10 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   list: {
     gap: spacing.sm,

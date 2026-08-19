@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
+import { SectionBodySkeleton } from '@/components/shared/SectionBodySkeleton';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -15,7 +15,7 @@ import { useDraftForm } from '@/hooks/useDraftForm';
 import { useCustomFieldDefinitionsQuery, useUpdateCustomFieldsMutation } from '@/queries';
 import { normalizeError } from '@/utils/normalizeError';
 import type { CustomFieldDefinition } from '@/services/masters.service';
-import type { CustomerRecord } from '@/services/mockData';
+import type { CustomerRecord } from '@/types/customers';
 
 const YES_NO_OPTIONS = [
   { label: 'Yes', value: 'Yes' },
@@ -37,7 +37,7 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
   const updateCustomFieldsMutation = useUpdateCustomFieldsMutation(customer.id);
   const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null);
 
-  const { values, updateField, clearDraft, draftState } = useDraftForm(
+  const { values, updateField, clearDraft, draftState, loadingDraft, isDirty } = useDraftForm(
     `customer:${customer.id}:custom-fields`,
     customer.customFields ?? {},
   );
@@ -57,12 +57,16 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
   }, [definitions, isAdmin]);
 
   const submit = async () => {
+    // Defensive - the button is already disabled in this state, but a
+    // stale press must still not reach the mutation or toast a fake
+    // success.
+    if (!isDirty) return;
+
     try {
       await updateCustomFieldsMutation.mutateAsync(values);
       await clearDraft();
       await onRefetch?.();
       showToast('Custom fields submitted', 'success');
-      router.back();
     } catch (error) {
       console.error('[CustomFieldsPanel] submit failed', { customerId: customer.id, error });
       const message = normalizeError(error, 'Unable to submit custom fields');
@@ -70,13 +74,17 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
     }
   };
 
-  const footer = <SectionFormFooter onSubmit={submit} isSubmitting={updateCustomFieldsMutation.isPending} />;
+  const footer = (
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateCustomFieldsMutation.isPending} disabled={!isDirty} />
+  );
 
   return groups.map(([groupName, fields]) => ({
     key: groupAnchorKey(groupName),
     label: groupName,
     panel: {
-      content: (
+      content: loadingDraft ? (
+        <SectionBodySkeleton />
+      ) : (
         <>
           <FormStateBanner state={draftState} />
           <Card style={styles.formCard}>

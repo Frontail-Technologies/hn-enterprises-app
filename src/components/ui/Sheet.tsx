@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import {
@@ -39,11 +40,6 @@ type SheetProps = PropsWithChildren<{
   snapPoints?: (string | number)[];
 }>;
 
-// Shared bottom-sheet primitive, built on @gorhom/bottom-sheet's
-// BottomSheetModal. Public API (visible/onClose/title/footer/children) is
-// unchanged from the previous RN-Modal-based implementation so existing
-// call sites didn't need to change - `description` and `snapPoints` are the
-// only additions, both optional.
 export function Sheet({
   visible,
   onClose,
@@ -69,13 +65,37 @@ export function Sheet({
     easing: Easing.out(Easing.cubic),
   });
 
+  // Tracks whether this modal has ever actually been present()-ed. Without
+  // it, the effect below fires dismiss() on the very first render (visible
+  // starts false for every call site) against a BottomSheetModal that was
+  // never presented - which can wedge its internal state so a *later*
+  // present() silently no-ops instead of opening the sheet.
+  const wasPresentedRef = useRef(false);
+
   useEffect(() => {
     if (visible) {
-      sheetRef.current?.present();
-    } else {
+      if (!wasPresentedRef.current) {
+        sheetRef.current?.present();
+        wasPresentedRef.current = true;
+      }
+      return;
+    }
+
+    if (wasPresentedRef.current) {
       sheetRef.current?.dismiss();
     }
   }, [visible]);
+
+  const handleDismiss = useCallback(() => {
+    wasPresentedRef.current = false;
+    onClose();
+  }, [onClose]);
+
+  // Reserves exactly as much bottom padding on the scrollable content as the
+  // fixed footer actually renders at - the footer is a separate, absolutely
+  // positioned overlay (BottomSheetFooter), so without this the last bit of
+  // content sits underneath it.
+  const [footerHeight, setFooterHeight] = useState(0);
 
   // Hardware back closes the sheet instead of falling through to
   // expo-router's screen-level back navigation - @gorhom/bottom-sheet
@@ -108,13 +128,12 @@ export function Sheet({
       footer ? (
         <BottomSheetFooter {...props} bottomInset={0}>
           <View
+            onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
             style={[
               styles.footerWrap,
               {
-                // Same reasoning as StickyFooter: insets.bottom already
-                // clears the Android nav bar / iOS home indicator, so only
-                // a small breathing gap is added on top of it instead of a
-                // full extra spacing.lg.
+                // insets.bottom already clears the Android nav bar / iOS
+                // home indicator, so only a small gap is added on top.
                 paddingBottom: insets.bottom > 0 ? insets.bottom + spacing.sm : spacing.lg,
                 borderTopColor: colors.border,
                 backgroundColor: colors.surface,
@@ -171,7 +190,11 @@ export function Sheet({
   return (
     <BottomSheetModal
       ref={sheetRef}
-      onDismiss={onClose}
+      onDismiss={handleDismiss}
+      // Without this, a tall (dynamically-sized or full-content) sheet can
+      // grow right up to y=0 and render its rounded handle under/behind the
+      // status bar instead of stopping below it.
+      topInset={insets.top}
       enableDynamicSizing={enableDynamicSizing}
       enablePanDownToClose
       snapPoints={snapPoints}
@@ -187,7 +210,10 @@ export function Sheet({
       style={sheetStyle}
     >
       <BottomSheetScrollView
-        contentContainerStyle={[styles.content, !footer && { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footer ? footerHeight + spacing.lg : Math.max(insets.bottom, spacing.lg) },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

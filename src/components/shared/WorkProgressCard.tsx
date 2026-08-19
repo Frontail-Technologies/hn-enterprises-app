@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { ArrowRight, CalendarClock, Camera, MapPin } from 'lucide-react-native';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -8,13 +9,19 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { guardNavigation } from '@/lib/navigation';
-import type { WorkProgressRecord } from '@/services/mockData';
+import type { WorkProgressRecord } from '@/types/workProgress';
 
 type WorkProgressCardProps = {
   record: WorkProgressRecord;
 };
 
-export function WorkProgressCard({ record }: WorkProgressCardProps) {
+// Memoized deliberately: rendered as a FlashList row (work/index.tsx) with a
+// single prop, `record`, which is referentially stable across re-renders
+// (useWorkQueueFilters filters via .filter(), which never clones elements -
+// an unchanged record is still the same object). There's no callback prop
+// at all here (navigation happens internally via router.push), so nothing
+// undermines memo's shallow comparison the way an inline closure would.
+export const WorkProgressCard = memo(function WorkProgressCard({ record }: WorkProgressCardProps) {
   const { colors } = useTheme();
 
   return (
@@ -68,7 +75,7 @@ export function WorkProgressCard({ record }: WorkProgressCardProps) {
       </Card>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

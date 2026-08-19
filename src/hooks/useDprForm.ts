@@ -1,21 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 
-import { dprTaskTemplates } from '@/constants/dprTasks';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { useCustomerOptionsQuery, useDprRecordsQuery, useUpsertDprRecordMutation } from '@/queries';
-import type { EvidenceFile } from '@/services/mockData';
+import {
+  buildDprDraft,
+  computeDprScopeKey,
+  hasDprContentChanged,
+  initialDprItems,
+  requiresDprWorkflowTransition,
+  shouldHydrateDprDraft,
+  type DprDraftState,
+} from '@/hooks/dprHydration';
+import { successHaptic } from '@/lib/haptics';
+import { useDprRecordsQuery, useUpsertDprRecordMutation } from '@/queries';
+import type { EvidenceFile } from '@/types/evidence';
 import type { DprTaskPayload, PlanningEvidenceFile } from '@/services/planning.service';
 import type { DprItem } from '@/types/planning';
-
-const initialItems: DprItem[] = dprTaskTemplates.map((task) => ({
-  id: task.id,
-  label: task.label,
-  plannedQty: '',
-  completedQty: '',
-  worker: '',
-  delayReason: '',
-}));
+import { normalizeError } from '@/utils/normalizeError';
 
 function toPlanningEvidence(files: EvidenceFile[]): PlanningEvidenceFile[] {
   return files
@@ -29,80 +31,75 @@ function toPlanningEvidence(files: EvidenceFile[]): PlanningEvidenceFile[] {
     }));
 }
 
-function fromPlanningEvidence(files: PlanningEvidenceFile[]): EvidenceFile[] {
-  return files.map((file) => ({
-    id: file.id,
-    fileName: file.fileName,
-    fileUrl: file.fileUrl,
-    uri: file.fileUrl,
-    mimeType: file.mimeType,
-    capturedAt: file.capturedAt,
-    status: 'Uploaded',
-  }));
-}
-
 export function useDprForm() {
   const { showToast } = useToast();
   const { user } = useAuth();
-  const [date, setDate] = useState('2026-07-22');
-  const [customerId, setCustomerId] = useState('');
+  const { customerId, customerName, trBpNumber, projectId, siteId, siteName, date } = useLocalSearchParams<{
+    customerId: string;
+    customerName?: string;
+    trBpNumber?: string;
+    projectId: string;
+    siteId: string;
+    siteName?: string;
+    date: string;
+  }>();
 
-  const customersQuery = useCustomerOptionsQuery();
-  const customerOptions = customersQuery.data ?? [];
-  const selectedCustomer = customerOptions.find((option) => option.id === customerId) ?? null;
-  const projectId = selectedCustomer?.projectId ?? '';
-  const siteId = selectedCustomer?.siteId ?? '';
-
-  // Matched by customer, not site - a site can have many customers, and each
-  // gets its own DPR record for the same date/supervisor.
+  // Scoped to the acting supervisor: "my own filed DPR for this customer/date",
+  // not just any supervisor's.
   const dprRecordsQuery = useDprRecordsQuery(
     { customerId, date, supervisorId: user?.id },
     { enabled: Boolean(customerId && date && user?.id) },
   );
   const upsertDprRecordMutation = useUpsertDprRecordMutation();
 
-  const [customerSelectOpen, setCustomerSelectOpen] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [evidence, setEvidence] = useState<EvidenceFile[]>([]);
   const [evidenceLoadToken, setEvidenceLoadToken] = useState(0);
-  const [items, setItems] = useState(initialItems);
-  const [errors, setErrors] = useState<{ customerId?: boolean }>({});
+  const [items, setItems] = useState(initialDprItems);
+  // The content-dirty comparison baseline - captured at hydration and reset
+  // to the newly-saved state after a successful submit (see handleSubmit).
+  const [baseline, setBaseline] = useState<DprDraftState>({ items: initialDprItems, remarks: '', evidence: [] });
   const submitting = upsertDprRecordMutation.isPending;
 
-  useEffect(() => {
-    if (!customerId || !date || !user?.id || dprRecordsQuery.isLoading) return;
+  // Seeded exactly once per scope, during render rather than in an effect
+  // (React discards a render that sets state mid-render and re-renders
+  // immediately, so there's no blank/unhydrated frame). The guard is what
+  // stops a background refetch of the same scope (app foreground, reconnect)
+  // from re-running and clobbering in-progress edits - only a genuine scope
+  // change re-seeds.
+  const scopeKey = computeDprScopeKey(customerId, date, user?.id);
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
 
-    queueMicrotask(() => {
-      const existing = dprRecordsQuery.data?.[0];
+  if (shouldHydrateDprDraft(hydratedFor, scopeKey, dprRecordsQuery.isLoading)) {
+    const draft = buildDprDraft(dprRecordsQuery.data?.[0]);
+    setItems(draft.items);
+    setRemarks(draft.remarks);
+    setEvidence(draft.evidence);
+    setBaseline(draft);
+    setEvidenceLoadToken((token) => token + 1);
+    setHydratedFor(scopeKey);
+  }
 
-      if (existing) {
-        setItems(
-          dprTaskTemplates.map((task) => {
-            const match = existing.tasks.find((item) => item.id === task.id);
-            return {
-              ...task,
-              plannedQty: match?.plannedQty ?? '',
-              completedQty: match?.completedQty ?? '',
-              worker: match?.worker ?? '',
-              delayReason: match?.delayReason ?? '',
-            };
-          }),
-        );
-        setRemarks(existing.remarks ?? '');
-        setEvidence(fromPlanningEvidence(existing.evidence ?? []));
-      } else {
-        setItems(initialItems);
-        setRemarks('');
-        setEvidence([]);
-      }
-      setEvidenceLoadToken((token) => token + 1);
-    });
-  }, [customerId, date, user?.id, dprRecordsQuery.data, dprRecordsQuery.isLoading]);
+  const existingStatus = dprRecordsQuery.data?.[0]?.status;
+  // Two independent questions, not one `isDirty` - see useDprForm's audit:
+  // unedited content can still need Submit (draft -> submitted is itself the
+  // transition), and edited content can need Submit regardless of status.
+  const hasContentChanges = hasDprContentChanged({ items, remarks, evidence }, baseline);
+  const requiresWorkflowTransition = requiresDprWorkflowTransition(existingStatus);
+  const canSubmit = hasContentChanges || requiresWorkflowTransition;
 
+  const totalPlanned = useMemo(
+    () => items.reduce((sum, item) => sum + (Number(item.plannedQty) || 0), 0),
+    [items],
+  );
   const totalCompleted = useMemo(
     () => items.reduce((sum, item) => sum + (Number(item.completedQty) || 0), 0),
     [items],
   );
+  // Tasks with a completed qty actually entered, out of the fixed task list -
+  // the "counts" shown next to the customer in the header, distinct from the
+  // qty totals above (a task can be filled with qty 0, or left untouched).
+  const tasksFilled = useMemo(() => items.filter((item) => item.completedQty !== '').length, [items]);
 
   const updateItem = (id: string, field: keyof DprItem, value: string) => {
     setItems((current) =>
@@ -110,32 +107,11 @@ export function useDprForm() {
     );
   };
 
-  const handleCustomerChange = (value: string) => {
-    setCustomerId(value);
-    setErrors((current) => ({ ...current, customerId: false }));
-  };
-
-  const customerSelectOptions = customerOptions.map((option) => ({
-    label: option.trBpNo ? `${option.trBpNo} — ${option.name}` : option.name,
-    value: option.id,
-  }));
-
-  const derivedContext = selectedCustomer
-    ? [selectedCustomer.projectName, selectedCustomer.siteArea].filter(Boolean).join(' · ')
-    : '';
-  const siteLabel = selectedCustomer ? derivedContext || 'Site linked to customer' : 'Select a customer';
-
   const handleSubmit = async () => {
-    if (submitting) return;
-    if (!customerId || !projectId || !siteId) {
-      setErrors({ customerId: true });
-      if (customerId && (!projectId || !siteId)) {
-        showToast('This customer has no linked project or site', 'error');
-      }
-      return;
-    }
-
-    setErrors({});
+    // Defensive - the button is already disabled in this state, but a stale
+    // press must still not reach the mutation, invalidate anything, or toast
+    // a fake success.
+    if (submitting || !canSubmit) return false;
 
     try {
       const tasks: DprTaskPayload[] = items.map((item) => ({
@@ -146,7 +122,7 @@ export function useDprForm() {
         delayReason: item.delayReason || undefined,
       }));
 
-      await upsertDprRecordMutation.mutateAsync({
+      const record = await upsertDprRecordMutation.mutateAsync({
         customerId,
         projectId,
         siteId,
@@ -156,25 +132,26 @@ export function useDprForm() {
         tasks,
         evidence: toPlanningEvidence(evidence),
       });
+      setBaseline(buildDprDraft(record));
+      successHaptic();
       showToast('DPR submitted', 'success');
+      return true;
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to submit DPR', 'error');
+      console.error('[useDprForm] submit failed', { customerId, date, error });
+      showToast(normalizeError(error, 'Unable to submit DPR'), 'error');
+      return false;
     }
   };
 
   return {
     date,
-    setDate,
-    customerId,
-    setCustomerId: handleCustomerChange,
-    customerSelectOpen,
-    setCustomerSelectOpen,
-    customerSelectOptions,
-    customersLoading: customersQuery.isLoading,
-    customersError: customersQuery.isError,
-    refetchCustomers: () => customersQuery.refetch(),
-    derivedContext,
-    errors,
+    customerName: customerName || 'Customer',
+    trBpNumber: trBpNumber || '-',
+    siteLabel: siteName || '-',
+    // False only once the record for the current scope (customer/date) has
+    // been applied to local state - lets the screen hold off rendering the
+    // form until it knows whether to render it blank or pre-filled.
+    isLoading: hydratedFor !== scopeKey,
     remarks,
     setRemarks,
     evidence,
@@ -182,9 +159,11 @@ export function useDprForm() {
     evidenceLoadToken,
     items,
     updateItem,
+    totalPlanned,
     totalCompleted,
-    siteLabel,
+    tasksFilled,
     submitting,
+    canSubmit,
     handleSubmit,
   };
 }

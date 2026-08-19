@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowLeftRight,
   BadgeCheck,
   Box,
@@ -44,6 +45,7 @@ export const statIcons: Record<SupervisorStatId, typeof ClipboardCheck> = {
   'total-pbg-assignment': UserCheck,
   'total-connection-done': Link,
   'total-connection-remark': MessageSquare,
+  'needs-attention': AlertTriangle,
   'total-conversion-done': ArrowLeftRight,
   'customer-resolve': CheckCheck,
 };

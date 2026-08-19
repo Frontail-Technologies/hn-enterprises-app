@@ -20,7 +20,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
-import type { EvidenceFile } from '@/services/mockData';
+import type { EvidenceFile } from '@/types/evidence';
 import { processEvidenceImage } from '@/services/imageProcessing';
 import { resolveMediaUrl, uploadFile, type UploadAsset } from '@/services/uploads.service';
 import { normalizeError } from '@/utils/normalizeError';

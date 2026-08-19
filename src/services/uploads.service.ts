@@ -13,6 +13,18 @@ export type UploadAsset = {
   mimeType?: string;
 };
 
+// React Native's `{ uri, name, type }` file object isn't a real `Blob` -
+// `FormData.append`'s DOM typings require one, so this cast is a necessary,
+// deliberate escape hatch (not a type-safety gap). It was copy-pasted at
+// every call site that appends a file; this is the one place it's written.
+export function toFormDataFilePart(asset: UploadAsset): Blob {
+  return {
+    uri: asset.uri,
+    name: asset.fileName,
+    type: asset.mimeType || "application/octet-stream",
+  } as unknown as Blob;
+}
+
 export async function uploadFile(
   asset: UploadAsset,
   module: string,
@@ -20,11 +32,7 @@ export async function uploadFile(
   onProgress?: (fraction: number) => void,
 ): Promise<UploadedFile> {
   const formData = new FormData();
-  formData.append("file", {
-    uri: asset.uri,
-    name: asset.fileName,
-    type: asset.mimeType || "application/octet-stream",
-  } as unknown as Blob);
+  formData.append("file", toFormDataFilePart(asset));
   formData.append("module", module);
   if (recordId) formData.append("recordId", recordId);
 

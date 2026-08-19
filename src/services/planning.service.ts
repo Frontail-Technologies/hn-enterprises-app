@@ -51,6 +51,29 @@ export type BackendSitePlan = {
   customer: { id: string; name: string; trBpNumber: string } | null;
 };
 
+export type PlanningOverviewStatus = "pending" | "partial" | "done";
+
+// One row per Site for the mobile overview - an aggregate over the same
+// customer-wise records the editors read/write, never a separate source of
+// truth. See backend planning.service.ts's getWorkPlanningOverview/getDprOverview.
+export type SiteOverviewRow = {
+  siteId: string;
+  siteName: string;
+  projectId: string;
+  projectName: string;
+  totalCustomers: number;
+  completedCustomers: number;
+  status: PlanningOverviewStatus;
+};
+
+export type SiteCustomerRow = {
+  id: string;
+  trBpNumber: string;
+  customerName: string;
+  projectId: string;
+  siteId: string;
+};
+
 export type BackendDprRecord = {
   id: string;
   customerId: string;
@@ -129,5 +152,17 @@ export const planningApi = {
       method: "PUT",
       body: JSON.stringify(body),
     });
+  },
+
+  async getWorkPlanningOverview(date: string): Promise<SiteOverviewRow[]> {
+    return apiRequest<SiteOverviewRow[]>(`/planning/site-plans/overview?date=${encodeURIComponent(date)}`);
+  },
+
+  async getDprOverview(date: string): Promise<SiteOverviewRow[]> {
+    return apiRequest<SiteOverviewRow[]>(`/planning/dpr-records/overview?date=${encodeURIComponent(date)}`);
+  },
+
+  async listSiteCustomers(siteId: string): Promise<SiteCustomerRow[]> {
+    return apiRequest<SiteCustomerRow[]>(`/planning/site-customers?siteId=${encodeURIComponent(siteId)}`);
   },
 };

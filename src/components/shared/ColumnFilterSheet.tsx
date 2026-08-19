@@ -40,7 +40,7 @@ export function ColumnFilterSheet<K extends string>({
       onClose={onClose}
       title={activeColumn ? `Filter ${activeColumn.label}` : 'Filter'}
       footer={
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        <View style={styles.footer}>
           <Button label="Clear" variant="outline" onPress={onClear} style={styles.footerButton} />
           <Button label="Apply" onPress={onApply} style={styles.footerButton} />
         </View>
@@ -92,11 +92,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.sm,
   },
+  // No border/padding here - Sheet's own footerWrap already supplies the top
+  // border and padding around whatever `footer` content is passed to it.
   footer: {
     flexDirection: 'row',
     gap: spacing.sm,
-    borderTopWidth: 1,
-    padding: spacing.lg,
   },
   footerButton: {
     flex: 1,

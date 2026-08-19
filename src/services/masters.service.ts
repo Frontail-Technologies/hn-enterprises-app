@@ -19,6 +19,7 @@ const CATEGORY_TO_BACKEND: Record<string, string> = {
   Schemes: "schemes",
   "Document Categories": "document_categories",
   "Material Categories": "material_categories",
+  "Meter Types": "meter_types",
 };
 
 export async function fetchMasterValues(category: string): Promise<MasterValue[]> {

@@ -6,7 +6,7 @@ import {
   useMarkNotificationReadMutation,
   useNotificationsQuery,
 } from "@/queries";
-import type { Notification } from "@/services/mockData";
+import type { Notification } from "@/types/notifications";
 
 type NotificationsContextValue = {
   notifications: Notification[];

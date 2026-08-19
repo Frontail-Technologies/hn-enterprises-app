@@ -108,9 +108,7 @@ function hrefFromType(type: string | undefined, entityId: string | undefined): H
   }
 }
 
-// Maps a notification payload to a known route. Prefers the backend-supplied
-// route when it's on the allow-list, then falls back to a type/entity mapping,
-// and finally to the Notifications screen so an unknown type is always safe.
+// Falls back to the Notifications screen so an unrecognized type is always safe.
 export function resolveNotificationHref(data: PushData | undefined): Href {
   const route = data?.route;
   if (route?.pathname && ALLOWED_PATHNAMES.has(route.pathname)) {

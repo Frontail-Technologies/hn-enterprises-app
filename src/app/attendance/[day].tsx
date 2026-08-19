@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CalendarDays, Clock3, ClipboardList, MapPin } from 'lucide-react-native';
+import { ArrowLeft, Clock3, ClipboardList, MapPin } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -81,16 +81,6 @@ export default function AttendanceDayDetailScreen() {
               label="Current Location"
               value={isAbsent ? '-' : locationLabel}
             />
-          </Card>
-
-          <Card style={[styles.planCard, { backgroundColor: colors.softBlue }]}>
-            <View style={styles.planHeader}>
-              <CalendarDays size={19} color={colors.accent} />
-              <Text style={[styles.planTitle, { color: colors.accent }]}>{"Today's Plan"}</Text>
-            </View>
-            <Text style={[typography.body, { color: colors.text }]}>
-              Footing inspection at Green Valley and column shuttering check at City Center.
-            </Text>
           </Card>
 
           <Card style={styles.detailCard}>
@@ -189,11 +179,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
     ...typography.bodyMedium,
-  },
-  planCard: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.xl,
   },
   planHeader: {
     flexDirection: 'row',

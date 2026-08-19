@@ -8,15 +8,15 @@ import { AppHeader } from "@/components/shared/AppHeader";
 import { StatSummaryCard } from "@/components/shared/StatSummaryCard";
 import { StatsGridSkeleton } from "@/components/shared/StatsGridSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Screen } from "@/components/ui/Screen";
 import { spacing } from "@/constants/spacing";
 import { statIcons } from "@/constants/statIcons";
-import { useSupervisorStats } from "@/hooks/useMobileStats";
 import { useResponsive } from "@/hooks/useResponsive";
-import { queryKeys } from "@/queries";
+import { queryKeys, useSupervisorStatsQuery } from "@/queries";
 
 export default function AllStatsScreen() {
-  const { stats, isLoading } = useSupervisorStats();
+  const { data: stats = [], isLoading, isError, refetch } = useSupervisorStatsQuery();
   const { isTablet, isLargeTablet } = useResponsive();
   const statCardWidth = isLargeTablet ? "15.3%" : isTablet ? "23.6%" : "31.6%";
   const queryClient = useQueryClient();
@@ -33,6 +33,8 @@ export default function AllStatsScreen() {
       />
       {isLoading ? (
         <StatsGridSkeleton />
+      ) : isError ? (
+        <ErrorState title="Couldn't load stats" description="Check your connection and try again." onRetry={refetch} />
       ) : !stats.length ? (
         <EmptyState title="No stats available" />
       ) : (

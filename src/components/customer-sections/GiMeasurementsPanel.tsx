@@ -1,10 +1,10 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { QuantityFieldRow } from '@/components/shared/QuantityFieldRow';
+import { SectionBodySkeleton } from '@/components/shared/SectionBodySkeleton';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -14,8 +14,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useUpdateGiMeasurementsMutation } from '@/queries';
+import { isEvidenceDirty } from '@/utils/evidenceSnapshot';
 import { normalizeError } from '@/utils/normalizeError';
-import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
+import type { CustomerRecord } from '@/types/customers';
+import type { EvidenceFile } from '@/types/evidence';
 
 export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { colors } = useTheme();
@@ -32,7 +34,8 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     giPipeTwoInch: '',
   };
   const [evidence, setEvidence] = useState<EvidenceFile[]>(gi.evidence ?? []);
-  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:gi`, {
+  const [initialEvidence, setInitialEvidence] = useState<EvidenceFile[]>(gi.evidence ?? []);
+  const { values, updateField, clearDraft, draftState, loadingDraft, isDirty: valuesDirty } = useDraftForm(`customer:${customer.id}:gi`, {
     tfToRegulator: gi.tfToRegulator,
     inlet: gi.inlet,
     outlet: gi.outlet,
@@ -44,10 +47,13 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     extraGiAbove10Metres: customer.isolationFittings.extraGiAbove10Metres ?? '',
     remarks: '',
   });
+  const isDirty = valuesDirty || isEvidenceDirty(evidence, initialEvidence);
 
   const submit = async () => {
+    if (!isDirty) return;
+
     try {
-      await updateGiMeasurementsMutation.mutateAsync( {
+      const updated = await updateGiMeasurementsMutation.mutateAsync( {
         tfToRegulator: values.tfToRegulator,
         inlet: values.inlet,
         outlet: values.outlet,
@@ -59,10 +65,10 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
         evidence,
         approvalStatus: 'submitted',
       });
+      setInitialEvidence(updated.giMeasurements.evidence ?? []);
       await clearDraft();
       await onRefetch?.();
       showToast('GI measurements submitted', 'success');
-      router.back();
     } catch (error) {
       console.error('[GiMeasurementsPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
       const message = normalizeError(error, 'Unable to submit GI measurements');
@@ -70,7 +76,9 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
     }
   };
 
-  const content = (
+  const content = loadingDraft ? (
+    <SectionBodySkeleton />
+  ) : (
     <>
       <FormStateBanner state={draftState} />
 
@@ -110,7 +118,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
   );
 
   const footer = (
-    <SectionFormFooter onSubmit={submit} isSubmitting={updateGiMeasurementsMutation.isPending} />
+    <SectionFormFooter onSubmit={submit} isSubmitting={updateGiMeasurementsMutation.isPending} disabled={!isDirty} />
   );
 
   return { content, footer };

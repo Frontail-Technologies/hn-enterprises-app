@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getRecentActivity } from "@/services/activity.service";
-import type { ActivityLogEntry } from "@/services/mockData";
+import type { ActivityLogEntry } from "@/types/activity";
 import { queryKeys } from "./keys";
 
 export function useRecentActivityQuery({

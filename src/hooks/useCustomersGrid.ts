@@ -5,6 +5,7 @@ import { customerGridColumns } from '@/constants/customers';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { useCustomerInfiniteListQuery } from '@/queries';
 import type { CustomerGridRow } from '@/types/customers';
+import { dedupeById } from '@/utils/dedupeById';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -20,7 +21,7 @@ export function useCustomersGrid() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useCustomerInfiniteListQuery(
+  const { data, isLoading, isError, isFetchingNextPage, hasNextPage, fetchNextPage } = useCustomerInfiniteListQuery(
     debouncedSearch || undefined,
   );
   // isFetchingNextPage only flips after a render, so a burst of onScroll
@@ -31,14 +32,7 @@ export function useCustomersGrid() {
     isFetchingRef.current = isFetchingNextPage;
   }, [isFetchingNextPage]);
 
-  // Dedupe by id as a safety net - unstable sort tie-breaks on the backend
-  // (or any other pagination hiccup) could otherwise hand back the same
-  // customer on two pages, which would crash the list on a duplicate key.
-  const customers = useMemo(() => {
-    const seen = new Set<string>();
-    const all = data?.pages.flatMap((page) => page.customers) ?? [];
-    return all.filter((customer) => (seen.has(customer.id) ? false : (seen.add(customer.id), true)));
-  }, [data]);
+  const customers = useMemo(() => dedupeById(data?.pages.flatMap((page) => page.customers) ?? []), [data]);
   const total = data?.pages[0]?.pagination.total ?? 0;
 
   const rows = useMemo<CustomerGridRow[]>(
@@ -111,6 +105,7 @@ export function useCustomersGrid() {
     search,
     setSearch,
     isLoading,
+    isError,
     isFetchingNextPage,
     hasNextPage,
     loadMore,

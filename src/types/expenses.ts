@@ -1,5 +1,5 @@
 import type { ExpenseCategory, ExpenseMode, ExpenseRecord, ExpenseStatus } from '@/services/expenses.service';
-import type { EvidenceFile } from '@/services/mockData';
+import type { EvidenceFile } from '@/types/evidence';
 
 export type ExpenseStatusFilter = 'All' | ExpenseStatus;
 

@@ -125,12 +125,23 @@ export function useExpenseForm(expenseId?: string) {
   };
 
   const save = async (): Promise<{ ok: boolean; firstInvalid?: ExpenseFieldKey | null }> => {
+    // Defensive - the button is already disabled in this state, but a stale
+    // press must still not reach the mutation, invalidate anything, or toast
+    // a fake success. Only applies to editing an existing expense; a new,
+    // never-submitted expense is always submittable (validate() above
+    // already gates it on the fields that actually matter).
+    if (isEdit && !dirty) return { ok: true };
+
     const { firstInvalid } = validate();
     if (firstInvalid) return { ok: false, firstInvalid };
 
     try {
       if (expenseId) {
-        await updateMutation.mutateAsync({ id: expenseId, input: draft });
+        const saved = await updateMutation.mutateAsync({ id: expenseId, input: draft });
+        // Resets the dirty baseline to what the server actually stored, so
+        // if the screen stays open (or reopens on this same record) a
+        // second Save with no further edits is a no-op again.
+        setInitial(toDraft(saved));
         showToast('Expense updated', 'success');
       } else {
         await createMutation.mutateAsync(draft);

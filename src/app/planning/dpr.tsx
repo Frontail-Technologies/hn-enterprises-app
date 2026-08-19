@@ -1,22 +1,19 @@
 import { router } from "expo-router";
-import { ArrowLeft, CheckCircle2, FileText } from "lucide-react-native";
+import { ArrowLeft, CheckCircle2 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { DateField } from "@/components/ui/DateField";
-import { InlineFieldError } from "@/components/ui/InlineFieldError";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { EvidenceUploader } from "@/components/shared/EvidenceUploader";
 import { ScrollableTable } from "@/components/shared/ScrollableTable";
-import { SimpleSelect } from "@/components/shared/SimpleSelect";
 import { radius, spacing } from "@/constants/spacing";
 import { tableDividers, tableMetrics, tableText } from "@/constants/table";
-import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useDprForm } from "@/hooks/useDprForm";
+import { formatDate } from "@/utils/format";
 
 const DPR_COL_WIDTH = {
   task: 158,
@@ -35,27 +32,20 @@ export default function DprScreen() {
   const dividers = tableDividers(colors, isDark);
   const {
     date,
-    setDate,
-    customerId,
-    setCustomerId,
-    customerSelectOpen,
-    setCustomerSelectOpen,
-    customerSelectOptions,
-    customersLoading,
-    customersError,
-    refetchCustomers,
-    derivedContext,
-    errors,
+    customerName,
+    trBpNumber,
+    siteLabel,
     remarks,
     setRemarks,
     evidence,
     setEvidence,
     evidenceLoadToken,
+    isLoading,
     items,
     updateItem,
-    totalCompleted,
-    siteLabel,
+    tasksFilled,
     submitting,
+    canSubmit,
     handleSubmit,
   } = useDprForm();
 
@@ -63,6 +53,11 @@ export default function DprScreen() {
     backgroundColor: colors.card,
     borderColor: colors.border,
     color: colors.text,
+  };
+
+  const onSubmit = async () => {
+    const ok = await handleSubmit();
+    if (ok) router.back();
   };
 
   return (
@@ -83,72 +78,35 @@ export default function DprScreen() {
           <Button
             label={submitting ? "Submitting…" : "Submit DPR"}
             icon={<CheckCircle2 size={17} color="#FFFFFF" />}
-            onPress={() => void handleSubmit()}
+            onPress={() => void onSubmit()}
             loading={submitting}
+            disabled={!canSubmit}
             style={styles.footerButton}
           />
         </View>
       }
     >
-      <AppHeader title="DPR" left={<BackButton />} />
+      <AppHeader
+        title={customerName}
+        subtitle={`${trBpNumber} · ${siteLabel} · ${formatDate(date)}`}
+        left={<BackButton />}
+        right={
+          isLoading ? null : (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{tasksFilled}/{items.length}</Text>
+            </View>
+          )
+        }
+      />
 
-      <Card style={styles.summaryCard}>
-        <View
-          style={[styles.summaryIcon, { backgroundColor: colors.softOrange }]}
-        >
-          <FileText size={20} color={colors.primary} />
+      {isLoading ? (
+        <View style={styles.skeletonBlock}>
+          <Skeleton height={18} width={120} />
+          <Skeleton height={220} borderRadius={radius.sm} />
+          <Skeleton height={80} borderRadius={radius.sm} />
         </View>
-        <View style={styles.summaryCopy}>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>
-            Completed Qty
-          </Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>
-            {siteLabel}
-          </Text>
-        </View>
-        <Text style={[styles.totalText, { color: colors.primary }]}>
-          {totalCompleted}
-        </Text>
-      </Card>
-
-      <Text style={[styles.sectionLabel, { color: colors.muted }]}>
-        Basic Details
-      </Text>
-      <Card style={styles.contextCard}>
-        <DateField label="DPR Date" value={date} onChangeText={setDate} />
-        <View>
-          <SimpleSelect
-            label="Customer"
-            value={customerId}
-            options={customerSelectOptions}
-            open={customerSelectOpen}
-            onOpenChange={setCustomerSelectOpen}
-            onChange={setCustomerId}
-            searchable
-            loading={customersLoading}
-            error={Boolean(errors.customerId) || customersError}
-            onRetry={refetchCustomers}
-            emptyLabel="No customers available"
-          />
-          <InlineFieldError
-            message={errors.customerId ? "Select a customer" : undefined}
-          />
-        </View>
-        {derivedContext ? (
-          <View style={styles.derivedRow}>
-            <Text style={[styles.derivedLabel, { color: colors.muted }]}>
-              Project · Site
-            </Text>
-            <Text
-              style={[styles.derivedValue, { color: colors.text }]}
-              numberOfLines={2}
-            >
-              {derivedContext}
-            </Text>
-          </View>
-        ) : null}
-      </Card>
-
+      ) : (
+        <>
       <Text style={[styles.sectionLabel, { color: colors.muted }]}>
         Work Details
       </Text>
@@ -318,6 +276,8 @@ export default function DprScreen() {
         module="dpr"
         onChange={setEvidence}
       />
+        </>
+      )}
     </Screen>
   );
 }
@@ -358,7 +318,7 @@ function HeaderCell({
 
 const styles = StyleSheet.create({
   screen: {
-    gap: spacing.md,
+    gap: spacing.lg,
     paddingBottom: 116,
   },
   headerButton: {
@@ -367,53 +327,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  summaryCard: {
-    minHeight: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.card,
-  },
-  summaryIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
+  countBadge: {
+    minHeight: 30,
     justifyContent: "center",
-    borderRadius: radius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
   },
-  summaryCopy: {
-    flex: 1,
+  countBadgeText: {
+    ...tableText.header,
+    color: "#FFFFFF",
+    fontSize: 13,
   },
-  summaryTitle: {
-    ...typography.bodyMedium,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  totalText: {
-    fontFamily: typography.h1.fontFamily,
-    fontSize: 26,
-    lineHeight: 31,
+  skeletonBlock: {
+    gap: spacing.md,
   },
   sectionLabel: {
     ...tableText.header,
-    marginBottom: -spacing.xs,
-  },
-  contextCard: {
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.card,
-  },
-  derivedRow: {
-    gap: 2,
-  },
-  derivedLabel: {
-    ...tableText.header,
-  },
-  derivedValue: {
-    ...typography.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
   },
   tableCard: {},
   tableHeader: {

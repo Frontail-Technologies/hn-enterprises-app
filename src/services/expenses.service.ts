@@ -1,9 +1,44 @@
-import { apiRequest, apiRequestFormData } from "./apiClient";
-import { resolveMediaUrl } from "./uploads.service";
-import type { EvidenceFile } from "./mockData";
+import { apiRequest, apiRequestFormData, apiRequestPaginated, type PaginationMeta } from "./apiClient";
+import { resolveMediaUrl, toFormDataFilePart } from "./uploads.service";
+import type { EvidenceFile } from "../types/evidence";
+import type { ExpenseColumnKey } from "../types/expenses";
+
+export type ExpenseListParams = {
+  search?: string;
+  category?: ExpenseCategory;
+  from?: string;
+  to?: string;
+  // The All Expenses column-filter checkboxes (purpose/paidTo/address/
+  // amount/date/status) - each an exact-value multi-select, sent up as a
+  // comma-separated list per column. Deliberately separate from `category`,
+  // which is a single-value drill-down with its own UI.
+  columnFilters?: Partial<Record<ExpenseColumnKey, string[]>>;
+};
+
+export type ExpenseSummary = {
+  count: number;
+  total: number;
+  categoryBreakdown: { category: ExpenseCategory; count: number; total: number }[];
+  recent: ExpenseRecord[];
+};
+
+export function buildExpenseListQuery(params: ExpenseListParams) {
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.category) query.set("category", params.category);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  const columnFilters = params.columnFilters ?? {};
+  for (const key of Object.keys(columnFilters) as ExpenseColumnKey[]) {
+    const values = columnFilters[key];
+    if (values?.length) query.set(key, values.join(","));
+  }
+  return query;
+}
 
 export type ExpenseCategory =
   | "worker_payment"
+  | "supervisor_payment"
   | "plumber_payment"
   | "rent"
   | "material_expense"
@@ -14,6 +49,7 @@ export type ExpenseMode = string;
 
 export const expenseCategoryOptions: { label: string; value: ExpenseCategory }[] = [
   { label: "Worker Payments", value: "worker_payment" },
+  { label: "Supervisor Payments", value: "supervisor_payment" },
   { label: "Plumber Payments", value: "plumber_payment" },
   { label: "Office / Guest House Rent", value: "rent" },
   { label: "Material Expenses", value: "material_expense" },
@@ -51,7 +87,10 @@ type BackendPayment = {
   status: ExpenseStatus;
   purpose: string | null;
   remarks: string | null;
-  evidence: Record<string, unknown>[] | null;
+  // Absent (not merely null) on the list-sized DTO the paginated endpoint
+  // returns - evidence is only ever populated on the single-record detail
+  // response (get()), see payments.service.ts#list on the backend.
+  evidence?: Record<string, unknown>[] | null;
 };
 
 function mapEvidenceFile(item: Record<string, unknown>, index: number): EvidenceFile {
@@ -131,20 +170,59 @@ function buildExpenseFormData(input: ExpenseInput) {
   input.evidence
     .filter((file) => !file.fileUrl && file.uri)
     .forEach((file) => {
-      formData.append("files", {
-        uri: file.uri!,
-        name: file.fileName,
-        type: file.mimeType || "application/octet-stream",
-      } as unknown as Blob);
+      formData.append("files", toFormDataFilePart({ uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType }));
     });
 
   return formData;
 }
 
 export const expensesApi = {
+  // Backend clamps `limit` to 100 regardless of what's asked for (see
+  // parsePagination's MAX_LIMIT) - kept flat/unpaginated only for
+  // useExpenseForm's instant-paint-from-cache trick on the edit screen,
+  // which never scrolls, so a bounded single fetch is fine there. The
+  // Expenses list screen itself uses listPage() below instead.
   async list(): Promise<ExpenseRecord[]> {
-    const rows = await apiRequest<BackendPayment[]>("/payments?limit=200");
+    const rows = await apiRequest<BackendPayment[]>("/payments?limit=100");
     return rows.map(mapExpense);
+  },
+
+  async listPage(params: ExpenseListParams & { page: number; limit: number }): Promise<{
+    expenses: ExpenseRecord[];
+    pagination: PaginationMeta;
+  }> {
+    const query = buildExpenseListQuery(params);
+    query.set("page", String(params.page));
+    query.set("limit", String(params.limit));
+    const { data, pagination } = await apiRequestPaginated<BackendPayment[]>(`/payments?${query.toString()}`);
+    const expenses = (data ?? []).map(mapExpense);
+    return { expenses, pagination: pagination ?? { page: params.page, limit: params.limit, total: expenses.length, totalPages: 1 } };
+  },
+
+  // Dataset-wide total/count/category breakdown, computed server-side so it
+  // stays correct regardless of how many pages are loaded. Reused with two
+  // different scopes:
+  //  - Overview tab calls this with search/from/to only, so category/column
+  //    filters on the All Expenses list can never collapse its totals.
+  //  - All Expenses' own "N expenses, ₹total" line calls this with the full
+  //    active filter set (same params as listPage), so that figure matches
+  //    exactly what's on screen.
+  // `totalsOnly` skips the server's categoryBreakdown/recent sub-queries for
+  // callers (the list's own total line, the "any expenses at all" check)
+  // that only read count/total - categoryBreakdown/recent come back empty.
+  async summary(params: ExpenseListParams, options: { totalsOnly?: boolean } = {}): Promise<ExpenseSummary> {
+    const query = buildExpenseListQuery(params);
+    if (options.totalsOnly) query.set("totalsOnly", "true");
+    const raw = await apiRequest<Omit<ExpenseSummary, "recent"> & { recent: BackendPayment[] }>(
+      `/payments/summary?${query.toString()}`,
+    );
+    return { ...raw, recent: raw.recent.map(mapExpense) };
+  },
+
+  // Authoritative option universe for a column-filter checkbox sheet - see
+  // payments.service.ts#filterValues on the backend.
+  async fetchFilterValues(column: ExpenseColumnKey | "category"): Promise<string[]> {
+    return apiRequest<string[]>(`/payments/filter-values?column=${encodeURIComponent(column)}`);
   },
 
   async get(id: string): Promise<ExpenseRecord> {

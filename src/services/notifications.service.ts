@@ -1,5 +1,5 @@
 import { apiRequest } from "./apiClient";
-import type { Notification, NotificationCategory } from "./mockData";
+import type { Notification, NotificationCategory } from "../types/notifications";
 
 type BackendNotificationCategory = "work" | "attendance" | "survey" | "system";
 

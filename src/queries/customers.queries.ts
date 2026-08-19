@@ -1,6 +1,7 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { customersService } from "@/services/customers.service";
+import { nextPageParam } from "./pagination";
 import type {
   BillingCompletion,
   CommissioningConversion,
@@ -12,7 +13,7 @@ import type {
   LmcPipeRecord,
   LmcPipelineWork,
   MdpeFittings,
-} from "@/services/mockData";
+} from "@/types/customers";
 import { queryKeys } from "./keys";
 
 export function useCustomerListQuery(search?: string) {
@@ -37,11 +38,10 @@ const CUSTOMER_PAGE_SIZE = 100;
 
 export function useCustomerInfiniteListQuery(search?: string) {
   return useInfiniteQuery({
-    queryKey: [...queryKeys.customers.list(search), "infinite"],
+    queryKey: queryKeys.customers.infiniteList(search),
     queryFn: ({ pageParam }) => customersService.listPage({ page: pageParam, limit: CUSTOMER_PAGE_SIZE, search }),
     initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination.page < lastPage.pagination.totalPages ? lastPage.pagination.page + 1 : undefined,
+    getNextPageParam: (lastPage) => nextPageParam(lastPage.pagination),
     // Keep the previously loaded pages visible while a changed search term
     // refetches, so the grid doesn't flash its skeleton on every keystroke.
     placeholderData: keepPreviousData,
@@ -56,6 +56,20 @@ export function useCustomerQuery(id: string | undefined) {
   });
 }
 
+// Shared by every customer-section save and the LMC pipe upsert below - all
+// change a customer record that the customer list, Work, and Stats depend on.
+//
+// Deliberately does NOT invalidate `customers.detail` - the caller already
+// has the fresh record from the mutation response and applies it directly
+// via `setQueryData`, so invalidating that same key here would trigger an
+// immediate, redundant refetch of data we already have.
+export function invalidateCustomerDependents(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.customers.allLists });
+  queryClient.invalidateQueries({ queryKey: queryKeys.customers.allOptions });
+  queryClient.invalidateQueries({ queryKey: queryKeys.work.all });
+  queryClient.invalidateQueries({ queryKey: queryKeys.stats.all });
+}
+
 function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<CustomerRecord>) {
   const queryClient = useQueryClient();
 
@@ -63,9 +77,7 @@ function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<Custome
     mutationFn,
     onSuccess: (customer) => {
       queryClient.setQueryData(queryKeys.customers.detail(customer.id), customer);
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      queryClient.invalidateQueries({ queryKey: ["work"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      invalidateCustomerDependents(queryClient);
     },
   });
 }
@@ -143,10 +155,12 @@ export function useUpsertLmcPipeMutation(customerId: string) {
   return useMutation({
     mutationFn: (record: LmcPipeRecord) => customersService.upsertLmcPipeRecord(customerId, record),
     onSuccess: async () => {
+      // Unlike `useCustomerMutation`, this mutation's response is just the
+      // pipe record, not the full customer - so unlike that helper, the
+      // detail cache genuinely does need a refetch here, not just a
+      // `setQueryData`.
       await queryClient.invalidateQueries({ queryKey: queryKeys.customers.detail(customerId) });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      queryClient.invalidateQueries({ queryKey: ["work"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      invalidateCustomerDependents(queryClient);
     },
   });
 }

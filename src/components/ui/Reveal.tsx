@@ -24,7 +24,7 @@ export function Reveal({ index = 0, stagger = true, children, style }: RevealPro
   return (
     <Animated.View
       style={style}
-      entering={FadeInDown.duration(motion.duration)
+      entering={FadeInDown.duration(motion.duration.normal)
         .delay(delay)
         .withInitialValues({ opacity: 0, transform: [{ translateY: motion.distance }] })
         .easing(Easing.out(Easing.cubic))}

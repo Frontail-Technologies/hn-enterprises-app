@@ -14,7 +14,7 @@ const STAT_DETAILS_PAGE_SIZE = 50;
 
 export function useSupervisorStatDetailsQuery(type: string | undefined) {
   return useInfiniteQuery({
-    queryKey: [...queryKeys.stats.details(type ?? ""), "infinite"],
+    queryKey: queryKeys.stats.detailsInfinite(type ?? ""),
     queryFn: ({ pageParam }) => statsApi.getDetailsPage(type as string, { page: pageParam, limit: STAT_DETAILS_PAGE_SIZE }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>

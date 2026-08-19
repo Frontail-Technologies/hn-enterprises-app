@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { memo, ReactNode, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Navigation, Phone, StickyNote } from "lucide-react-native";
 import {
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import PagerView from "react-native-pager-view";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 
 import { useBillingRemarksPanel } from "@/components/customer-sections/BillingRemarksPanel";
@@ -26,19 +27,23 @@ import { useMdpeFittingsPanel } from "@/components/customer-sections/MdpeFitting
 import { useMeterCommissioningPanel } from "@/components/customer-sections/MeterCommissioningPanel";
 import { useSurveyPanel } from "@/components/customer-sections/SurveyPanel";
 import { AppHeader } from "@/components/shared/AppHeader";
+import { SectionBodySkeleton } from "@/components/shared/SectionBodySkeleton";
 import { SectionTabBar } from "@/components/shared/SectionTabBar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { RevealGroup } from "@/components/ui/RevealGroup";
 import { Screen } from "@/components/ui/Screen";
 import { StickyHeaderGroup } from "@/components/ui/StickyHeaderGroup";
 import { ConfirmSheet } from "@/components/ui/ConfirmSheet";
 import { Sheet } from "@/components/ui/Sheet";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { motion } from "@/constants/motion";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { useCustomerRecord } from "@/hooks/useCustomerRecord";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { successHaptic } from "@/lib/haptics";
 import { useSwipeableTabs } from "@/hooks/useSwipeableTabs";
 import {
   useCreateCustomerNoteMutation,
@@ -50,7 +55,7 @@ import type {
   CustomerRecord,
   CustomerSectionCompletion,
   SectionCompletionResult,
-} from "@/services/mockData";
+} from "@/types/customers";
 import { formatDate, formatTime } from "@/utils/format";
 import { normalizeError } from "@/utils/normalizeError";
 
@@ -71,7 +76,7 @@ function SectionPage({
         nestedScrollEnabled
         showsVerticalScrollIndicator={false}
       >
-        {children}
+        <RevealGroup>{children}</RevealGroup>
       </ScrollView>
       {footer}
     </View>
@@ -93,6 +98,7 @@ function SectionCompletionBar({
   const { showToast } = useToast();
   const mutation = useSetSectionCompletionMutation(customerId);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   const isDone = result?.status === "DONE";
   const tone =
     result?.status === "DONE"
@@ -115,6 +121,7 @@ function SectionCompletionBar({
       {
         onSuccess: () => {
           setConfirmOpen(false);
+          if (completed) successHaptic();
           showToast(
             completed
               ? `${sectionLabel} marked complete.`
@@ -142,12 +149,16 @@ function SectionCompletionBar({
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
     >
-      <View style={styles.completionStatus}>
+      <Animated.View
+        key={label}
+        entering={reduceMotion ? undefined : FadeIn.duration(motion.duration.fast)}
+        style={styles.completionStatus}
+      >
         <View style={[styles.completionDot, { backgroundColor: tone }]} />
         <Text style={[styles.completionLabel, { color: colors.text }]}>
           {label}
         </Text>
-      </View>
+      </Animated.View>
       <Button
         label={isDone ? "Reopen" : "Mark Complete"}
         variant="outline"
@@ -175,7 +186,42 @@ function CustomerPanelPage({ customer }: PanelProps) {
     <SectionPage>
       <CustomerQuickActions customer={customer} />
       {content}
+      <CustomerNotesSection customerId={customer.id} />
     </SectionPage>
+  );
+}
+
+// Fetches independently of the Add Note sheet (that one only fetches while
+// open) so the note history is visible on the Customer tab itself, not just
+// inside the compose sheet.
+function CustomerNotesSection({ customerId }: { customerId: string }) {
+  const { colors } = useTheme();
+  const { data: notes = [], isLoading } = useCustomerNotesQuery(customerId);
+
+  return (
+    <Card style={styles.notesCard}>
+      <Text style={[styles.notesTitle, { color: colors.text }]}>Notes</Text>
+      <View style={[styles.notesDivider, { backgroundColor: colors.border }]} />
+      {isLoading ? (
+        <Text style={[typography.caption, { color: colors.muted }]}>Loading notes...</Text>
+      ) : notes.length ? (
+        <View style={styles.noteHistory}>
+          {notes.map((item) => (
+            <View
+              key={item.id}
+              style={[styles.noteHistoryRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Text style={[typography.body, { color: colors.text }]}>{item.note}</Text>
+              <Text style={[typography.caption, { color: colors.muted }]}>
+                {item.authorName} : {formatDate(item.createdAt)} {formatTime(item.createdAt)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={[typography.caption, { color: colors.muted }]}>No notes yet.</Text>
+      )}
+    </Card>
   );
 }
 
@@ -286,43 +332,59 @@ const SECTION_COMPLETION_KEY: Record<string, keyof CustomerSectionCompletion> =
     "meter-commissioning": "commissioning",
   };
 
+// Memoized so switching tabs doesn't force every already-mounted panel to
+// re-render its full form too - customer/onRefetch stay referentially stable
+// across a tab switch, so a memoized panel correctly bails out.
+const CustomerPanelPageMemo = memo(CustomerPanelPage);
+const SurveyPanelPageMemo = memo(SurveyPanelPage);
+const GiPanelPageMemo = memo(GiPanelPage);
+const IsolationPanelPageMemo = memo(IsolationPanelPage);
+const FittingsPanelPageMemo = memo(FittingsPanelPage);
+const LmcPanelPageMemo = memo(LmcPanelPage);
+const CivilPanelPageMemo = memo(CivilPanelPage);
+const MdpePanelPageMemo = memo(MdpePanelPage);
+const MeterPanelPageMemo = memo(MeterPanelPage);
+const BillingPanelPageMemo = memo(BillingPanelPage);
+const DocumentsPanelPageMemo = memo(DocumentsPanelPage);
+const ComplaintsPanelPageMemo = memo(ComplaintsPanelPage);
+
 const FIXED_SECTIONS: {
   key: string;
   label: string;
   Component: (props: PanelProps) => ReactNode;
 }[] = [
-  { key: "customer", label: "Customer", Component: CustomerPanelPage },
-  { key: "survey", label: "Survey", Component: SurveyPanelPage },
-  { key: "gi-measurements", label: "GI Measurements", Component: GiPanelPage },
+  { key: "customer", label: "Customer", Component: CustomerPanelPageMemo },
+  { key: "survey", label: "Survey", Component: SurveyPanelPageMemo },
+  { key: "gi-measurements", label: "GI Measurements", Component: GiPanelPageMemo },
   {
     key: "isolation-regulators",
     label: "Isolation & Regulators",
-    Component: IsolationPanelPage,
+    Component: IsolationPanelPageMemo,
   },
   {
     key: "fittings-accessories",
     label: "Fittings & Accessories",
-    Component: FittingsPanelPage,
+    Component: FittingsPanelPageMemo,
   },
-  { key: "lmc", label: "LMC Pipeline", Component: LmcPanelPage },
-  { key: "civil-work", label: "Civil Work", Component: CivilPanelPage },
-  { key: "mdpe-fittings", label: "MDPE Fittings", Component: MdpePanelPage },
+  { key: "lmc", label: "LMC Pipeline", Component: LmcPanelPageMemo },
+  { key: "civil-work", label: "Civil Work", Component: CivilPanelPageMemo },
+  { key: "mdpe-fittings", label: "MDPE Fittings", Component: MdpePanelPageMemo },
   {
     key: "meter-commissioning",
     label: "Meter & Commissioning",
-    Component: MeterPanelPage,
+    Component: MeterPanelPageMemo,
   },
   {
     key: "billing-remarks",
     label: "JMR / Billing Remarks",
-    Component: BillingPanelPage,
+    Component: BillingPanelPageMemo,
   },
   {
     key: "documents",
     label: "Photos / Documents",
-    Component: DocumentsPanelPage,
+    Component: DocumentsPanelPageMemo,
   },
-  { key: "complaints", label: "Complaints", Component: ComplaintsPanelPage },
+  { key: "complaints", label: "Complaints", Component: ComplaintsPanelPageMemo },
 ];
 
 export default function CustomerWorkspaceScreen() {
@@ -363,9 +425,9 @@ export default function CustomerWorkspaceScreen() {
 function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
   const connection = customer.customerConnection;
 
-  // Custom field groups are driven by a single shared hook (one draft/mutation
-  // spanning every group tab), so this one stays at the parent. The heavy fixed
-  // section hooks now live inside their own lazily-mounted panel components.
+  // Custom field groups share a single hook (one draft/mutation spanning
+  // every group tab), so this one stays at the parent - unlike the fixed
+  // sections, which each own their hook inside their own panel component.
   const customFieldGroupTabs = useCustomFieldsPanel(customer, onRefetch);
 
   const tabs = [
@@ -486,28 +548,6 @@ function CustomerWorkspaceSkeleton({
   );
 }
 
-function SectionBodySkeleton() {
-  const { colors } = useTheme();
-
-  return (
-    <View style={styles.skeletonBody}>
-      {[0, 1, 2].map((index) => (
-        <View
-          key={index}
-          style={[
-            styles.skeletonCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Skeleton width="55%" height={14} />
-          <Skeleton width="100%" height={38} />
-          <Skeleton width="82%" height={38} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function CustomerQuickActions({ customer }: { customer: CustomerRecord }) {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -591,7 +631,7 @@ function CustomerQuickActions({ customer }: { customer: CustomerRecord }) {
         onClose={() => setNoteOpen(false)}
         title="Add Note"
         footer={
-          <View style={[styles.noteFooter, { borderTopColor: colors.border }]}>
+          <View style={styles.noteFooter}>
             <Button
               label="Cancel"
               variant="outline"
@@ -760,15 +800,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
   },
-  skeletonBody: {
-    gap: spacing.sm,
-  },
-  skeletonCard: {
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.md,
-  },
   headerAction: {
     width: 36,
     height: 36,
@@ -840,6 +871,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...typography.body,
   },
+  notesCard: {
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  notesTitle: {
+    ...typography.bodyMedium,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  notesDivider: {
+    height: 1,
+    marginBottom: spacing.xs,
+  },
   noteHistory: {
     gap: spacing.sm,
   },
@@ -849,11 +893,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.md,
   },
+  // No border/padding here - Sheet's own footerWrap already supplies the top
+  // border and padding around whatever `footer` content is passed to it.
   noteFooter: {
     flexDirection: "row",
     gap: spacing.sm,
-    borderTopWidth: 1,
-    padding: spacing.lg,
   },
   noteFooterButton: {
     flex: 1,

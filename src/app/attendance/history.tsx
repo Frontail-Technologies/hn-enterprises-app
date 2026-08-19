@@ -14,6 +14,7 @@ import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useAttendanceCalendar } from '@/hooks/useAttendanceCalendar';
 import { guardNavigation } from '@/lib/navigation';
+import { queryKeys } from '@/queries';
 
 export default function AttendanceHistoryScreen() {
   const { colors } = useTheme();
@@ -32,7 +33,7 @@ export default function AttendanceHistoryScreen() {
   // Scoped to the attendance-month query group (covers whichever month is
   // currently in view, since the visible month can change between pulls).
   const onRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['attendance', 'month'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.allMonths });
   }, [queryClient]);
 
   return (

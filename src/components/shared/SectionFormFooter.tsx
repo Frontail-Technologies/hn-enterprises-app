@@ -10,12 +10,16 @@ type SectionFormFooterProps = {
   onSubmit: () => void;
   submitLabel?: string;
   isSubmitting?: boolean;
+  // Optional - most sections don't have a cheap enough dirty check to pass
+  // this yet (see useDraftForm's isDirty), so it defaults to enabled.
+  disabled?: boolean;
 };
 
 export function SectionFormFooter({
   onSubmit,
   submitLabel = "Submit",
   isSubmitting = false,
+  disabled = false,
 }: SectionFormFooterProps) {
   return (
     <StickyFooter>
@@ -34,6 +38,7 @@ export function SectionFormFooter({
             icon={<Upload size={18} color="#FFFFFF" />}
             onPress={onSubmit}
             loading={isSubmitting}
+            disabled={disabled}
           />
         </View>
       </View>

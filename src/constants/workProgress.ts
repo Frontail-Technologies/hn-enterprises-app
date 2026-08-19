@@ -1,5 +1,4 @@
-import type { WorkProgressStatus } from "@/services/mockData";
-import type { WorkQueueFilter } from "@/types/workProgress";
+import type { WorkProgressStatus, WorkQueueFilter } from "@/types/workProgress";
 
 export const workQueueStatusFilters: WorkQueueFilter[] = [
   "All",

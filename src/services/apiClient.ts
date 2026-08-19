@@ -136,9 +136,8 @@ export async function apiRequest<T>(
   return parseResponse<T>(response);
 }
 
-// Same request/auth-retry path as apiRequest, but also surfaces meta.pagination
-// instead of discarding it - needed by any list endpoint an infinite-scroll
-// screen paginates through.
+// Same request/auth-retry path as apiRequest, but surfaces meta.pagination
+// instead of discarding it.
 export async function apiRequestPaginated<T>(
   path: string,
   options: ApiRequestOptions = {},

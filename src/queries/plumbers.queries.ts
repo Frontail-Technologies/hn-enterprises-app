@@ -4,7 +4,7 @@ import { queryKeys } from "./keys";
 
 export function usePlumbersOptionsQuery() {
   return useQuery({
-    queryKey: [...queryKeys.plumbers.all, "options"],
+    queryKey: queryKeys.plumbers.options,
     queryFn: () => plumbersApi.listOptions(),
   });
 }

@@ -7,7 +7,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import type { CustomerRecord, LmcPipeRecord } from '@/services/mockData';
+import type { CustomerRecord, LmcPipeRecord } from '@/types/customers';
 import { formatDate } from '@/utils/format';
 
 export function useLmcPipelinePanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {

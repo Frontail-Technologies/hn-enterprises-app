@@ -1,15 +1,15 @@
 import { apiRequest, apiRequestFormData, apiRequestPaginated, type PaginationMeta } from "./apiClient";
-import { resolveMediaUrl } from "./uploads.service";
+import { resolveMediaUrl, toFormDataFilePart } from "./uploads.service";
 import type {
   BillingCompletion,
   CommissioningConversion,
   CustomerConnectionDetails,
   CompletionSectionKey,
+  CustomerCompletionAudit,
   CustomerDocument,
   CustomerRecord,
   CustomerSectionCompletion,
   CustomerStatus,
-  EvidenceFile,
   FittingsAccessories,
   GiMeasurements,
   IsolationFittings,
@@ -19,7 +19,8 @@ import type {
   LmcTestingStatus,
   LmcPurgingStatus,
   MdpeFittings,
-} from "./mockData";
+} from "../types/customers";
+import type { EvidenceFile } from "../types/evidence";
 
 type BackendCustomerStatus = "draft" | "pending" | "active" | "inactive" | "on_hold" | "completed" | "archived";
 
@@ -140,6 +141,7 @@ type BackendCustomer = {
   project?: { id: string; name: string } | null;
   site?: { id: string; name: string } | null;
   sectionCompletion?: CustomerSectionCompletion;
+  completionAudit?: CustomerCompletionAudit;
 };
 
 type BackendLmcPipeRecord = {
@@ -443,6 +445,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     documents: (raw.documents ?? []).map(mapDocument),
     customFields: (raw.customFields as Record<string, string | boolean> | null) ?? {},
     sectionCompletion: raw.sectionCompletion,
+    completionAudit: raw.completionAudit,
   };
 }
 
@@ -467,11 +470,7 @@ async function updateCustomerSection(
     evidence
       .filter((file) => !file.fileUrl && file.uri)
       .forEach((file) => {
-        formData.append("files", {
-          uri: file.uri!,
-          name: file.fileName,
-          type: file.mimeType || "application/octet-stream",
-        } as unknown as Blob);
+        formData.append("files", toFormDataFilePart({ uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType }));
       });
   }
 
@@ -692,11 +691,7 @@ export const customersService = {
       JSON.stringify(alreadyUploaded.map((file) => ({ id: file.id, fileName: file.fileName, fileUrl: file.fileUrl }))),
     );
     pending.forEach((file) => {
-      formData.append("files", {
-        uri: file.uri!,
-        name: file.fileName,
-        type: file.mimeType || "application/octet-stream",
-      } as unknown as Blob);
+      formData.append("files", toFormDataFilePart({ uri: file.uri!, fileName: file.fileName, mimeType: file.mimeType }));
     });
 
     const raw = await apiRequestFormData<BackendLmcPipeRecord>(`/customers/${id}/lmc-pipes`, formData, {

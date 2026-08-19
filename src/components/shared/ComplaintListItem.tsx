@@ -1,4 +1,5 @@
 import { MessageSquareWarning } from 'lucide-react-native';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { radius, spacing } from '@/constants/spacing';
@@ -13,13 +14,23 @@ function priorityTone(priority: ComplaintPriority, colors: ReturnType<typeof use
   return { color: colors.blue, background: colors.softBlue };
 }
 
-export function ComplaintListItem({ complaint, onPress }: { complaint: ComplaintRecord; onPress: () => void }) {
+type ComplaintListItemProps = {
+  complaint: ComplaintRecord;
+  // Takes the complaint rather than being pre-bound to it, so callers can
+  // pass a stable setState setter instead of a new inline closure per row -
+  // an inline closure here would defeat the memo below.
+  onPress: (complaint: ComplaintRecord) => void;
+};
+
+// Rendered as a FlashList row (app/complaints/index.tsx) - memoized since
+// `complaint` and `onPress` are both stable references at the call sites.
+export const ComplaintListItem = memo(function ComplaintListItem({ complaint, onPress }: ComplaintListItemProps) {
   const { colors } = useTheme();
   const tone = priorityTone(complaint.priority, colors);
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress(complaint)}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -40,7 +51,7 @@ export function ComplaintListItem({ complaint, onPress }: { complaint: Complaint
       <Text style={[typography.caption, { color: colors.muted }]}>{getRelativeTime(complaint.createdAt)}</Text>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { expenseCategoryOptions, type ExpenseCategory, type ExpenseRecord } from '@/services/expenses.service';
+import { expenseCategoryOptions, type ExpenseCategory, type ExpenseRecord, type ExpenseSummary } from '@/services/expenses.service';
 
 export type CategoryBreakdownItem = {
   category: ExpenseCategory;
@@ -9,39 +9,25 @@ export type CategoryBreakdownItem = {
   total: number;
 };
 
-const RECENT_EXPENSES_LIMIT = 5;
+const CATEGORY_LABEL_BY_VALUE = new Map(expenseCategoryOptions.map((option) => [option.value, option.label]));
 
-// Every value here is derived once per `filteredExpenses` change (not on
-// every row render) from the already-loaded, already-filtered dataset - no
-// extra requests, no per-row recomputation.
-export function useExpensesOverview(filteredExpenses: ExpenseRecord[]) {
+// Shapes the server-computed summary (expensesApi.summary - authoritative
+// over the whole search/date-filtered dataset, not just loaded pages) into
+// what the Overview tab renders. No aggregation happens here anymore - see
+// payments.service.ts#summary on the backend for where the real counting is.
+export function useExpensesOverview(summary: ExpenseSummary | undefined) {
   return useMemo(() => {
-    const buckets = new Map<ExpenseCategory, { count: number; total: number }>();
-    let filteredTotal = 0;
-
-    for (const expense of filteredExpenses) {
-      const amount = Number(expense.amount) || 0;
-      filteredTotal += amount;
-      const bucket = buckets.get(expense.category) ?? { count: 0, total: 0 };
-      bucket.count += 1;
-      bucket.total += amount;
-      buckets.set(expense.category, bucket);
-    }
-
-    const categoryBreakdown: CategoryBreakdownItem[] = expenseCategoryOptions
-      .map((option) => ({
-        category: option.value,
-        label: option.label,
-        count: buckets.get(option.value)?.count ?? 0,
-        total: buckets.get(option.value)?.total ?? 0,
+    const categoryBreakdown: CategoryBreakdownItem[] = (summary?.categoryBreakdown ?? [])
+      .map((item) => ({
+        category: item.category,
+        label: CATEGORY_LABEL_BY_VALUE.get(item.category) ?? item.category,
+        count: item.count,
+        total: item.total,
       }))
-      .filter((item) => item.count > 0)
       .sort((a, b) => b.total - a.total);
 
-    const recentExpenses = [...filteredExpenses]
-      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-      .slice(0, RECENT_EXPENSES_LIMIT);
+    const recentExpenses: ExpenseRecord[] = summary?.recent ?? [];
 
-    return { filteredTotal, categoryBreakdown, recentExpenses };
-  }, [filteredExpenses]);
+    return { filteredTotal: summary?.total ?? 0, categoryBreakdown, recentExpenses };
+  }, [summary]);
 }

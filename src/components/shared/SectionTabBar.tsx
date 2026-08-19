@@ -9,11 +9,14 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
+import { motion } from "@/constants/motion";
 import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
-import type { CompletionStatus } from "@/services/mockData";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import type { CompletionStatus } from "@/types/customers";
 
 export type SectionTab = {
   key: string;
@@ -43,6 +46,43 @@ export function SectionTabBar({
   );
   const isDraggingRef = useRef(false);
   const dragEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotion = useReducedMotion();
+  const indicatorX = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
+
+  // Slides the underline to whichever tab's measured layout is passed in.
+  // `animate: false` is used for the initial snap-into-place once a tab's
+  // layout is first measured (nothing to animate from yet); tab changes
+  // afterwards animate.
+  const moveIndicator = useCallback(
+    (key: string, animate: boolean) => {
+      const layout = tabLayoutsRef.current.get(key);
+      if (!layout) return;
+      // Reanimated shared values are mutated via `.value` by design (the UI
+      // thread reads that mutation directly, outside React's render cycle) -
+      // react-hooks/immutability doesn't model that escape hatch and flags
+      // it as if it were a plain object, so it's disabled here specifically.
+      if (animate && !reduceMotion) {
+        // eslint-disable-next-line react-hooks/immutability
+        indicatorX.value = withTiming(layout.x, { duration: motion.duration.normal });
+        // eslint-disable-next-line react-hooks/immutability
+        indicatorWidth.value = withTiming(layout.width, { duration: motion.duration.normal });
+      } else {
+        indicatorX.value = layout.x;
+        indicatorWidth.value = layout.width;
+      }
+    },
+    [reduceMotion, indicatorX, indicatorWidth],
+  );
+
+  useEffect(() => {
+    moveIndicator(activeKey, true);
+  }, [activeKey, moveIndicator]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorX.value }],
+    width: indicatorWidth.value,
+  }));
 
   const handleViewportLayout = (event: LayoutChangeEvent) => {
     viewportWidthRef.current = event.nativeEvent.layout.width;
@@ -69,6 +109,7 @@ export function SectionTabBar({
   const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
     const { x, width } = event.nativeEvent.layout;
     tabLayoutsRef.current.set(key, { x, width });
+    if (key === activeKey) moveIndicator(key, false);
   };
 
   const scrollTabIntoView = useCallback(
@@ -128,7 +169,7 @@ export function SectionTabBar({
       horizontal
       showsHorizontalScrollIndicator={false}
       nestedScrollEnabled
-      style={[styles.scroll, { backgroundColor: colors.surfaceMuted }]}
+      style={[styles.scroll]}
       contentContainerStyle={styles.scrollContent}
       onLayout={handleViewportLayout}
       onScroll={handleScroll}
@@ -138,7 +179,7 @@ export function SectionTabBar({
       onMomentumScrollEnd={handleScrollEndDrag}
       scrollEventThrottle={16}
     >
-      <View style={[styles.row, { borderBottomColor: colors.border }]}>
+      <View style={[styles.row]}>
         {tabs.map((tab) => {
           const active = tab.key === activeKey;
 
@@ -148,10 +189,7 @@ export function SectionTabBar({
               onPress={() => handlePress(tab.key)}
               onLayout={handleTabLayout(tab.key)}
               hitSlop={{ top: 6, bottom: 6 }}
-              style={[
-                styles.tab,
-                active && { borderBottomColor: colors.primary },
-              ]}
+              style={styles.tab}
             >
               <View style={[styles.tabContent]}>
                 {tab.status ? (
@@ -184,6 +222,10 @@ export function SectionTabBar({
             </Pressable>
           );
         })}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.indicator, { backgroundColor: colors.primary }, indicatorStyle]}
+        />
       </View>
     </ScrollView>
   );
@@ -201,15 +243,21 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    borderBottomWidth: 1,
+    position: "relative",
   },
   tab: {
-    minHeight: 36,
+    minHeight: 42,
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
+  },
+  indicator: {
+    position: "absolute",
+    bottom: 0,
+    height: 2,
+    borderRadius: 1,
   },
   tabContent: {
     flexDirection: "row",

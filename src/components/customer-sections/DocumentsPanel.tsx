@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
+import type { CustomerRecord } from '@/types/customers';
+import type { EvidenceFile } from '@/types/evidence';
 import { formatDate } from '@/utils/format';
 
 export function useDocumentsPanel(customer: CustomerRecord) {

@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import { ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import Svg, { Circle, G } from "react-native-svg";
 
 export type DonutSegment = {
   key: string;
@@ -16,11 +16,13 @@ type DonutChartProps = {
   children?: ReactNode;
 };
 
-// A plain react-native-svg ring, no extra chart package - segments are drawn
-// as stacked stroked circles using strokeDasharray/strokeDashoffset, which is
-// the standard SVG donut technique. Rotated -90deg so the first segment
-// starts at 12 o'clock, matching how the category list below it is ordered.
-export function DonutChart({ segments, trackColor, size = 156, strokeWidth = 20, children }: DonutChartProps) {
+export function DonutChart({
+  segments,
+  trackColor,
+  size = 156,
+  strokeWidth = 20,
+  children,
+}: DonutChartProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
@@ -32,7 +34,14 @@ export function DonutChart({ segments, trackColor, size = 156, strokeWidth = 20,
     <View style={[styles.wrap, { width: size, height: size }]}>
       <Svg width={size} height={size}>
         <G rotation={-90} originX={center} originY={center}>
-          <Circle cx={center} cy={center} r={radius} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={trackColor}
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
           {total > 0
             ? segments
                 .filter((segment) => segment.value > 0)
@@ -67,12 +76,12 @@ export function DonutChart({ segments, trackColor, size = 156, strokeWidth = 20,
 
 const styles = StyleSheet.create({
   wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   center: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

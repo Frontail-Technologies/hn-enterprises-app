@@ -12,6 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useUpdateComplaintMutation, useCreateComplaintMutation } from '@/queries';
 import type { ComplaintRecord, ComplaintStatus, ComplaintPriority } from '@/services/complaints.service';
+import { isEqualSnapshot } from '@/utils/isEqualSnapshot';
 
 type ComplaintUpdateSheetProps = {
   complaint?: ComplaintRecord | null;
@@ -98,7 +99,15 @@ function ComplaintUpdateForm({ complaint, onClose }: { complaint: ComplaintRecor
   const [remark, setRemark] = useState(complaint.supervisorRemark);
   const updateMutation = useUpdateComplaintMutation();
 
+  // Only status/remark are user-editable here - compared against what this
+  // sheet was opened with, not re-derived every render.
+  const isDirty = !isEqualSnapshot({ status, remark }, { status: complaint.status, remark: complaint.supervisorRemark });
+
   const handleSave = async () => {
+    // Defensive - the button is already disabled in this state, but a
+    // stale press must still not reach the mutation or toast a fake success.
+    if (!isDirty) return;
+
     try {
       await updateMutation.mutateAsync({ id: complaint.id, status, supervisorRemark: remark.trim() || undefined });
       showToast('Complaint updated', 'success');
@@ -131,7 +140,7 @@ function ComplaintUpdateForm({ complaint, onClose }: { complaint: ComplaintRecor
         multiline
       />
 
-      <Button label="Save" onPress={() => void handleSave()} loading={updateMutation.isPending} />
+      <Button label="Save" onPress={() => void handleSave()} loading={updateMutation.isPending} disabled={!isDirty} />
     </View>
   );
 }

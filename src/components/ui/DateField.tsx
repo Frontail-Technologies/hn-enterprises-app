@@ -13,6 +13,7 @@ import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { addMonths, toDateKey } from "@/utils/date";
 import { formatDate } from "@/utils/format";
+import { InlineFieldError } from "./InlineFieldError";
 import { Sheet } from "./Sheet";
 
 type DateFieldProps = Omit<
@@ -22,6 +23,7 @@ type DateFieldProps = Omit<
   label: string;
   value?: string;
   required?: boolean;
+  error?: string;
   onChangeText?: (value: string) => void;
 };
 
@@ -31,6 +33,7 @@ export function DateField({
   label,
   value,
   required,
+  error,
   editable = true,
   onChangeText,
 }: DateFieldProps) {
@@ -54,7 +57,8 @@ export function DateField({
           styles.inputRow,
           {
             backgroundColor: editable ? colors.card : colors.background,
-            borderColor: colors.border,
+            borderColor: error ? colors.red : colors.border,
+            borderWidth: error ? 1.5 : 1,
           },
           pressed && editable ? { opacity: 0.82 } : null,
         ]}
@@ -78,6 +82,7 @@ export function DateField({
           color={editable ? colors.primary : colors.muted}
         />
       </Pressable>
+      <InlineFieldError message={error} />
 
       <Sheet visible={open} onClose={() => setOpen(false)} title={label}>
         <View style={styles.picker}>

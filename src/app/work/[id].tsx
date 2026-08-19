@@ -14,33 +14,33 @@ import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { useCustomerRecord } from '@/hooks/useCustomerRecord';
-import { useWorkProgressHistory } from '@/hooks/useWorkProgress';
 import { guardNavigation } from '@/lib/navigation';
-import { STAGE_TO_MOBILE, STATUS_TO_MOBILE, buildDetailRecord, fromWorkProgressEvidence } from '@/services/workProgress.service';
+import { useWorkProgressHistoryQuery } from '@/queries';
+import {
+  STAGE_TO_MOBILE,
+  STATUS_TO_MOBILE,
+  adaptCustomerForWorkDetail,
+  buildDetailRecord,
+  fromWorkProgressEvidence,
+  isSentBack,
+} from '@/services/workProgress.service';
 
 export default function WorkProgressDetailScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ id?: string }>();
   const customerId = params.id ?? '';
-  const { customer, isLoading: customerLoading, refetch: refetchCustomer } = useCustomerRecord(customerId);
-  const { history, isLoading: historyLoading, refetch: refetchHistory } = useWorkProgressHistory(customerId);
+  const { customer, isLoading: customerLoading, error: customerError, refetch: refetchCustomer } = useCustomerRecord(customerId);
+  const {
+    data: history = [],
+    isLoading: historyLoading,
+    isError: historyIsError,
+    refetch: refetchHistory,
+  } = useWorkProgressHistoryQuery(customerId);
   const onRefresh = useCallback(async () => {
     await Promise.all([refetchCustomer(), refetchHistory()]);
   }, [refetchCustomer, refetchHistory]);
   const latest = history[0];
-  const record = customer
-    ? buildDetailRecord(
-        {
-          id: customer.id,
-          customerName: customer.customerConnection.customerName,
-          mobileNumber: customer.customerConnection.mobileNo,
-          bpTrNumber: customer.customerConnection.trBpNo,
-          siteArea: customer.siteArea,
-          supervisor: customer.customerConnection.supervisorName,
-        },
-        latest,
-      )
-    : null;
+  const record = customer ? buildDetailRecord(adaptCustomerForWorkDetail(customer), latest) : null;
 
   if (customerLoading || historyLoading) {
     return (
@@ -55,6 +55,26 @@ export default function WorkProgressDetailScreen() {
         />
         <View style={styles.emptyState}>
           <Text style={[typography.bodyMedium, { color: colors.text }]}>Loading...</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (customerError || historyIsError) {
+    return (
+      <Screen edges={['bottom']} contentStyle={styles.screen}>
+        <AppHeader
+          title="Work Detail"
+          left={
+            <Pressable onPress={() => router.back()} style={styles.headerAction}>
+              <ArrowLeft size={22} color="#FFFFFF" />
+            </Pressable>
+          }
+        />
+        <View style={styles.emptyState}>
+          <Text style={[typography.bodyMedium, { color: colors.text }]}>Couldn&apos;t load this record</Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>Check your connection and try again.</Text>
+          <Button label="Retry" onPress={onRefresh} />
         </View>
       </Screen>
     );
@@ -79,7 +99,7 @@ export default function WorkProgressDetailScreen() {
     );
   }
 
-  const isSentBack = record.status === 'Sent Back';
+  const sentBack = isSentBack(record.status);
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
@@ -111,7 +131,7 @@ export default function WorkProgressDetailScreen() {
 
       <StageStatusCard record={record} />
 
-      {isSentBack ? (
+      {sentBack ? (
         <Card style={[styles.noticeCard, { backgroundColor: colors.softOrange }]}>
           <Text style={[styles.noticeTitle, { color: colors.primary }]}>Sent Back</Text>
           <Text style={[typography.caption, { color: colors.text }]}>
@@ -158,7 +178,7 @@ export default function WorkProgressDetailScreen() {
       </Card>
 
       <Button
-        label={isSentBack ? 'Resubmit Update' : 'Submit Progress Update'}
+        label={sentBack ? 'Resubmit Update' : 'Submit Progress Update'}
         icon={<Upload size={18} color="#FFFFFF" />}
         onPress={() =>
           guardNavigation(() =>

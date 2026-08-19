@@ -22,10 +22,7 @@
         "backgroundColor": "#FFF7ED",
         "foregroundImage": "./assets/images/logo.png"
       },
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ],
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
       "predictiveBackGestureEnabled": false,
       "package": "com.hnenterprises.mobile",
       "googleServicesFile": "./google-services.json"
@@ -77,7 +74,8 @@
         {
           "enforceContrast": false
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

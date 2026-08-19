@@ -1,11 +1,12 @@
 import { CalendarDays, ClipboardList, FileText, Info } from 'lucide-react-native';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useNotifications } from '@/context/NotificationsContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { Notification, NotificationCategory } from '@/services/mockData';
+import type { Notification, NotificationCategory } from '@/types/notifications';
 import { getRelativeTime } from '@/utils/date';
 
 type NotificationListItemProps = {
@@ -13,7 +14,10 @@ type NotificationListItemProps = {
   onPress?: (item: Notification) => void;
 };
 
-export function NotificationListItem({ item, onPress }: NotificationListItemProps) {
+// Rendered as a FlashList row - memoized because `item`/`onPress` are
+// referentially stable across unrelated parent re-renders (a raw setState
+// setter, not an inline closure), so memo actually skips work here.
+export const NotificationListItem = memo(function NotificationListItem({ item, onPress }: NotificationListItemProps) {
   const { colors } = useTheme();
   const { markAsRead } = useNotifications();
   const tone = getCategoryTone(item.category, colors);
@@ -49,7 +53,7 @@ export function NotificationListItem({ item, onPress }: NotificationListItemProp
       </View>
     </Pressable>
   );
-}
+});
 
 function CategoryIcon({ category, color }: { category: NotificationCategory; color: string }) {
   if (category === 'Attendance') return <CalendarDays size={18} color={color} />;

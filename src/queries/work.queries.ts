@@ -1,17 +1,42 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   workProgressApi,
-  type BackendWorkProgressUpdate,
   type WorkProgressEvidenceFile,
+  type WorkQueueFilterParams,
 } from "@/services/workProgress.service";
-import type { WorkProgressStatus, WorkStage } from "@/services/mockData";
+import type { WorkProgressStatus, WorkStage } from "@/types/workProgress";
 import { queryKeys } from "./keys";
+import { nextPageParam } from "./pagination";
 
-export function useWorkQueueQuery(params: { projectId?: string; siteId?: string; search?: string } = {}) {
-  return useQuery({
+const WORK_QUEUE_PAGE_SIZE = 100;
+
+export function useWorkQueueInfiniteQuery(params: WorkQueueFilterParams = {}) {
+  return useInfiniteQuery({
     queryKey: queryKeys.work.queue(params),
-    queryFn: () => workProgressApi.listQueue(params),
+    queryFn: ({ pageParam }) =>
+      workProgressApi.listQueuePage({
+        page: pageParam,
+        limit: WORK_QUEUE_PAGE_SIZE,
+        ...params,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => nextPageParam(lastPage.pagination),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useWorkQueueSummaryQuery(params: WorkQueueFilterParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.work.queueSummary(params),
+    queryFn: () => workProgressApi.queueSummary(params),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -35,9 +60,8 @@ export function useCreateWorkProgressMutation() {
       remarks?: string;
       evidence?: WorkProgressEvidenceFile[];
     }) => workProgressApi.createUpdate(body),
-    onSuccess: (record: BackendWorkProgressUpdate) => {
-      queryClient.invalidateQueries({ queryKey: ["work"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.work.history(record.customerId) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.work.all });
     },
   });
 }

@@ -1,28 +1,10 @@
 import { planningApi, type BackendDprRecord } from "./planning.service";
-import { workProgressApi, type BackendWorkProgressUpdate } from "./workProgress.service";
-import type { ActivityLogEntry } from "./mockData";
-
-const STAGE_LABEL: Record<BackendWorkProgressUpdate["stage"], string> = {
-  survey: "Survey",
-  workable: "Workable",
-  plumbing_gi: "Plumbing / GI",
-  gc: "GC",
-  commissioning: "Commissioning",
-  conversion: "Conversion",
-};
-
-const STATUS_LABEL: Record<BackendWorkProgressUpdate["status"], string> = {
-  not_started: "Not Started",
-  pending: "Pending",
-  in_progress: "In Progress",
-  completed: "Completed",
-  sent_back: "Sent Back",
-  on_hold: "On Hold",
-};
+import { STAGE_TO_MOBILE, STATUS_TO_MOBILE, workProgressApi, type BackendWorkProgressUpdate } from "./workProgress.service";
+import type { ActivityLogEntry } from "../types/activity";
 
 function mapWorkProgressToActivity(update: BackendWorkProgressUpdate): ActivityLogEntry {
-  const stageLabel = STAGE_LABEL[update.stage] ?? update.stage;
-  const statusLabel = STATUS_LABEL[update.status] ?? update.status;
+  const stageLabel = STAGE_TO_MOBILE[update.stage] ?? update.stage;
+  const statusLabel = STATUS_TO_MOBILE[update.status] ?? update.status;
   return {
     id: `activity-work-${update.id}`,
     title: `${stageLabel} : ${statusLabel}`,
@@ -44,6 +26,16 @@ function mapDprToActivity(record: BackendDprRecord): ActivityLogEntry {
   };
 }
 
+export type RecentActivityResult = {
+  items: ActivityLogEntry[];
+  // True if the work-progress or DPR source failed to load this time. The
+  // feed still resolves with whatever did load (plus the always-reliable
+  // local `extra` entries) rather than failing the whole query - this feed
+  // merges 3 independent sources, and one being briefly unavailable
+  // shouldn't blank out the other two.
+  partial: boolean;
+};
+
 export async function getRecentActivity({
   extra = [],
   limit = 10,
@@ -52,20 +44,32 @@ export async function getRecentActivity({
   extra?: ActivityLogEntry[];
   limit?: number;
   supervisorId?: string;
-}): Promise<ActivityLogEntry[]> {
+}): Promise<RecentActivityResult> {
+  let partial = false;
+
   const [workUpdates, dprRecords] = await Promise.all([
     supervisorId
-      ? workProgressApi.list({ supervisorId, limit: 20 }).catch((): BackendWorkProgressUpdate[] => [])
+      ? workProgressApi.list({ supervisorId, limit: 20 }).catch((error): BackendWorkProgressUpdate[] => {
+          console.error('[activity.service] failed to load work updates for activity feed', error);
+          partial = true;
+          return [];
+        })
       : Promise.resolve<BackendWorkProgressUpdate[]>([]),
     supervisorId
-      ? planningApi.listDprRecords({ supervisorId }).catch((): BackendDprRecord[] => [])
+      ? planningApi.listDprRecords({ supervisorId }).catch((error): BackendDprRecord[] => {
+          console.error('[activity.service] failed to load DPR records for activity feed', error);
+          partial = true;
+          return [];
+        })
       : Promise.resolve<BackendDprRecord[]>([]),
   ]);
 
   const workEntries = workUpdates.map(mapWorkProgressToActivity);
   const dprEntries = dprRecords.map(mapDprToActivity);
 
-  return [...extra, ...workEntries, ...dprEntries]
+  const items = [...extra, ...workEntries, ...dprEntries]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, limit);
+
+  return { items, partial };
 }

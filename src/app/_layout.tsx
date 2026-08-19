@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { StyleSheet } from "react-native";
@@ -49,7 +49,7 @@ export default function RootLayout() {
                   <AttendanceProvider>
                     <BottomSheetModalProvider>
                       <SplashGate />
-                      <AuthRedirector />
+                      <AppBootObservers />
                       <Stack screenOptions={{ headerShown: false }} />
                     </BottomSheetModalProvider>
                   </AttendanceProvider>
@@ -63,27 +63,15 @@ export default function RootLayout() {
   );
 }
 
-function AuthRedirector() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
+// Boot-time observers only - NOT an auth guard. Route-level auth ownership
+// lives declaratively where each route actually needs it (index redirect,
+// login redirect, each protected route group's own layout, and the
+// standalone screens that guard themselves).
+function AppBootObservers() {
+  const { isAuthenticated } = useAuth();
 
   usePushRegistration(isAuthenticated);
   useNotificationObserver();
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const isAuthRoute = segments[0] === "auth";
-    if (!isAuthenticated && !isAuthRoute) {
-      router.replace("/auth/login");
-      return;
-    }
-
-    if (isAuthenticated && isAuthRoute) {
-      router.replace("/home");
-    }
-  }, [isAuthenticated, isLoading, router, segments]);
 
   return null;
 }

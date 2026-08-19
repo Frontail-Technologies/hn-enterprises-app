@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
-import type { WorkProgressRecord } from '@/services/mockData';
+import type { WorkProgressRecord } from '@/types/workProgress';
 
 type StageStatusCardProps = {
   record: WorkProgressRecord;

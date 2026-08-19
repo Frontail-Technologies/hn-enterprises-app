@@ -1,5 +1,5 @@
 import { KeyValueSection } from '@/components/shared/KeyValueSection';
-import type { CustomerRecord } from '@/services/mockData';
+import type { CustomerRecord } from '@/types/customers';
 
 export function useCustomerInfoPanel(customer: CustomerRecord) {
   const connection = customer.customerConnection;

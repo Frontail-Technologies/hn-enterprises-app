@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { AlertCircle, CheckCircle2, MapPin, XCircle } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -6,6 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { RequiredLabel } from '@/components/shared/RequiredLabel';
+import { SectionBodySkeleton } from '@/components/shared/SectionBodySkeleton';
 import { SectionFormFooter } from '@/components/shared/SectionFormFooter';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -18,8 +18,11 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useDraftForm } from '@/hooks/useDraftForm';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useUpdateSurveyMutation } from '@/queries';
+import { isEvidenceDirty } from '@/utils/evidenceSnapshot';
 import { normalizeError } from '@/utils/normalizeError';
-import type { CustomerRecord, EvidenceFile } from '@/services/mockData';
+import { getRequiredFieldErrors } from '@/utils/validateRequired';
+import type { CustomerRecord } from '@/types/customers';
+import type { EvidenceFile } from '@/types/evidence';
 
 const workableOptions = ['Workable', 'Partially Workable', 'Not Workable'] as const;
 
@@ -45,7 +48,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     photos: [],
   };
   const { latitude: initialLatitude, longitude: initialLongitude } = splitGpsLocation(survey.gpsLocation ?? '');
-  const { values, updateField, clearDraft, draftState } = useDraftForm(`customer:${customer.id}:survey`, {
+  const { values, updateField, clearDraft, draftState, loadingDraft, isDirty: valuesDirty } = useDraftForm(`customer:${customer.id}:survey`, {
     surveyDate: survey.surveyDate,
     latitude: initialLatitude,
     longitude: initialLongitude,
@@ -63,20 +66,37 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
   });
   const { ref: obstaclesRef, onFocus: obstaclesOnFocus } = useScrollIntoViewOnFocus();
   const [evidence, setEvidence] = useState<EvidenceFile[]>(survey.evidence ?? []);
+  const [initialEvidence, setInitialEvidence] = useState<EvidenceFile[]>(survey.evidence ?? []);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const required = customer.sectionCompletion?.survey.requiredFields ?? [];
+  const isDirty = valuesDirty || isEvidenceDirty(evidence, initialEvidence);
+
+  const setField = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => {
+    updateField(key, value);
+    if (errors[key as string]) setErrors((current) => ({ ...current, [key as string]: '' }));
+  };
 
   const submit = async () => {
+    if (!isDirty) return;
+
+    const nextErrors = getRequiredFieldErrors(required, values);
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      showToast('Please fill all required fields', 'error');
+      return;
+    }
     try {
-      await updateSurveyMutation.mutateAsync( {
+      const updated = await updateSurveyMutation.mutateAsync( {
         ...survey,
         ...values,
         assignedSurveyor: customer.customerConnection.supervisorName,
         gpsLocation: `${values.latitude}, ${values.longitude}`,
         evidence,
       });
+      setInitialEvidence(updated.survey.evidence ?? []);
       await clearDraft();
       await onRefetch?.();
       showToast(survey.approvalStatus === 'Sent Back' ? 'Survey resubmitted' : 'Survey submitted', 'success');
-      router.back();
     } catch (error) {
       console.error('[SurveyPanel] submit failed', { customerId: customer.id, evidenceCount: evidence.length, error });
       const message = normalizeError(error, 'Unable to submit survey');
@@ -92,9 +112,9 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
     }
   };
 
-  const required = customer.sectionCompletion?.survey.requiredFields ?? [];
-
-  const content = (
+  const content = loadingDraft ? (
+    <SectionBodySkeleton />
+  ) : (
     <>
       <FormStateBanner state={draftState} />
 
@@ -108,7 +128,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       <Card style={styles.formCard}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Survey Details</Text>
         <Input label="Survey ID" value={survey.surveyId} editable={false} />
-        <DateField label="Survey Date" required={required.includes('surveyDate')} value={values.surveyDate} onChangeText={(value) => updateField('surveyDate', value)} />
+        <DateField label="Survey Date" required={required.includes('surveyDate')} error={errors.surveyDate} value={values.surveyDate} onChangeText={(value) => setField('surveyDate', value)} />
         <Input label="Assigned Surveyor" value={customer.customerConnection.supervisorName} editable={false} />
         <View style={styles.coordsRow}>
           <View style={styles.coordInput}>
@@ -243,6 +263,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
       onSubmit={submit}
       submitLabel={survey.approvalStatus === 'Sent Back' ? 'Resubmit' : 'Submit'}
       isSubmitting={updateSurveyMutation.isPending}
+      disabled={!isDirty}
     />
   );
 

@@ -2,7 +2,7 @@ import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ComplaintBoxSkeleton as ListRowSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
@@ -10,19 +10,19 @@ import { FilterChip } from '@/components/shared/FilterChip';
 import { WorkProgressCard } from '@/components/shared/WorkProgressCard';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
-import { spacing } from '@/constants/spacing';
+import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { workQueueStatusFilters } from '@/constants/workProgress';
 import { useTheme } from '@/context/ThemeContext';
 import { useWorkQueueFilters } from '@/hooks/useWorkQueueFilters';
-import { useWorkQueue } from '@/hooks/useWorkProgress';
+import { formatCount } from '@/utils/format';
 
 export default function WorkQueueScreen() {
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const { items: workProgressRecords, isLoading, refetch } = useWorkQueue();
   const {
     search,
     setSearch,
@@ -37,12 +37,18 @@ export default function WorkQueueScreen() {
     projectOptions,
     siteOptions,
     stageOptions,
+    isLoading,
+    isError,
+    isFetchingNextPage,
+    hasNextPage,
+    loadMore,
+    refetch,
+    total,
     records,
-  } = useWorkQueueFilters(workProgressRecords);
-
-  const inProgressCount = workProgressRecords.filter((record) => record.status === 'In Progress').length;
-  const sentBackCount = workProgressRecords.filter((record) => record.status === 'Sent Back').length;
-  const pendingEvidenceCount = workProgressRecords.reduce((total, record) => total + record.evidenceCount, 0);
+    inProgressCount,
+    sentBackCount,
+    pendingEvidenceCount,
+  } = useWorkQueueFilters();
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -57,7 +63,7 @@ export default function WorkQueueScreen() {
     <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
       <AppHeader
         title="Work Queue"
-        subtitle={`${records.length} work-progress records`}
+        subtitle={formatCount(records.length, total, 'work-progress records')}
         left={
           <Pressable onPress={() => router.back()} style={styles.headerAction}>
             <ArrowLeft size={22} color="#FFFFFF" />
@@ -73,6 +79,8 @@ export default function WorkQueueScreen() {
           <WorkProgressCard record={record} />
         )}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        onEndReachedThreshold={0.4}
+        onEndReached={loadMore}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -109,16 +117,38 @@ export default function WorkQueueScreen() {
 
             <View style={styles.listHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Work Progress</Text>
-              <Text style={[typography.label, { color: colors.muted }]}>{records.length} records</Text>
+              <Text style={[typography.label, { color: colors.muted }]}>{formatCount(records.length, total, 'records')}</Text>
             </View>
 
             {isLoading ? <ListRowSkeleton /> : null}
           </View>
         }
         ListEmptyComponent={
-          isLoading ? null : (
+          isLoading ? null : isError ? (
+            <ErrorState title="Couldn't load the work queue" description="Check your connection and try again." onRetry={refetch} />
+          ) : (
             <EmptyState title="No work-progress records" description="Try changing the filters or check back after a survey is assigned." />
           )
+        }
+        ListFooterComponent={
+          !isLoading && records.length > 0 ? (
+            isFetchingNextPage ? (
+              <View style={styles.loadMoreRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : isError && hasNextPage ? (
+              <Pressable
+                onPress={loadMore}
+                style={({ pressed }) => [
+                  styles.loadMoreRow,
+                  { borderWidth: 1, borderColor: colors.border },
+                  pressed && { opacity: 0.72 },
+                ]}
+              >
+                <Text style={[typography.label, { color: colors.primary }]}>Retry</Text>
+              </Pressable>
+            ) : null
+          ) : null
         }
         contentContainerStyle={styles.listContent}
       />
@@ -126,16 +156,16 @@ export default function WorkQueueScreen() {
   );
 }
 
-function FilterRow({
+function FilterRow<T extends string>({
   label,
   options,
   value,
   onChange,
 }: {
   label: string;
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
 }) {
   const { colors } = useTheme();
 
@@ -144,7 +174,12 @@ function FilterRow({
       <Text style={[typography.label, { color: colors.muted }]}>{label}</Text>
       <View style={styles.chips}>
         {options.map((option) => (
-          <FilterChip key={option} label={option} active={value === option} onPress={() => onChange(option)} />
+          <FilterChip
+            key={option.value}
+            label={option.label}
+            active={value === option.value}
+            onPress={() => onChange(option.value)}
+          />
         ))}
       </View>
     </View>
@@ -214,6 +249,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  loadMoreRow: {
+    minHeight: 44,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
   },
   sectionTitle: {
     ...typography.h2,
