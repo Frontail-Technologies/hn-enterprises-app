@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     width: "auto",
   },
   formCard: {
-    gap: spacing.sm,
+    gap: spacing.md,
     padding: spacing.sm,
   },
   sectionTitle: {

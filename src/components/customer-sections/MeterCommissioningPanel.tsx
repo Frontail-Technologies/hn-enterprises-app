@@ -255,7 +255,7 @@ export function useMeterCommissioningPanel(
 
 const styles = StyleSheet.create({
   formCard: {
-    gap: spacing.sm,
+    gap: spacing.md,
     padding: spacing.sm,
   },
   sectionTitle: {
