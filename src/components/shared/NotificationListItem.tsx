@@ -1,6 +1,6 @@
 import { CalendarDays, ClipboardList, FileText, Info, Trash2 } from 'lucide-react-native';
 import { memo, useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
@@ -24,10 +24,10 @@ export const NotificationListItem = memo(function NotificationListItem({ item, o
   const { markAsRead, deleteNotification } = useNotifications();
   const tone = getCategoryTone(item.category, colors);
 
-  // Swiping right reveals a delete action behind the row (on the left) -
+  // Swiping left reveals a delete action behind the row (on the right) -
   // deletes just this user's copy, per notifications.service.ts#remove on
   // the backend (each row already belongs to exactly one user).
-  const renderLeftActions = useCallback(
+  const renderRightActions = useCallback(
     (progress: SharedValue<number>) => (
       <DeleteAction progress={progress} color={colors.red} onPress={() => deleteNotification(item.id)} />
     ),
@@ -35,7 +35,11 @@ export const NotificationListItem = memo(function NotificationListItem({ item, o
   );
 
   return (
-    <Swipeable renderLeftActions={renderLeftActions} overshootLeft={false}>
+    // Keyed by item.id so a row FlashList recycles for a different
+    // notification always starts closed - Swipeable owns its open/closed
+    // state internally, and reusing the same instance across items lets a
+    // stale open offset (or gesture state) carry over onto the wrong row.
+    <Swipeable key={item.id} renderRightActions={renderRightActions} overshootRight={false}>
       <Pressable
         onPress={() => {
           markAsRead(item.id);
@@ -47,9 +51,13 @@ export const NotificationListItem = memo(function NotificationListItem({ item, o
           pressed && { opacity: 0.82 },
         ]}
       >
-        <View style={[styles.iconWrap, { backgroundColor: tone.background }]}>
-          <CategoryIcon category={item.category} color={tone.color} />
-        </View>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={[styles.iconWrap, { backgroundColor: colors.border }]} />
+        ) : (
+          <View style={[styles.iconWrap, { backgroundColor: tone.background }]}>
+            <CategoryIcon category={item.category} color={tone.color} />
+          </View>
+        )}
         <View style={styles.copy}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
@@ -78,17 +86,20 @@ function DeleteAction({
   color: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   // Fades in as the row is dragged open rather than snapping to full
-  // opacity immediately, so a small/aborted swipe doesn't flash a solid
-  // red panel before springing back closed.
+  // opacity immediately, so a small/aborted swipe doesn't flash the panel
+  // before springing back closed.
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
   }));
 
   return (
-    <Animated.View style={[styles.deleteAction, { backgroundColor: color }, animatedStyle]}>
+    <Animated.View
+      style={[styles.deleteAction, { backgroundColor: colors.card, borderColor: colors.border }, animatedStyle]}
+    >
       <Pressable onPress={onPress} style={styles.deleteButton} hitSlop={8}>
-        <Trash2 size={20} color="#FFFFFF" />
+        <Trash2 size={20} color={color} />
       </Pressable>
     </Animated.View>
   );
@@ -154,6 +165,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
+    borderWidth: 1,
+    marginLeft: spacing.sm,
   },
   deleteButton: {
     flex: 1,

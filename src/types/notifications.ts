@@ -7,6 +7,7 @@ export type Notification = {
   category: NotificationCategory;
   createdAt: string;
   read: boolean;
+  imageUrl?: string;
   route?: {
     pathname: string;
     params?: Record<string, string>;

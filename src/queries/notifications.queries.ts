@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useToast } from "@/context/ToastContext";
 import { notificationsApi } from "@/services/notifications.service";
 import type { Notification } from "@/types/notifications";
 import { queryKeys } from "./keys";
@@ -65,6 +66,7 @@ export function useMarkAllNotificationsReadMutation() {
 
 export function useDeleteNotificationMutation() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: (id: string) => notificationsApi.remove(id),
@@ -82,6 +84,10 @@ export function useDeleteNotificationMutation() {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.notifications.all, context.previous);
       }
+      // The optimistic remove above hides the row instantly - without this,
+      // a failed delete (network drop, stale/already-removed id) rolls the
+      // row back silently and just looks like "nothing happened."
+      showToast("Couldn't delete notification. Try again.", "error");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });

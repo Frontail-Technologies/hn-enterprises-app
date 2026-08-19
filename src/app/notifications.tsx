@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
 import { ComplaintBoxSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
@@ -115,6 +115,14 @@ export default function NotificationsScreen() {
               </Text>
             </View>
 
+            {selectedNotification.imageUrl ? (
+              <Image
+                source={{ uri: selectedNotification.imageUrl }}
+                style={[styles.detailImage, { backgroundColor: colors.border }]}
+                resizeMode="cover"
+              />
+            ) : null}
+
             <View style={[styles.detailBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.detailTitle, { color: colors.text }]}>{selectedNotification.title}</Text>
               <Text style={[styles.detailMessage, { color: colors.muted }]}>
@@ -185,6 +193,11 @@ const styles = StyleSheet.create({
   categoryText: {
     ...typography.label,
     fontSize: 11,
+  },
+  detailImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 8,
   },
   detailBox: {
     gap: spacing.sm,

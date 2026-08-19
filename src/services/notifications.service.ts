@@ -11,6 +11,7 @@ type BackendNotification = {
   route: { pathname: string; params?: Record<string, string> } | null;
   read: boolean;
   createdAt: string;
+  imageUrl: string | null;
 };
 
 const CATEGORY_TO_FRONTEND: Record<BackendNotificationCategory, NotificationCategory> = {
@@ -28,6 +29,7 @@ function mapNotification(raw: BackendNotification): Notification {
     category: CATEGORY_TO_FRONTEND[raw.category] ?? "System",
     createdAt: raw.createdAt,
     read: raw.read,
+    imageUrl: raw.imageUrl ?? undefined,
     route: raw.route ?? undefined,
   };
 }
