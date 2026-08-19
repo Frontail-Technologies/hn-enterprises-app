@@ -117,7 +117,7 @@ export function useBillingRemarksPanel(
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -249,7 +249,7 @@ export function useBillingRemarksPanel(
           deferUpload
         />
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -378,6 +378,9 @@ function MilestoneToggleRow({
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

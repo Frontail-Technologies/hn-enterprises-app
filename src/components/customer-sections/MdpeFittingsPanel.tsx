@@ -1,4 +1,4 @@
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { FormStateBanner } from "@/components/shared/FormStateBanner";
 import { QuantityFieldRow } from "@/components/shared/QuantityFieldRow";
@@ -78,7 +78,7 @@ export function useMdpeFittingsPanel(
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -94,7 +94,7 @@ export function useMdpeFittingsPanel(
           />
         ))}
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -109,6 +109,9 @@ export function useMdpeFittingsPanel(
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

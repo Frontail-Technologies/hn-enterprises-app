@@ -23,7 +23,7 @@ export function useDocumentsPanel(customer: CustomerRecord) {
   const billingPhotos = customer.billingCompletion.evidence ?? [];
 
   const content = (
-    <>
+    <View style={styles.sections}>
       <MediaSection title="Survey Photos" files={surveyPhotos} uploadedOn={customer.survey.surveyDate} />
       <MediaSection title="GI Measurement Photos" files={giPhotos} uploadedOn={customer.createdDate} />
       <MediaSection title="Isolation / Regulator Photos" files={isolationPhotos} uploadedOn={customer.createdDate} />
@@ -33,7 +33,7 @@ export function useDocumentsPanel(customer: CustomerRecord) {
       <MediaSection title="Meter Photo" files={meterPhotos} uploadedOn={customer.commissioningConversion.installationDate} />
       <MediaSection title="JMR / Billing Evidence" files={billingPhotos} uploadedOn={customer.createdDate} />
       <DocumentSection customer={customer} />
-    </>
+    </View>
   );
 
   return { content, footer: undefined };
@@ -137,6 +137,9 @@ function DocumentSection({ customer }: { customer: CustomerRecord }) {
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   mediaCard: {
     gap: spacing.sm,
     padding: spacing.sm,

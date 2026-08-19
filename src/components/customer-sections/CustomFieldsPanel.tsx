@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
 import { SectionBodySkeleton } from '@/components/shared/SectionBodySkeleton';
@@ -85,7 +85,7 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
       content: loadingDraft ? (
         <SectionBodySkeleton />
       ) : (
-        <>
+        <View style={styles.sections}>
           <FormStateBanner state={draftState} />
           <Card style={styles.formCard}>
             {fields.map((field) => (
@@ -100,7 +100,7 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
               />
             ))}
           </Card>
-        </>
+        </View>
       ),
       footer,
     },
@@ -175,6 +175,9 @@ function CustomFieldInput({
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

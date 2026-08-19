@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
@@ -85,7 +85,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -112,7 +112,7 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
           deferUpload
         />
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -123,6 +123,9 @@ export function useCivilWorkForm(customer: CustomerRecord, onRefetch?: () => Pro
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

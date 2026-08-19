@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { EvidenceUploader } from '@/components/shared/EvidenceUploader';
 import { FormStateBanner } from '@/components/shared/FormStateBanner';
@@ -79,7 +79,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -114,7 +114,7 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
           deferUpload
         />
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -125,6 +125,9 @@ export function useGiMeasurementsPanel(customer: CustomerRecord, onRefetch?: () 
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

@@ -115,7 +115,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       {survey.sentBackRemarks ? (
@@ -254,8 +254,7 @@ export function useSurveyPanel(customer: CustomerRecord, onRefetch?: () => Promi
           deferUpload
         />
       </Card>
-
-    </>
+    </View>
   );
 
   const footer = (
@@ -286,6 +285,9 @@ function getWorkableTone(option: (typeof workableOptions)[number]) {
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,

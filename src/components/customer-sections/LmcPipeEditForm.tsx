@@ -140,7 +140,7 @@ export function usePipeEditForm(
   const content = loadingDraft ? (
     <SectionBodySkeleton cards={4} />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -242,7 +242,7 @@ export function usePipeEditForm(
           deferUpload
         />
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -313,6 +313,9 @@ function StatusChooser<T extends string>({
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   footerRow: {
     flexDirection: "row",
     gap: spacing.sm,

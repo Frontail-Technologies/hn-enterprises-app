@@ -131,7 +131,7 @@ export function useMeterCommissioningPanel(
   const content = loadingDraft ? (
     <SectionBodySkeleton />
   ) : (
-    <>
+    <View style={styles.sections}>
       <FormStateBanner state={draftState} />
 
       <Card style={styles.formCard}>
@@ -239,7 +239,7 @@ export function useMeterCommissioningPanel(
           deferUpload
         />
       </Card>
-    </>
+    </View>
   );
 
   const footer = (
@@ -254,6 +254,9 @@ export function useMeterCommissioningPanel(
 }
 
 const styles = StyleSheet.create({
+  sections: {
+    gap: spacing.md,
+  },
   formCard: {
     gap: spacing.md,
     padding: spacing.sm,
