@@ -76,7 +76,15 @@ export function useExpenseForm(expenseId?: string) {
   const [draft, setDraft] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft()));
   const [errors, setErrors] = useState<Partial<Record<ExpenseFieldKey, string>>>({});
   const mountPlaceholder = useRef<ExpenseDraft>(cached ? toDraft(cached) : emptyDraft());
-  const hydratedRef = useRef<boolean>(!expenseId || Boolean(cached));
+  // `cached` (from the list query) is a list-sized DTO with no `evidence`
+  // field (see payments.service.ts#list on the backend) - it's only ever
+  // used to instant-paint the form while the full detail (which does carry
+  // evidence) loads. Marking "hydrated" just because `cached` existed skips
+  // the effect below entirely, so the evidence-bearing detail response never
+  // gets applied and photo previews stay permanently empty when editing an
+  // expense opened from the list. Only skip hydration when there's nothing
+  // to hydrate (new expense) or the detail data is already in hand.
+  const hydratedRef = useRef<boolean>(!expenseId || Boolean(detailQuery.data));
 
   useEffect(() => {
     if (hydratedRef.current || !detailQuery.data) return;
