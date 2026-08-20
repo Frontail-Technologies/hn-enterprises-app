@@ -2,8 +2,8 @@ node_modules/
 .expo/
 .expo-logs/
 dist/
-android/
-ios/
+/android/
+/ios/
 *.log
 expo-env.d.ts
 .env
