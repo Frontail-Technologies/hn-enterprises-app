@@ -87,9 +87,6 @@ type BackendPayment = {
   status: ExpenseStatus;
   purpose: string | null;
   remarks: string | null;
-  // Absent (not merely null) on the list-sized DTO the paginated endpoint
-  // returns - evidence is only ever populated on the single-record detail
-  // response (get()), see payments.service.ts#list on the backend.
   evidence?: Record<string, unknown>[] | null;
 };
 
