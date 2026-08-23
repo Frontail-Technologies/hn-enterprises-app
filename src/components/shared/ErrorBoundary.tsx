@@ -75,8 +75,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 const styles = StyleSheet.create({
+  // absoluteFill (not flex: 1) - this can render deep inside a chain of
+  // context providers (BottomSheetModalProvider among them) that don't all
+  // reliably pass flex:1 down to their children, which left flex: 1 here
+  // collapsing to content height and pinning the fallback to the top of
+  // the screen instead of centering it. Absolute fill guarantees full-
+  // screen coverage regardless of ancestor layout.
   container: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
