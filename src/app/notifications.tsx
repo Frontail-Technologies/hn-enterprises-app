@@ -89,6 +89,7 @@ export default function NotificationsScreen() {
             <ComplaintBoxSkeleton />
           ) : (
             <EmptyState
+              fill
               title={hasFilter ? 'No matching notifications' : 'No notifications'}
               description={hasFilter ? 'Try changing or clearing your filters.' : "You're all caught up."}
             />

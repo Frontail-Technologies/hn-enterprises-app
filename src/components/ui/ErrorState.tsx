@@ -12,6 +12,10 @@ type ErrorStateProps = {
   onRetry?: () => void;
   retryLabel?: string;
   compact?: boolean;
+  // See EmptyState's `fill` - same fix, same reason: without flex: 1 this
+  // centers within a View that's already exactly its own content's size,
+  // which does nothing visually when used as a list's ListEmptyComponent.
+  fill?: boolean;
 };
 
 export function ErrorState({
@@ -20,11 +24,12 @@ export function ErrorState({
   onRetry,
   retryLabel = "Retry",
   compact,
+  fill,
 }: ErrorStateProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, fill && styles.wrapFill]}>
       <View
         style={[
           styles.iconWrap,
@@ -67,6 +72,9 @@ const styles = StyleSheet.create({
   wrapCompact: {
     gap: spacing.sm,
     paddingVertical: spacing.lg,
+  },
+  wrapFill: {
+    flex: 1,
   },
   iconWrap: {
     width: 48,

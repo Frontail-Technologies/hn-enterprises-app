@@ -159,6 +159,7 @@ export default function CustomersScreen() {
               onEndReached={loadMore}
               ListEmptyComponent={
                 <EmptyState
+                  fill
                   icon={<UsersRound size={22} color={colors.primary} />}
                   title={
                     hasQueryOrFilter

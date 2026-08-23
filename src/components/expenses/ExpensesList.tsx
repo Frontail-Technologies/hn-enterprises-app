@@ -193,6 +193,7 @@ export function ExpensesList({
               )}
               ListEmptyComponent={
                 <EmptyState
+                  fill
                   icon={<IndianRupee size={22} color={colors.primary} />}
                   title={
                     search.trim() || filterCount > 0 || categoryFilterLabel

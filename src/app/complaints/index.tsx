@@ -112,6 +112,7 @@ export default function ComplaintsScreen() {
         ListEmptyComponent={
           isLoading ? null : (
             <EmptyState
+              fill
               title={hasFilter ? 'No matching complaints' : 'No complaints yet'}
               description={hasFilter ? 'Try changing or clearing your filters.' : 'There are no complaints to show.'}
             />

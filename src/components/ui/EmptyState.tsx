@@ -13,13 +13,21 @@ type EmptyStateProps = {
   // For use inside sheets/tables/list areas - trims padding and icon size
   // instead of the full-page presentation.
   compact?: boolean;
+  // For use as a FlashList/FlatList `ListEmptyComponent` - without flex: 1,
+  // `justifyContent: 'center'` on `wrap` centers within a View that's
+  // already exactly as tall as its own content, i.e. it does nothing
+  // visually, and the empty state renders pinned to the top of the list's
+  // viewport instead of centered in it. Opt-in (not the default) because
+  // EmptyState is also used inline in bounded, non-full-page contexts
+  // (cards, sheets, dropdowns) where stretching to fill would be wrong.
+  fill?: boolean;
 };
 
-export function EmptyState({ title, description, action, icon, compact }: EmptyStateProps) {
+export function EmptyState({ title, description, action, icon, compact, fill }: EmptyStateProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, fill && styles.wrapFill]}>
       {icon ? (
         <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { backgroundColor: colors.softOrange }]}>
           {icon}
@@ -44,6 +52,9 @@ const styles = StyleSheet.create({
   wrapCompact: {
     gap: spacing.sm,
     paddingVertical: spacing.lg,
+  },
+  wrapFill: {
+    flex: 1,
   },
   iconWrap: {
     width: 48,

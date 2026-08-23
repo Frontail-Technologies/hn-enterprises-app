@@ -125,9 +125,9 @@ export default function WorkQueueScreen() {
         }
         ListEmptyComponent={
           isLoading ? null : isError ? (
-            <ErrorState title="Couldn't load the work queue" description="Check your connection and try again." onRetry={refetch} />
+            <ErrorState fill title="Couldn't load the work queue" description="Check your connection and try again." onRetry={refetch} />
           ) : (
-            <EmptyState title="No work-progress records" description="Try changing the filters or check back after a survey is assigned." />
+            <EmptyState fill title="No work-progress records" description="Try changing the filters or check back after a survey is assigned." />
           )
         }
         ListFooterComponent={
