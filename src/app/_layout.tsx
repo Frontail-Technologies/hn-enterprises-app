@@ -13,6 +13,7 @@ import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { colors } from "@/constants/colors";
 import { AttendanceProvider } from "@/context/AttendanceContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -21,12 +22,14 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { useNotificationObserver } from "@/hooks/useNotificationObserver";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
+import { installGlobalErrorHandlers } from "@/lib/errorReporting";
 import { configureNotificationHandler } from "@/lib/pushNotifications";
 import { AppQueryProvider } from "@/queries";
 
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 400, fade: true });
 configureNotificationHandler();
+installGlobalErrorHandlers();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -50,7 +53,9 @@ export default function RootLayout() {
                     <BottomSheetModalProvider>
                       <SplashGate />
                       <AppBootObservers />
-                      <Stack screenOptions={{ headerShown: false }} />
+                      <ErrorBoundary label="root">
+                        <Stack screenOptions={{ headerShown: false }} />
+                      </ErrorBoundary>
                     </BottomSheetModalProvider>
                   </AttendanceProvider>
                 </NotificationsProvider>
