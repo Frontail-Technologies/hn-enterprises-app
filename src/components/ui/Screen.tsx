@@ -24,7 +24,7 @@ import { Edge, SafeAreaView } from "react-native-safe-area-context";
 import { pagePadding, spacing } from "@/constants/spacing";
 import { ScrollIntoViewProvider } from "@/context/ScrollIntoViewContext";
 import { useTheme } from "@/context/ThemeContext";
-import { Reveal } from "./Reveal";
+import { Reveal, getChildFlexStyle } from "./Reveal";
 
 type KeyboardScrollTarget = Parameters<
   InstanceType<typeof ScrollView>["scrollResponderScrollNativeHandleToKeyboard"]
@@ -146,6 +146,14 @@ export function Screen({
               ref={scrollViewRef}
               style={styles.flex}
               contentContainerStyle={[
+                // flexGrow (not flex): a ScrollView's content container sizes
+                // to its own content by default, not the viewport, so a
+                // screen whose only content is a short empty/error state
+                // (EmptyState/ErrorState with `fill`, wrapped in a flex: 1
+                // View so this passes through the Reveal wrapper below) had
+                // nothing to expand into and rendered pinned to the top.
+                // No-op once real content already exceeds the viewport.
+                styles.growContent,
                 { paddingHorizontal: horizontalInset },
                 contentStyle,
                 bottomPadding > 0 && { paddingBottom: bottomPadding },
@@ -187,21 +195,6 @@ export function Screen({
   );
 }
 
-function getChildFlexStyle(child: ReactNode): StyleProp<ViewStyle> {
-  if (!isValidElement(child)) return undefined;
-  const style = (child.props as { style?: StyleProp<ViewStyle> } | null)?.style;
-  const flattened = StyleSheet.flatten(style);
-  if (!flattened) return undefined;
-
-  const passthrough: ViewStyle = {};
-  if (typeof flattened.flex === "number") passthrough.flex = flattened.flex;
-  if (flattened.width !== undefined) passthrough.width = flattened.width;
-  if (flattened.alignSelf !== undefined)
-    passthrough.alignSelf = flattened.alignSelf;
-
-  return Object.keys(passthrough).length ? passthrough : undefined;
-}
-
 function isHeaderLike(child: ReactNode) {
   if (!isValidElement(child)) return false;
   const type = child.type as { isStickyHeader?: boolean } | null;
@@ -214,5 +207,8 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  growContent: {
+    flexGrow: 1,
   },
 });

@@ -34,9 +34,13 @@ export default function AllStatsScreen() {
       {isLoading ? (
         <StatsGridSkeleton />
       ) : isError ? (
-        <ErrorState title="Couldn't load stats" description="Check your connection and try again." onRetry={refetch} />
+        <View style={styles.emptyFill}>
+          <ErrorState fill title="Couldn't load stats" description="Check your connection and try again." onRetry={refetch} />
+        </View>
       ) : !stats.length ? (
-        <EmptyState title="No stats available" />
+        <View style={styles.emptyFill}>
+          <EmptyState fill title="No stats available" />
+        </View>
       ) : (
         <View style={styles.grid}>
           {stats.map((stat) => (
@@ -65,6 +69,13 @@ const styles = StyleSheet.create({
   screen: {
     gap: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  // Gives Screen's Reveal-wrapping mechanism (getChildFlexStyle) a real
+  // `style` prop with flex: 1 to detect and pass through, so the empty/
+  // error state's own `fill` has real space to center within instead of
+  // the ScrollView content collapsing to just the header's height.
+  emptyFill: {
+    flex: 1,
   },
   headerButton: {
     width: 36,

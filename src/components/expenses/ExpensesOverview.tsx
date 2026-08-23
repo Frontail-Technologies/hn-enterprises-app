@@ -115,15 +115,17 @@ export function ExpensesOverview({
       {isLoading ? (
         <OverviewSkeleton />
       ) : isError ? (
-        <ErrorState title="Couldn't load expenses" description="Check your connection and try again." onRetry={onRetry} />
+        <ErrorState fill title="Couldn't load expenses" description="Check your connection and try again." onRetry={onRetry} />
       ) : !hasAnyExpenses ? (
         <EmptyState
+          fill
           icon={<IndianRupee size={22} color={colors.primary} />}
           title="No expenses yet"
           description="Expenses added for your projects will appear here."
         />
       ) : !hasResults ? (
         <EmptyState
+          fill
           icon={<IndianRupee size={22} color={colors.primary} />}
           title="No expenses found"
           description="Try changing your filters."
@@ -289,7 +291,12 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  // flexGrow (not flex) so the empty/error state's own `fill` (flex: 1)
+  // has real space to center within instead of the ScrollView's content
+  // collapsing to just the filter row's height. No-op once real content
+  // exceeds the viewport.
   content: {
+    flexGrow: 1,
     gap: spacing.lg,
     paddingBottom: spacing.xxl,
   },

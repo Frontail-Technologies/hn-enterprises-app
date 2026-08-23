@@ -91,11 +91,14 @@ export default function PlanningOverviewScreen() {
           ))}
         </View>
       ) : filteredRows.length === 0 ? (
-        <EmptyState
-          title={hasFilter ? "No matching sites" : "No sites/customers available for this date."}
-          description={hasFilter ? "Try a different search." : undefined}
-          icon={mode === "work" ? <ClipboardList size={22} color={colors.primary} /> : <FileText size={22} color={colors.primary} />}
-        />
+        <View style={styles.emptyFill}>
+          <EmptyState
+            fill
+            title={hasFilter ? "No matching sites" : "No sites/customers available for this date."}
+            description={hasFilter ? "Try a different search." : undefined}
+            icon={mode === "work" ? <ClipboardList size={22} color={colors.primary} /> : <FileText size={22} color={colors.primary} />}
+          />
+        </View>
       ) : (
         <FlashList
           style={styles.flex}
@@ -149,6 +152,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
     paddingBottom: spacing.xl,
+  },
+  // See Screen.tsx's getChildFlexStyle - a real `style` prop with flex: 1
+  // is what lets the empty state actually claim/center within the
+  // remaining screen space, not just center within its own bounds.
+  emptyFill: {
+    flex: 1,
   },
   flex: {
     flex: 1,

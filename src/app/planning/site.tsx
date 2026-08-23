@@ -104,10 +104,13 @@ export default function SitePlanningScreen() {
           ))}
         </View>
       ) : filteredCustomers.length === 0 ? (
-        <EmptyState
-          title={hasFilter ? "No matching customers" : "No customers available for this site."}
-          description={hasFilter ? "Try a different search." : undefined}
-        />
+        <View style={styles.emptyFill}>
+          <EmptyState
+            fill
+            title={hasFilter ? "No matching customers" : "No customers available for this site."}
+            description={hasFilter ? "Try a different search." : undefined}
+          />
+        </View>
       ) : (
         <FlashList
           style={styles.flex}
@@ -197,6 +200,12 @@ function CustomerRow({
 }
 
 const styles = StyleSheet.create({
+  // See Screen.tsx's getChildFlexStyle - a real `style` prop with flex: 1
+  // is what lets the empty state actually claim/center within the
+  // remaining screen space, not just center within its own bounds.
+  emptyFill: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
     gap: spacing.sm,

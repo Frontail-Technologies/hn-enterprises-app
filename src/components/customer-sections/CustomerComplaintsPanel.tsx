@@ -23,12 +23,14 @@ export function useCustomerComplaintsPanel(customer: CustomerRecord) {
         <ActivityIndicator size="large" color={colors.primary} />
       ) : isError ? (
         <EmptyState
+          fill
           title="Failed to load"
           description="Could not load complaints"
           action={<Button label="Retry" onPress={() => refetch()} />}
         />
       ) : complaints.length === 0 ? (
         <EmptyState
+          fill
           title="No complaints"
           description="There are no complaints for this customer."
         />

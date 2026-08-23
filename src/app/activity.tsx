@@ -117,10 +117,13 @@ export default function ActivityScreen() {
           ) : null}
         </View>
       ) : (
-        <EmptyState
-          title={hasFilter ? 'No matching activity' : 'No recent activity'}
-          description={hasFilter ? 'Try changing or clearing your filters.' : 'Your work updates and submissions will appear here.'}
-        />
+        <View style={styles.emptyFill}>
+          <EmptyState
+            fill
+            title={hasFilter ? 'No matching activity' : 'No recent activity'}
+            description={hasFilter ? 'Try changing or clearing your filters.' : 'Your work updates and submissions will appear here.'}
+          />
+        </View>
       )}
     </Screen>
   );
@@ -151,5 +154,12 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.sm,
+  },
+  // Gives Screen's Reveal-wrapping mechanism (getChildFlexStyle) a real
+  // `style` prop with flex: 1 to detect and pass through - EmptyState's own
+  // `fill` prop only handles centering *within* itself, not claiming space
+  // from its parent, which this wrapper does.
+  emptyFill: {
+    flex: 1,
   },
 });
