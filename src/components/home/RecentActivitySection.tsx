@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
 import { RecentActivitySkeleton } from '@/components/shared/RecentActivitySkeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useAttendanceStatus } from '@/context/AttendanceContext';
@@ -83,7 +84,7 @@ export function RecentActivitySection() {
           ) : null}
         </View>
       ) : (
-        <Text style={[typography.caption, { color: colors.muted }]}>No activity yet.</Text>
+        <EmptyState compact title="No activity yet" />
       )}
     </View>
   );

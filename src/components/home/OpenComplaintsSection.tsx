@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ComplaintUpdateSheet } from '@/components/complaints/ComplaintUpdateSheet';
 import { ComplaintBoxSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
 import { ComplaintListItem } from '@/components/shared/ComplaintListItem';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -47,7 +48,7 @@ export function OpenComplaintsSection() {
           ))}
         </View>
       ) : (
-        <Text style={[typography.caption, { color: colors.muted }]}>No open complaints.</Text>
+        <EmptyState compact title="No open complaints" />
       )}
 
       <ComplaintUpdateSheet complaint={activeComplaint} onClose={() => setActiveComplaint(null)} />
