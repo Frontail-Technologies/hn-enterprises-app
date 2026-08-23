@@ -261,12 +261,19 @@ const styles = StyleSheet.create({
   resultText: {
     ...typography.caption,
   },
+  // flexGrow (not flex): lets the content area grow to fill the viewport
+  // when content is shorter than it (the empty state), which is what the
+  // EmptyState's own `fill` (flex: 1) needs to actually have space to
+  // center within. No-op once real rows make the content taller than the
+  // viewport, so this doesn't affect normal scrolling.
   listContent: {
+    flexGrow: 1,
     paddingBottom: spacing.md,
   },
   // Extra bottom space so the last row never sits underneath the viewport-
   // centered PaginationOverlay (see the tableCard wrapper above).
   listContentWithFooter: {
+    flexGrow: 1,
     paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,
   },
 });

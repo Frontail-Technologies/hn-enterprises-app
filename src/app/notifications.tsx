@@ -175,6 +175,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   listContent: {
+    // flexGrow (not flex) - a scroll content container sizes to its own
+    // content by default, not the list's visible viewport, so there's
+    // nothing for the empty state's flex: 1 (its `fill` prop) to expand
+    // into without this. flexGrow: 1 lets the content area grow to fill
+    // the viewport specifically when content is shorter than it (an empty
+    // list), which is exactly when centering the empty state matters -
+    // it's a no-op once there's enough real content to scroll normally.
+    flexGrow: 1,
     paddingBottom: spacing.xl,
   },
   sheetContent: {
