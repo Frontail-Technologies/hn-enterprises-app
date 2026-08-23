@@ -62,9 +62,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <View style={styles.container}>
           <View style={styles.card}>
             <Text style={styles.title}>Something went wrong</Text>
-            <Text style={styles.message}>
-              This screen ran into a problem. You can try again, or go back and retry the action.
-            </Text>
             <Pressable onPress={this.reset} style={styles.button}>
               <Text style={styles.buttonText}>Try Again</Text>
             </Pressable>
@@ -88,7 +85,8 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 360,
-    gap: 10,
+    gap: 14,
+    alignItems: "center",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: FALLBACK_COLORS.border,
@@ -99,15 +97,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "600",
     color: FALLBACK_COLORS.text,
-  },
-  message: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: FALLBACK_COLORS.muted,
+    textAlign: "center",
   },
   button: {
     marginTop: 6,
     height: 44,
+    minWidth: 140,
+    paddingHorizontal: 24,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
