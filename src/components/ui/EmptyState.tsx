@@ -28,15 +28,17 @@ export function EmptyState({ title, description, action, icon, compact, fill }: 
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact, fill && styles.wrapFill]}>
-      {icon ? (
-        <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { backgroundColor: colors.softOrange }]}>
-          {icon}
-        </View>
-      ) : null}
-      <Text style={[typography.h2, styles.centered, { color: colors.text }]}>{title}</Text>
-      {description ? (
-        <Text style={[typography.caption, styles.centered, { color: colors.muted }]}>{description}</Text>
-      ) : null}
+      <View style={[styles.message, compact && styles.messageCompact]}>
+        {icon ? (
+          <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { backgroundColor: colors.softOrange }]}>
+            {icon}
+          </View>
+        ) : null}
+        <Text style={[typography.bodyMedium, styles.centered, { color: colors.text }]}>{title}</Text>
+        {description ? (
+          <Text style={[typography.caption, styles.centered, { color: colors.muted }]}>{description}</Text>
+        ) : null}
+      </View>
       {action}
     </View>
   );
@@ -55,6 +57,17 @@ const styles = StyleSheet.create({
   },
   wrapFill: {
     flex: 1,
+  },
+  // Dims the icon/title/description block only, not `action` (e.g. a Retry
+  // button) - a fallback message should read as quiet/secondary, but an
+  // interactive control inside it still needs full visibility.
+  message: {
+    alignItems: 'center',
+    gap: spacing.md,
+    opacity: 0.6,
+  },
+  messageCompact: {
+    gap: spacing.sm,
   },
   iconWrap: {
     width: 48,

@@ -30,23 +30,25 @@ export function ErrorState({
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact, fill && styles.wrapFill]}>
-      <View
-        style={[
-          styles.iconWrap,
-          compact && styles.iconWrapCompact,
-          { backgroundColor: `${colors.red}1A` },
-        ]}
-      >
-        <AlertTriangle size={compact ? 18 : 22} color={colors.red} />
+      <View style={[styles.message, compact && styles.messageCompact]}>
+        <View
+          style={[
+            styles.iconWrap,
+            compact && styles.iconWrapCompact,
+            { backgroundColor: `${colors.red}1A` },
+          ]}
+        >
+          <AlertTriangle size={compact ? 18 : 22} color={colors.red} />
+        </View>
+        <Text style={[typography.bodyMedium, styles.centered, { color: colors.text }]}>
+          {title}
+        </Text>
+        <Text
+          style={[typography.caption, styles.centered, { color: colors.muted }]}
+        >
+          {description}
+        </Text>
       </View>
-      <Text style={[typography.h2, styles.centered, { color: colors.text }]}>
-        {title}
-      </Text>
-      <Text
-        style={[typography.caption, styles.centered, { color: colors.muted }]}
-      >
-        {description}
-      </Text>
       {onRetry ? (
         <View style={compact ? undefined : styles.action}>
           <Button
@@ -75,6 +77,16 @@ const styles = StyleSheet.create({
   },
   wrapFill: {
     flex: 1,
+  },
+  // Dims the icon/title/description block only, not the Retry button -
+  // matches EmptyState's `message`/`messageCompact`.
+  message: {
+    alignItems: "center",
+    gap: spacing.md,
+    opacity: 0.6,
+  },
+  messageCompact: {
+    gap: spacing.sm,
   },
   iconWrap: {
     width: 48,
