@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { radius } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -78,6 +79,9 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
+          borderTopLeftRadius: radius.sheet,
+          borderTopRightRadius: radius.sheet,
+          overflow: "hidden",
           height: 74 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 12),
