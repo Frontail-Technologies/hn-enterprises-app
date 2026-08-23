@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { getStoredPushToken, setStoredPushToken } from "@/lib/pushNotifications";
+import { ApiError } from "@/services/apiClient";
 import { authService } from "@/services/auth.service";
 import { notificationsApi } from "@/services/notifications.service";
 import type { AuthUser, LoginCredentials } from "@/types/auth";
@@ -60,9 +61,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setUser(stored.user);
         const currentUser = await authService.getCurrentUser();
         if (mounted) setUser(currentUser);
-      } catch {
-        await authService.clearSession();
-        if (mounted) setUser(null);
+      } catch (error) {
+        // Only a genuine "not authenticated" response should clear the
+        // session. apiClient's refresh-then-retry already collapses a truly
+        // expired session down to a 401 here - but a network blip, timeout,
+        // or backend 5xx during cold launch is not "logged out," and wiping
+        // tokens for one forces a real logout + re-login over what's often
+        // just transient connectivity. Keep the optimistically-set cached
+        // user (from getStoredSession above) in that case and let a
+        // subsequent in-app 401 clear things properly instead.
+        const isUnauthorized = error instanceof ApiError && (error.status === 401 || error.status === 403);
+        if (isUnauthorized) {
+          await authService.clearSession();
+          if (mounted) setUser(null);
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }

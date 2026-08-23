@@ -25,7 +25,7 @@ const SHORT_SHIFT_WARNING_MINUTES = 5;
 export default function AttendanceScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { loading: captureLoading, captureLocation } = useCurrentLocation();
+  const { loading: captureLoading, captureLocation, openLocationSettings, getLastLocationError } = useCurrentLocation();
   const [remarks, setRemarks] = useState('');
   const [shortShiftConfirm, setShortShiftConfirm] = useState<{
     captured: CapturedLocation;
@@ -46,10 +46,22 @@ export default function AttendanceScreen() {
     refetch,
   } = useAttendanceStatus();
 
+  // Distinguishes why location capture failed instead of one generic
+  // message: a permanently-denied permission needs Settings, not a retry.
+  // Reads the ref-backed getter (not hook state) so the reason is current
+  // as of this exact call, not whatever the last render happened to see.
+  const reportLocationFailure = () => {
+    const last = getLastLocationError();
+    showToast(last?.message ?? 'Location is required to continue', 'error');
+    if (last?.kind === 'permission_denied_permanently' || last?.kind === 'services_disabled') {
+      openLocationSettings();
+    }
+  };
+
   const handleCheckIn = async () => {
     const captured = await captureLocation();
     if (!captured) {
-      showToast('Location is required to check in', 'error');
+      reportLocationFailure();
       return;
     }
 
@@ -76,7 +88,7 @@ export default function AttendanceScreen() {
   const handleCheckOut = async () => {
     const captured = await captureLocation();
     if (!captured) {
-      showToast('Location is required to check out', 'error');
+      reportLocationFailure();
       return;
     }
 
