@@ -1,15 +1,11 @@
-import { Redirect, Stack } from "expo-router";
+import { Stack } from "expo-router";
 
-import { useAuth } from "@/context/AuthContext";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 export function ProtectedStack() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const authGuard = useAuthGuard();
 
-  if (isLoading) return null;
-
-  if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
-  }
+  if (authGuard.blocked) return authGuard.element;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

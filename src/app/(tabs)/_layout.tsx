@@ -1,4 +1,4 @@
-import { Redirect, Tabs, useSegments } from "expo-router";
+import { Tabs, useSegments } from "expo-router";
 import {
   CalendarDays,
   FileText,
@@ -19,16 +19,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { radius } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
-import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const ROOT_TABS = ["home", "attendance", "customers", "planning", "expenses"];
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { isAuthenticated, isLoading } = useAuth();
+  const authGuard = useAuthGuard();
   const { showToast } = useToast();
   const segments = useSegments();
   const lastBackPressAt = useRef(0);
@@ -60,11 +60,7 @@ export default function TabsLayout() {
     return () => subscription.remove();
   }, [segments, showToast]);
 
-  if (isLoading) return null;
-
-  if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
-  }
+  if (authGuard.blocked) return authGuard.element;
 
   return (
     <Tabs

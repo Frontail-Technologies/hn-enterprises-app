@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -17,12 +17,14 @@ import { useAttendanceStatus } from '@/context/AttendanceContext';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useActivityListFilters } from '@/hooks/useActivityListFilters';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { queryKeys, useRecentActivityQuery } from '@/queries';
 import type { ActivityLogEntry } from '@/types/activity';
 
 export default function ActivityScreen() {
   const { colors } = useTheme();
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const { user } = useAuth();
+  const authGuard = useAuthGuard();
   const { checkInAt, checkOutAt, checkInLocation, checkOutLocation, refetch: refetchAttendance } = useAttendanceStatus();
 
   const extra = useMemo<ActivityLogEntry[]>(() => {
@@ -76,11 +78,12 @@ export default function ActivityScreen() {
     ]);
   }, [queryClient, refetchAttendance]);
 
-  // No _layout.tsx covers this route - it guards itself like ProtectedStack
-  // does elsewhere. Placed after all hook calls above, not before, so hook
-  // call order stays stable every render.
-  if (authLoading) return null;
-  if (!isAuthenticated) return <Redirect href="/auth/login" />;
+  // No _layout.tsx covers this route - it guards itself via the same
+  // centralized check ProtectedStack uses for grouped routes. The early
+  // return itself must stay after all hook calls above (not before), so
+  // hook call order stays stable every render; useAuthGuard() being called
+  // earlier is fine since it's an unconditional hook call, not a bail-out.
+  if (authGuard.blocked) return authGuard.element;
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>

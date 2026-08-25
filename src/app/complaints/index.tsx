@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,14 +15,14 @@ import { Screen } from '@/components/ui/Screen';
 import { complaintStatusFilters, complaintStatusLabels } from '@/constants/complaints';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useComplaintsScreen } from '@/hooks/useComplaintsScreen';
 import { formatCount } from '@/utils/format';
 
 export default function ComplaintsScreen() {
   const { colors } = useTheme();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const authGuard = useAuthGuard();
   const [refreshing, setRefreshing] = useState(false);
   const {
     isLoading,
@@ -52,10 +52,9 @@ export default function ComplaintsScreen() {
     }
   }, [refetch]);
 
-  // No _layout.tsx covers this route - it guards itself like ProtectedStack
-  // does elsewhere.
-  if (authLoading) return null;
-  if (!isAuthenticated) return <Redirect href="/auth/login" />;
+  // No _layout.tsx covers this route - it guards itself via the same
+  // centralized check ProtectedStack uses for grouped routes.
+  if (authGuard.blocked) return authGuard.element;
 
   return (
     <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>

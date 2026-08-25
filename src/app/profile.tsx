@@ -1,4 +1,4 @@
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import { ArrowLeft, CircleHelp, Info, Moon, Sun } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -14,16 +14,17 @@ import { typography } from '@/constants/typography';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccountLogout } from '@/hooks/useAccountLogout';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { user } = useAuth();
+  const authGuard = useAuthGuard();
   const handleLogout = useAccountLogout();
 
-  // No _layout.tsx covers this route - it guards itself like ProtectedStack
-  // does elsewhere.
-  if (isLoading) return null;
-  if (!isAuthenticated) return <Redirect href="/auth/login" />;
+  // No _layout.tsx covers this route - it guards itself via the same
+  // centralized check ProtectedStack uses for grouped routes.
+  if (authGuard.blocked) return authGuard.element;
 
   return (
     <Screen scroll edges={['bottom']} refreshable={false} contentStyle={styles.screen}>

@@ -31,8 +31,18 @@ type ChangePasswordInput = {
   newPassword: string;
 };
 
+// Explicit states instead of inferring auth state from user===null combined
+// with a separate isLoading boolean - that combination is ambiguous exactly
+// when it matters most (a transient bootstrap failure previously had no way
+// to distinguish "still resolving" from "resolved as signed out" from
+// "resolved as signed in but the profile refetch failed"). Every consumer
+// still reads `isAuthenticated`/`isLoading` (derived below) - this is
+// additive, not a breaking change to the existing context shape.
+type AuthStatus = "bootstrapping" | "authenticated" | "unauthenticated";
+
 type AuthContextValue = {
   user: AuthUser | null;
+  status: AuthStatus;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<void>;
@@ -48,7 +58,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<AuthStatus>("bootstrapping");
 
   useEffect(() => {
     let mounted = true;
@@ -56,27 +66,45 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async function bootstrap() {
       try {
         const stored = await authService.getStoredSession();
-        if (!stored) return;
+        if (!stored) {
+          if (mounted) setStatus("unauthenticated");
+          return;
+        }
 
         setUser(stored.user);
-        const currentUser = await authService.getCurrentUser();
-        if (mounted) setUser(currentUser);
-      } catch (error) {
-        // Only a genuine "not authenticated" response should clear the
-        // session. apiClient's refresh-then-retry already collapses a truly
-        // expired session down to a 401 here - but a network blip, timeout,
-        // or backend 5xx during cold launch is not "logged out," and wiping
-        // tokens for one forces a real logout + re-login over what's often
-        // just transient connectivity. Keep the optimistically-set cached
-        // user (from getStoredSession above) in that case and let a
-        // subsequent in-app 401 clear things properly instead.
-        const isUnauthorized = error instanceof ApiError && (error.status === 401 || error.status === 403);
-        if (isUnauthorized) {
-          await authService.clearSession();
-          if (mounted) setUser(null);
+
+        try {
+          const currentUser = await authService.getCurrentUser();
+          if (mounted) {
+            setUser(currentUser);
+            setStatus("authenticated");
+          }
+        } catch (error) {
+          // Only a genuine "not authenticated" response should clear the
+          // session. apiClient's refresh-then-retry already collapses a
+          // truly expired session down to a 401 here - but a network blip,
+          // timeout, or backend 5xx during cold launch is not "logged out,"
+          // and wiping tokens for one forces a real logout + re-login over
+          // what's often just transient connectivity. Resolve as
+          // authenticated using the already-cached user in that case, and
+          // let a subsequent in-app 401 clear things properly instead.
+          const isUnauthorized = error instanceof ApiError && (error.status === 401 || error.status === 403);
+          if (isUnauthorized) {
+            await authService.clearSession();
+            if (mounted) {
+              setUser(null);
+              setStatus("unauthenticated");
+            }
+          } else if (mounted) {
+            setStatus("authenticated");
+          }
         }
-      } finally {
-        if (mounted) setIsLoading(false);
+      } catch {
+        // getStoredSession() itself failing is unexpected (it already
+        // catches its own JSON.parse error internally) - fail safe to
+        // unauthenticated rather than leaving status stuck on
+        // "bootstrapping" forever, which would strand the splash screen.
+        if (mounted) setStatus("unauthenticated");
       }
     }
 
@@ -90,6 +118,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const login = useCallback(async (credentials: LoginCredentials, rememberMe = true) => {
     const session = await authService.login(credentials, rememberMe);
     setUser(session.user);
+    setStatus("authenticated");
   }, []);
 
   const logout = useCallback(async () => {
@@ -112,6 +141,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } finally {
       setStoredPushToken(null);
       setUser(null);
+      setStatus("unauthenticated");
       resetAttendanceReminder();
       // Drop all cached server data so the next user on a shared device can't
       // see the previous supervisor's customers/expenses/stats/notifications
@@ -140,8 +170,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      isAuthenticated: Boolean(user),
-      isLoading,
+      status,
+      isAuthenticated: status === "authenticated",
+      isLoading: status === "bootstrapping",
       login,
       logout,
       refreshUser,
@@ -149,7 +180,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       resetPassword,
       changePassword,
     }),
-    [changePassword, isLoading, login, logout, refreshUser, requestPasswordReset, resetPassword, user],
+    [changePassword, login, logout, refreshUser, requestPasswordReset, resetPassword, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
