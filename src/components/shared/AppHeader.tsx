@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { pagePadding, spacing } from "@/constants/spacing";
+import { pagePadding, radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -79,6 +79,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     paddingHorizontal: pagePadding,
     paddingBottom: spacing.md,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
     zIndex: 10,
   },
   sideAction: {

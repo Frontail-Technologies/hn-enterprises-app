@@ -19,8 +19,9 @@ export const radius = {
   control: 8,
   input: 10,
   button: 12,
-  card: 12,
+  card: 16,
   sheet: 16,
+  navTop: 20,
 };
 
 export const controlHeight = {

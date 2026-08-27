@@ -75,13 +75,14 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          borderTopLeftRadius: radius.sheet,
-          borderTopRightRadius: radius.sheet,
+          borderTopLeftRadius: radius.navTop,
+          borderTopRightRadius: radius.navTop,
           overflow: "hidden",
           height: 74 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 12),
         },
+        animation: "shift",
         tabBarItemStyle: styles.tabItem,
         tabBarIconStyle: styles.tabIcon,
         tabBarLabelStyle: {
@@ -97,7 +98,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon>
+            <TabIcon focused={focused}>
               <Home color={color} size={21} strokeWidth={focused ? 2.6 : 2} />
             </TabIcon>
           ),
@@ -108,7 +109,7 @@ export default function TabsLayout() {
         options={{
           title: "Attendance",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon>
+            <TabIcon focused={focused}>
               <CalendarDays
                 color={color}
                 size={21}
@@ -124,7 +125,7 @@ export default function TabsLayout() {
           title: "Customers",
           href: "/customers",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon>
+            <TabIcon focused={focused}>
               <UsersRound
                 color={color}
                 size={21}
@@ -139,7 +140,7 @@ export default function TabsLayout() {
         options={{
           title: "DPR/Planning",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon>
+            <TabIcon focused={focused}>
               <FileText
                 color={color}
                 size={21}
@@ -154,7 +155,7 @@ export default function TabsLayout() {
         options={{
           title: "Expenses",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon>
+            <TabIcon focused={focused}>
               <IndianRupee
                 color={color}
                 size={21}
@@ -205,8 +206,21 @@ function TabButton({
   );
 }
 
-function TabIcon({ children }: { children: ReactNode }) {
-  return <View style={styles.iconPill}>{children}</View>;
+function TabIcon({
+  children,
+  focused,
+}: {
+  children: ReactNode;
+  focused?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[styles.iconPill, focused && { backgroundColor: colors.softBlue }]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

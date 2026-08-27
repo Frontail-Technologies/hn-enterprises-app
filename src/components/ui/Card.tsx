@@ -30,7 +30,7 @@ export function Card({ children, style, elevated, flat }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.xl,
+    borderRadius: radius.card,
     padding: spacing.md,
   },
   elevated: Platform.select({
