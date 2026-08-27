@@ -7,7 +7,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  BackHandler,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   BottomSheetBackdrop,
   BottomSheetFooter,
@@ -25,6 +32,7 @@ import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { useResponsive } from "@/hooks/useResponsive";
+import { addActionBreadcrumb } from "@/lib/sentry";
 
 type SheetProps = PropsWithChildren<{
   visible: boolean;
@@ -32,12 +40,14 @@ type SheetProps = PropsWithChildren<{
   title?: string;
   description?: string;
   footer?: ReactNode;
-  /**
-   * Explicit snap points, only for the rare sheet that genuinely needs fixed
-   * stops (e.g. a half/full toggle). Omit for normal content - dynamic
-   * sizing (content-driven height) is the default and preferred behavior.
-   */
   snapPoints?: (string | number)[];
+  // A fixed, developer-authored identifier for Sentry breadcrumbs only - e.g.
+  // "attendance_reminder", "customer_filters". Deliberately separate from
+  // `title` (which is display copy a caller can pass dynamically, and some
+  // callers do - e.g. "Filter {column.label}") so a breadcrumb can never end
+  // up carrying customer/business text. Omit it and the sheet still gets a
+  // generic, unnamed open/dismiss breadcrumb.
+  sentryName?: string;
 }>;
 
 export function Sheet({
@@ -47,6 +57,7 @@ export function Sheet({
   description,
   footer,
   snapPoints,
+  sentryName,
   children,
 }: SheetProps) {
   const { colors } = useTheme();
@@ -54,22 +65,10 @@ export function Sheet({
   const { isTablet, isLargeTablet } = useResponsive();
   const sheetMaxWidth = isLargeTablet ? 640 : isTablet ? 600 : undefined;
   const sheetRef = useRef<BottomSheetModal>(null);
-  // The library's default iOS spring (damping 500 / stiffness 1000 /
-  // overshootClamping) settles almost instantly - on a short, dynamically
-  // sized sheet that leaves barely any visible travel, so it reads as a
-  // fade/pop instead of a slide. A plain, slightly longer timing animation
-  // (matching what Android already used by default) gives a clearly visible
-  // slide on both platforms.
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
     easing: Easing.out(Easing.cubic),
   });
-
-  // Tracks whether this modal has ever actually been present()-ed. Without
-  // it, the effect below fires dismiss() on the very first render (visible
-  // starts false for every call site) against a BottomSheetModal that was
-  // never presented - which can wedge its internal state so a *later*
-  // present() silently no-ops instead of opening the sheet.
   const wasPresentedRef = useRef(false);
 
   useEffect(() => {
@@ -77,6 +76,7 @@ export function Sheet({
       if (!wasPresentedRef.current) {
         sheetRef.current?.present();
         wasPresentedRef.current = true;
+        addActionBreadcrumb("sheet", "opened", { name: sentryName ?? "unnamed" });
       }
       return;
     }
@@ -84,29 +84,25 @@ export function Sheet({
     if (wasPresentedRef.current) {
       sheetRef.current?.dismiss();
     }
-  }, [visible]);
+  }, [visible, sentryName]);
 
   const handleDismiss = useCallback(() => {
     wasPresentedRef.current = false;
+    addActionBreadcrumb("sheet", "dismissed", { name: sentryName ?? "unnamed" });
     onClose();
-  }, [onClose]);
+  }, [onClose, sentryName]);
 
-  // Reserves exactly as much bottom padding on the scrollable content as the
-  // fixed footer actually renders at - the footer is a separate, absolutely
-  // positioned overlay (BottomSheetFooter), so without this the last bit of
-  // content sits underneath it.
   const [footerHeight, setFooterHeight] = useState(0);
-
-  // Hardware back closes the sheet instead of falling through to
-  // expo-router's screen-level back navigation - @gorhom/bottom-sheet
-  // doesn't wire this up itself (it has no opinion on navigation).
   useEffect(() => {
     if (Platform.OS !== "android" || !visible) return;
 
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      sheetRef.current?.dismiss();
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        sheetRef.current?.dismiss();
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [visible]);
 
@@ -128,13 +124,14 @@ export function Sheet({
       footer ? (
         <BottomSheetFooter {...props} bottomInset={0}>
           <View
-            onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+            onLayout={(event) =>
+              setFooterHeight(event.nativeEvent.layout.height)
+            }
             style={[
               styles.footerWrap,
               {
-                // insets.bottom already clears the Android nav bar / iOS
-                // home indicator, so only a small gap is added on top.
-                paddingBottom: insets.bottom > 0 ? insets.bottom + spacing.sm : spacing.lg,
+                paddingBottom:
+                  insets.bottom > 0 ? insets.bottom + spacing.sm : spacing.lg,
                 borderTopColor: colors.border,
                 backgroundColor: colors.surface,
               },
@@ -149,12 +146,17 @@ export function Sheet({
 
   const renderHandle = useCallback(
     () => (
-      <View style={[styles.handleContainer, { backgroundColor: colors.surface }]}>
+      <View
+        style={[styles.handleContainer, { backgroundColor: colors.surface }]}
+      >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
         {title ? (
           <>
             <View style={styles.headerRow}>
-              <Text style={[typography.h2, styles.title, { color: colors.text }]} numberOfLines={1}>
+              <Text
+                style={[typography.h2, styles.title, { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {title}
               </Text>
               <Pressable
@@ -168,7 +170,15 @@ export function Sheet({
               </Pressable>
             </View>
             {description ? (
-              <Text style={[typography.label, styles.description, { color: colors.muted }]}>{description}</Text>
+              <Text
+                style={[
+                  typography.label,
+                  styles.description,
+                  { color: colors.muted },
+                ]}
+              >
+                {description}
+              </Text>
             ) : null}
           </>
         ) : null}
@@ -180,7 +190,13 @@ export function Sheet({
   const sheetStyle = useMemo(
     () =>
       sheetMaxWidth
-        ? [{ maxWidth: sheetMaxWidth, width: "100%" as const, alignSelf: "center" as const }]
+        ? [
+            {
+              maxWidth: sheetMaxWidth,
+              width: "100%" as const,
+              alignSelf: "center" as const,
+            },
+          ]
         : undefined,
     [sheetMaxWidth],
   );
@@ -191,14 +207,20 @@ export function Sheet({
     <BottomSheetModal
       ref={sheetRef}
       onDismiss={handleDismiss}
-      // Without this, a tall (dynamically-sized or full-content) sheet can
-      // grow right up to y=0 and render its rounded handle under/behind the
-      // status bar instead of stopping below it.
       topInset={insets.top}
       enableDynamicSizing={enableDynamicSizing}
       enablePanDownToClose
       snapPoints={snapPoints}
       index={0}
+      // @gorhom/bottom-sheet defaults every BottomSheetModal to
+      // stackBehavior "switch", which MINIMIZES (hides) an already-presented
+      // sheet the instant a second one presents - the actual root cause
+      // behind "opening sheet B makes sheet A disappear" wherever one Sheet's
+      // content opens another (e.g. a form's SimpleSelect/DateField, or an
+      // edit sheet opened from within another sheet). "push" stacks the new
+      // sheet on top without touching sheets already presented underneath it,
+      // which is what every such parent -> child flow in this app needs.
+      stackBehavior="push"
       animationConfigs={animationConfigs}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
@@ -206,13 +228,20 @@ export function Sheet({
       backdropComponent={renderBackdrop}
       handleComponent={renderHandle}
       footerComponent={renderFooter}
-      backgroundStyle={[styles.background, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      backgroundStyle={[
+        styles.background,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
       style={sheetStyle}
     >
       <BottomSheetScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: footer ? footerHeight + spacing.lg : Math.max(insets.bottom, spacing.lg) },
+          {
+            paddingBottom: footer
+              ? footerHeight + spacing.lg
+              : Math.max(insets.bottom, spacing.lg),
+          },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
-import { ColumnFilterSheet } from "@/components/shared/ColumnFilterSheet";
 import { FilterButton } from "@/components/shared/FilterButton";
 import { PAGINATION_OVERLAY_SPACE, PaginationOverlay } from "@/components/shared/PaginationOverlay";
 import { ScrollableTable } from "@/components/shared/ScrollableTable";
@@ -192,26 +191,20 @@ export default function CustomersScreen() {
         onClose={() => setFilterMenuOpen(false)}
         columns={customerGridColumns}
         filters={filters}
-        onPickColumn={(column) => {
-          setFilterMenuOpen(false);
-          openFilter(column);
-        }}
         onClearAll={() => {
           clearAllFilters();
           setFilterMenuOpen(false);
         }}
-      />
-
-      <ColumnFilterSheet
         activeColumn={activeColumn}
         activeValues={activeValues}
         pendingValues={pendingValues}
         filterSearch={filterSearch}
+        onOpenColumnFilter={openFilter}
         onSearchChange={setFilterSearch}
         onToggleValue={togglePendingValue}
-        onClose={closeFilter}
-        onClear={clearFilter}
-        onApply={applyFilter}
+        onCloseColumnFilter={closeFilter}
+        onClearColumnFilter={clearFilter}
+        onApplyColumnFilter={applyFilter}
       />
     </Screen>
   );
