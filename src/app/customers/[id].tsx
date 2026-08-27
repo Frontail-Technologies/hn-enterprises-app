@@ -1,6 +1,6 @@
-import { memo, ReactNode, useState } from "react";
+import { memo, ReactNode, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Navigation, Phone, StickyNote } from "lucide-react-native";
+import { ArrowLeft, Info, Navigation, Phone, StickyNote } from "lucide-react-native";
 import {
   Linking,
   Pressable,
@@ -39,11 +39,13 @@ import { Sheet } from "@/components/ui/Sheet";
 import { motion } from "@/constants/motion";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
+import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { useCustomerRecord } from "@/hooks/useCustomerRecord";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { successHaptic } from "@/lib/haptics";
+import { addActionBreadcrumb } from "@/lib/sentry";
 import { useSwipeableTabs } from "@/hooks/useSwipeableTabs";
 import {
   useCreateCustomerNoteMutation,
@@ -116,12 +118,14 @@ function SectionCompletionBar({
 
   const run = (completed: boolean) => {
     if (mutation.isPending) return;
+    addActionBreadcrumb("customer", "section_completion_started", { sectionKey, completed });
     mutation.mutate(
       { sectionKey, completed },
       {
         onSuccess: () => {
           setConfirmOpen(false);
           if (completed) successHaptic();
+          addActionBreadcrumb("customer", "section_completion_succeeded", { sectionKey, completed });
           showToast(
             completed
               ? `${sectionLabel} marked complete.`
@@ -131,6 +135,7 @@ function SectionCompletionBar({
         },
         onError: (error) => {
           setConfirmOpen(false);
+          addActionBreadcrumb("customer", "section_completion_failed", { sectionKey, completed });
           showToast(
             error instanceof Error
               ? error.message
@@ -423,7 +428,22 @@ export default function CustomerWorkspaceScreen() {
 }
 
 function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
+  const { colors } = useTheme();
+  const { user } = useAuth();
   const connection = customer.customerConnection;
+
+  // customer id itself is never included - the route breadcrumb already
+  // records "/customers/:id" with the real id stripped; this just marks that
+  // a detail view was actually reached.
+  useEffect(() => {
+    addActionBreadcrumb("customer", "detail_opened");
+  }, []);
+
+  // The backend is the actual enforcement (every save request is checked
+  // against the customer's assigned supervisor) - this only gives a
+  // supervisor upfront notice instead of letting them fill out a whole form
+  // before hitting a permission error. Admins can always edit.
+  const canEdit = user?.role !== "supervisor" || connection.supervisorId === user?.id;
 
   // Custom field groups share a single hook (one draft/mutation spanning
   // every group tab), so this one stays at the parent - unlike the fixed
@@ -489,6 +509,15 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
           onChange={handleTabChange}
         />
       </StickyHeaderGroup>
+
+      {!canEdit ? (
+        <View style={[styles.readOnlyBanner, { backgroundColor: colors.softOrange }]}>
+          <Info size={16} color={colors.primary} />
+          <Text style={[typography.label, styles.readOnlyText, { color: colors.text }]}>
+            You&apos;re not the assigned supervisor for this customer - changes are view only.
+          </Text>
+        </View>
+      ) : null}
 
       <PagerView
         ref={pagerRef}
@@ -761,6 +790,16 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 0,
+  },
+  readOnlyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  readOnlyText: {
+    flex: 1,
   },
   pager: {
     flex: 1,

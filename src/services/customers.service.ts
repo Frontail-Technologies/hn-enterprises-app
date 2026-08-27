@@ -122,6 +122,7 @@ type BackendCustomer = {
   scheme: string | null;
   plumberName: string | null;
   supervisorName: string | null;
+  supervisorId: string | null;
   giReportNumber: string | null;
   gcReportNumber: string | null;
   conversionReportNumber: string | null;
@@ -276,6 +277,7 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     scheme: raw.scheme ?? "",
     plumberName: raw.plumberName ?? "",
     supervisorName: raw.supervisorName ?? "",
+    supervisorId: raw.supervisorId ?? null,
     // master-import writes this into billingCompletion.jobCardDone, not a top-level column
     jobCardDone: String((raw.billingCompletion as Record<string, unknown> | null)?.jobCardDone ?? ""),
     connectionType: (raw.connectionType as CustomerConnectionDetails["connectionType"]) || "Domestic",

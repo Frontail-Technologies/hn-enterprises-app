@@ -32,6 +32,7 @@ export type CustomerConnectionDetails = {
   scheme: string;
   plumberName: string;
   supervisorName: string;
+  supervisorId: string | null;
   jobCardDone: string;
   connectionType: ConnectionType;
   houseType: string;
