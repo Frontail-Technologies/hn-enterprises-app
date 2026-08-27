@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Check, Eye, EyeOff, Lock, UserRound } from "lucide-react-native";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { z } from "zod";
 
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
+import { useScrollIntoView } from "@/context/ScrollIntoViewContext";
 import { useTheme } from "@/context/ThemeContext";
 import { ApiError } from "@/services/apiClient";
 
@@ -28,6 +29,14 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const scrollIntoView = useScrollIntoView();
+  // The password field's own scroll-into-view only guarantees the input
+  // itself clears the keyboard - not the error text/remember-me row/button
+  // that follow it. Re-targeting the scroll at the submit button on focus
+  // (rather than hardcoding extra clearance in the shared Screen mechanism,
+  // which every other form also relies on) ensures Login stays reachable
+  // without needing to dismiss the keyboard first.
+  const submitRef = useRef<View>(null);
 
   const handleLogin = async () => {
     const parsed = loginSchema.safeParse({ identifier, password });
@@ -92,6 +101,9 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
         }
         onRightIconPress={() => setShowPassword((value) => !value)}
         error={errors.password}
+        returnKeyType="done"
+        onSubmitEditing={() => void handleLogin()}
+        onFocus={() => scrollIntoView?.(submitRef.current)}
       />
       {errors.form ? (
         <Text style={[styles.formError, { color: colors.red }]}>{errors.form}</Text>
@@ -115,7 +127,9 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
           <Text style={[typography.caption, { color: colors.accent }]}>Forgot password?</Text>
         </Pressable>
       </View>
-      <Button label="Sign In" onPress={handleLogin} loading={isSubmitting} />
+      <View ref={submitRef}>
+        <Button label="Sign In" onPress={handleLogin} loading={isSubmitting} />
+      </View>
     </>
   );
 }
