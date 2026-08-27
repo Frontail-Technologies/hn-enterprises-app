@@ -66,7 +66,11 @@ export async function ensureAndroidChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
     name: 'General',
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
+    // Omitted (not 'default') - as of the current expo-notifications native
+    // implementation, any string here (including the literal 'default') is
+    // looked up as a custom sound file registered in the config plugin's
+    // `sounds` array, which this app doesn't have. Omitting it uses the
+    // channel's actual OS default sound with no lookup/warning.
     showBadge: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     vibrationPattern: [0, 250, 250, 250],
