@@ -2,6 +2,8 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 
+import { addActionBreadcrumb, captureUnexpectedError } from '@/lib/sentry';
+
 export type CapturedLocation = {
   latitude: number;
   longitude: number;
@@ -94,6 +96,7 @@ export function useCurrentLocation() {
 
       try {
         const servicesEnabled = await Location.hasServicesEnabledAsync();
+        addActionBreadcrumb('location', 'services_check', { enabled: servicesEnabled });
         if (!servicesEnabled) {
           throw Object.assign(new Error('Location Services are turned off. Enable them in Settings to continue.'), {
             kind: 'services_disabled' as const,
@@ -101,6 +104,7 @@ export function useCurrentLocation() {
         }
 
         const permission = await Location.requestForegroundPermissionsAsync();
+        addActionBreadcrumb('location', 'permission_check', { status: permission.status });
         if (permission.status !== 'granted') {
           const kind: LocationErrorKind = permission.canAskAgain
             ? 'permission_denied'
@@ -139,6 +143,7 @@ export function useCurrentLocation() {
         };
 
         lastErrorRef.current = null;
+        addActionBreadcrumb('location', 'capture_success');
         if (mountedRef.current) setState({ location, loading: false, error: null, errorKind: null });
         return location;
       } catch (error) {
@@ -146,6 +151,11 @@ export function useCurrentLocation() {
           error instanceof LocationTimeoutError
             ? 'timeout'
             : (error as { kind?: LocationErrorKind })?.kind ?? 'unknown';
+        addActionBreadcrumb('location', 'capture_failed', { kind });
+        // 'unknown' means the native module threw something outside the handled
+        // categories above (services disabled / permission / timeout) - a genuinely
+        // unexpected failure worth reporting, not a normal denial/timeout outcome.
+        if (kind === 'unknown') captureUnexpectedError(error, { feature: 'location_capture' });
         const message =
           kind === 'timeout'
             ? "Couldn't get a location fix in time. Try again, ideally outdoors or near a window."

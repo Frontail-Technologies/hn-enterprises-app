@@ -10,6 +10,8 @@
 // runs exactly as before. This only adds a console.error with full context
 // first, so "safe logging" here means strictly additive, never suppresses
 // or changes what happens to the error afterward.
+import { captureUnexpectedError } from "@/lib/sentry";
+
 declare const global: {
   ErrorUtils?: {
     getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
@@ -32,6 +34,7 @@ export function installGlobalErrorHandlers() {
         message: error?.message,
         stack: error?.stack,
       });
+      captureUnexpectedError(error);
       originalHandler(error, isFatal);
     });
   }
@@ -46,6 +49,7 @@ export function installGlobalErrorHandlers() {
   const existingRejectionHandler = globalWithRejectionHandler.onunhandledrejection;
   globalWithRejectionHandler.onunhandledrejection = (event) => {
     console.error("[GlobalError] unhandled promise rejection", { reason: event?.reason });
+    captureUnexpectedError(event?.reason);
     existingRejectionHandler?.(event);
   };
 }

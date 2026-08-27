@@ -55,6 +55,7 @@ export function useLmcPipelinePanel(customer: CustomerRecord, onRefetch?: () => 
         onClose={() => setEditingPipeId(null)}
         title={pipeForm.pipe ? `${pipeForm.pipe.pipeSize} Pipe` : 'Pipe'}
         footer={pipeForm.footer}
+        sentryName="lmc_pipe_edit"
       >
         {pipeForm.content}
       </Sheet>

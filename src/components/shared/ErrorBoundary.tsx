@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import * as Sentry from "@sentry/react-native";
 
 // Nothing in this file existed anywhere in the app before this pass - there
 // was no React error boundary at all, meaning a render-time JS exception
@@ -50,6 +51,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       stack: error.stack,
       componentStack: errorInfo.componentStack,
     });
+    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   reset = () => {

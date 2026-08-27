@@ -24,7 +24,12 @@ type ComplaintUpdateSheetProps = {
 export function ComplaintUpdateSheet({ complaint, visible, preselectedCustomerId, onClose }: ComplaintUpdateSheetProps) {
   const isVisible = visible !== undefined ? visible : Boolean(complaint);
   return (
-    <Sheet visible={isVisible} onClose={onClose} title={complaint ? "Update Complaint" : "Raise Complaint"}>
+    <Sheet
+      visible={isVisible}
+      onClose={onClose}
+      title={complaint ? "Update Complaint" : "Raise Complaint"}
+      sentryName={complaint ? "complaint_update" : "complaint_create"}
+    >
       {complaint ? (
         <ComplaintUpdateForm key={complaint.id} complaint={complaint} onClose={onClose} />
       ) : preselectedCustomerId && isVisible ? (

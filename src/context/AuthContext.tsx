@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { getStoredPushToken, setStoredPushToken } from "@/lib/pushNotifications";
+import { addActionBreadcrumb, clearSentryUser, setSentryUser } from "@/lib/sentry";
 import { ApiError } from "@/services/apiClient";
 import { authService } from "@/services/auth.service";
 import { notificationsApi } from "@/services/notifications.service";
@@ -78,6 +79,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           if (mounted) {
             setUser(currentUser);
             setStatus("authenticated");
+            setSentryUser({ id: currentUser.id, role: currentUser.role });
+            addActionBreadcrumb("auth", "session_restored");
           }
         } catch (error) {
           // Only a genuine "not authenticated" response should clear the
@@ -97,6 +100,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             }
           } else if (mounted) {
             setStatus("authenticated");
+            setSentryUser({ id: stored.user.id, role: stored.user.role });
+            addActionBreadcrumb("auth", "session_restored");
           }
         }
       } catch {
@@ -116,9 +121,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials, rememberMe = true) => {
+    addActionBreadcrumb("auth", "login_started");
     const session = await authService.login(credentials, rememberMe);
     setUser(session.user);
     setStatus("authenticated");
+    setSentryUser({ id: session.user.id, role: session.user.role });
+    addActionBreadcrumb("auth", "login_success");
   }, []);
 
   const logout = useCallback(async () => {
@@ -143,6 +151,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setUser(null);
       setStatus("unauthenticated");
       resetAttendanceReminder();
+      clearSentryUser();
+      addActionBreadcrumb("auth", "logout");
       // Drop all cached server data so the next user on a shared device can't
       // see the previous supervisor's customers/expenses/stats/notifications
       // while their own queries refetch.

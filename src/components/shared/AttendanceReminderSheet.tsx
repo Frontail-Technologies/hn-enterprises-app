@@ -17,7 +17,7 @@ export function AttendanceReminderSheet({ visible, onClose }: AttendanceReminder
   const { colors } = useTheme();
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Check-in Pending">
+    <Sheet visible={visible} onClose={onClose} title="Check-in Pending" sentryName="attendance_reminder">
       <View style={styles.content}>
         <Text style={[styles.copy, { color: colors.muted }]}>
           {"Please check in with your current location before starting field work."}

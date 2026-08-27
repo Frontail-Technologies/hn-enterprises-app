@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { addActionBreadcrumb } from "@/lib/sentry";
 import { customersService } from "@/services/customers.service";
 import { nextPageParam } from "./pagination";
 import type {
@@ -70,64 +71,97 @@ export function invalidateCustomerDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.stats.all });
 }
 
-function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<CustomerRecord>) {
+// `label` is a fixed, developer-authored form identifier for Sentry breadcrumbs only (e.g.
+// "survey", "gi-measurements") - every one of this app's customer-section save mutations already
+// funnels through this one wrapper, so instrumenting FORMS submit started/succeeded/failed here
+// covers all of them without touching any of the individual section panel files.
+function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<CustomerRecord>, label: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn,
+    mutationFn: (body: TBody) => {
+      addActionBreadcrumb("form", "submit_started", { form: label });
+      return mutationFn(body);
+    },
     onSuccess: (customer) => {
+      addActionBreadcrumb("form", "submit_succeeded", { form: label });
       queryClient.setQueryData(queryKeys.customers.detail(customer.id), customer);
       invalidateCustomerDependents(queryClient);
+    },
+    onError: () => {
+      addActionBreadcrumb("form", "submit_failed", { form: label });
     },
   });
 }
 
 export function useSetSectionCompletionMutation(customerId: string) {
-  return useCustomerMutation<{ sectionKey: CompletionSectionKey; completed: boolean }>(({ sectionKey, completed }) =>
-    customersService.setSectionCompletion(customerId, sectionKey, completed),
+  return useCustomerMutation<{ sectionKey: CompletionSectionKey; completed: boolean }>(
+    ({ sectionKey, completed }) => customersService.setSectionCompletion(customerId, sectionKey, completed),
+    "section-completion",
   );
 }
 
 export function useUpdateSurveyMutation(customerId: string) {
-  return useCustomerMutation<CustomerRecord["survey"]>((survey) => customersService.updateSurvey(customerId, survey));
+  return useCustomerMutation<CustomerRecord["survey"]>(
+    (survey) => customersService.updateSurvey(customerId, survey),
+    "survey",
+  );
 }
 
 export function useUpdateGiMeasurementsMutation(customerId: string) {
-  return useCustomerMutation<GiMeasurements>((values) => customersService.updateGiMeasurements(customerId, values));
+  return useCustomerMutation<GiMeasurements>(
+    (values) => customersService.updateGiMeasurements(customerId, values),
+    "gi-measurements",
+  );
 }
 
 export function useUpdateIsolationRegulatorsMutation(customerId: string) {
-  return useCustomerMutation<IsolationFittings>((values) => customersService.updateIsolationRegulators(customerId, values));
+  return useCustomerMutation<IsolationFittings>(
+    (values) => customersService.updateIsolationRegulators(customerId, values),
+    "isolation-regulators",
+  );
 }
 
 export function useUpdateFittingsAccessoriesMutation(customerId: string) {
-  return useCustomerMutation<FittingsAccessories>((values) => customersService.updateFittingsAccessories(customerId, values));
+  return useCustomerMutation<FittingsAccessories>(
+    (values) => customersService.updateFittingsAccessories(customerId, values),
+    "fittings-accessories",
+  );
 }
 
 export function useUpdateCivilWorkMutation(customerId: string) {
-  return useCustomerMutation<Omit<LmcPipelineWork, "pipeRecords">>((values) =>
-    customersService.updateCivilWork(customerId, values),
+  return useCustomerMutation<Omit<LmcPipelineWork, "pipeRecords">>(
+    (values) => customersService.updateCivilWork(customerId, values),
+    "lmc-civil-work",
   );
 }
 
 export function useUpdateMdpeFittingsMutation(customerId: string) {
-  return useCustomerMutation<MdpeFittings>((values) => customersService.updateMdpeFittings(customerId, values));
+  return useCustomerMutation<MdpeFittings>(
+    (values) => customersService.updateMdpeFittings(customerId, values),
+    "mdpe-fittings",
+  );
 }
 
 export function useUpdateCustomFieldsMutation(customerId: string) {
-  return useCustomerMutation<Record<string, string | boolean>>((values) =>
-    customersService.updateCustomFields(customerId, values),
+  return useCustomerMutation<Record<string, string | boolean>>(
+    (values) => customersService.updateCustomFields(customerId, values),
+    "custom-fields",
   );
 }
 
 export function useUpdateCommissioningConversionMutation(customerId: string) {
-  return useCustomerMutation<CommissioningConversion>((values) =>
-    customersService.updateCommissioningConversion(customerId, values),
+  return useCustomerMutation<CommissioningConversion>(
+    (values) => customersService.updateCommissioningConversion(customerId, values),
+    "commissioning-conversion",
   );
 }
 
 export function useUpdateBillingMutation(customerId: string) {
-  return useCustomerMutation<BillingCompletion>((values) => customersService.updateBilling(customerId, values));
+  return useCustomerMutation<BillingCompletion>(
+    (values) => customersService.updateBilling(customerId, values),
+    "billing",
+  );
 }
 
 export function useCustomerNotesQuery(customerId: string | undefined) {

@@ -1,32 +1,50 @@
-import { router } from 'expo-router';
-import { CalendarDays, CheckCircle2, MapPin, Navigation } from 'lucide-react-native';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from "expo-router";
+import {
+  CalendarDays,
+  CheckCircle2,
+  MapPin,
+  Navigation,
+} from "lucide-react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import { AppHeader } from '@/components/shared/AppHeader';
-import { LocationMapView } from '@/components/shared/LocationMapView';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
-import { Screen } from '@/components/ui/Screen';
-import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
-import { useAttendanceStatus } from '@/context/AttendanceContext';
-import { useTheme } from '@/context/ThemeContext';
-import { useToast } from '@/context/ToastContext';
-import type { CapturedLocation } from '@/hooks/useCurrentLocation';
-import { useCurrentLocation } from '@/hooks/useCurrentLocation';
-import { guardNavigation } from '@/lib/navigation';
-import { formatDate, formatTime } from '@/utils/format';
-import { normalizeError } from '@/utils/normalizeError';
+import { AppHeader } from "@/components/shared/AppHeader";
+import { LocationMapView } from "@/components/shared/LocationMapView";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { ConfirmSheet } from "@/components/ui/ConfirmSheet";
+import { Screen } from "@/components/ui/Screen";
+import { radius, spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
+import { useAttendanceStatus } from "@/context/AttendanceContext";
+import { useTheme } from "@/context/ThemeContext";
+import { useToast } from "@/context/ToastContext";
+import type { CapturedLocation } from "@/hooks/useCurrentLocation";
+import { useCurrentLocation } from "@/hooks/useCurrentLocation";
+import { guardNavigation } from "@/lib/navigation";
+import { addActionBreadcrumb } from "@/lib/sentry";
+import { formatDate, formatTime } from "@/utils/format";
+import { normalizeError } from "@/utils/normalizeError";
 
 const SHORT_SHIFT_WARNING_MINUTES = 5;
 
 export default function AttendanceScreen() {
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { loading: captureLoading, captureLocation, openLocationSettings, getLastLocationError } = useCurrentLocation();
-  const [remarks, setRemarks] = useState('');
+  const {
+    loading: captureLoading,
+    captureLocation,
+    openLocationSettings,
+    getLastLocationError,
+  } = useCurrentLocation();
+  const [remarks, setRemarks] = useState("");
   const [shortShiftConfirm, setShortShiftConfirm] = useState<{
     captured: CapturedLocation;
     minutes: number;
@@ -46,42 +64,51 @@ export default function AttendanceScreen() {
     refetch,
   } = useAttendanceStatus();
 
-  // Distinguishes why location capture failed instead of one generic
-  // message: a permanently-denied permission needs Settings, not a retry.
-  // Reads the ref-backed getter (not hook state) so the reason is current
-  // as of this exact call, not whatever the last render happened to see.
   const reportLocationFailure = () => {
     const last = getLastLocationError();
-    showToast(last?.message ?? 'Location is required to continue', 'error');
-    if (last?.kind === 'permission_denied_permanently' || last?.kind === 'services_disabled') {
+    showToast(last?.message ?? "Location is required to continue", "error");
+    if (
+      last?.kind === "permission_denied_permanently" ||
+      last?.kind === "services_disabled"
+    ) {
       openLocationSettings();
     }
   };
 
   const handleCheckIn = async () => {
+    addActionBreadcrumb("attendance", "check_in_tapped");
     const captured = await captureLocation();
     if (!captured) {
       reportLocationFailure();
       return;
     }
 
+    addActionBreadcrumb("attendance", "check_in_request_started");
     try {
       await checkIn(captured);
-      showToast('Checked in successfully', 'success');
+      addActionBreadcrumb("attendance", "check_in_request_succeeded");
+      showToast("Checked in successfully", "success");
     } catch (error) {
-      console.error('[AttendanceScreen] check-in failed', { error });
-      showToast(normalizeError(error, 'Unable to check in - try again'), 'error');
+      addActionBreadcrumb("attendance", "check_in_request_failed");
+      console.error("[AttendanceScreen] check-in failed", { error });
+      showToast(
+        normalizeError(error, "Unable to check in - try again"),
+        "error",
+      );
     }
   };
 
   const submitCheckOut = async (captured: CapturedLocation) => {
     try {
       await checkOut(captured, remarks.trim() || undefined);
-      setRemarks('');
-      showToast('Checked out successfully', 'success');
+      setRemarks("");
+      showToast("Checked out successfully", "success");
     } catch (error) {
-      console.error('[AttendanceScreen] check-out failed', { error });
-      showToast(normalizeError(error, 'Unable to check out - try again'), 'error');
+      console.error("[AttendanceScreen] check-out failed", { error });
+      showToast(
+        normalizeError(error, "Unable to check out - try again"),
+        "error",
+      );
     }
   };
 
@@ -93,11 +120,19 @@ export default function AttendanceScreen() {
     }
 
     const minutesSinceCheckIn = checkInAt
-      ? (new Date(captured.capturedAt).getTime() - new Date(checkInAt).getTime()) / 60000
+      ? (new Date(captured.capturedAt).getTime() -
+          new Date(checkInAt).getTime()) /
+        60000
       : null;
 
-    if (minutesSinceCheckIn != null && minutesSinceCheckIn < SHORT_SHIFT_WARNING_MINUTES) {
-      setShortShiftConfirm({ captured, minutes: Math.max(0, Math.round(minutesSinceCheckIn)) });
+    if (
+      minutesSinceCheckIn != null &&
+      minutesSinceCheckIn < SHORT_SHIFT_WARNING_MINUTES
+    ) {
+      setShortShiftConfirm({
+        captured,
+        minutes: Math.max(0, Math.round(minutesSinceCheckIn)),
+      });
       return;
     }
 
@@ -111,11 +146,22 @@ export default function AttendanceScreen() {
   };
 
   return (
-    <Screen scroll tabBarAware edges={['bottom']} contentStyle={styles.screen} onRefresh={refetch}>
+    <Screen
+      scroll
+      tabBarAware
+      edges={["bottom"]}
+      contentStyle={styles.screen}
+      onRefresh={refetch}
+    >
       <AppHeader
         title="Attendance"
         right={
-          <Pressable onPress={() => guardNavigation(() => router.push('/attendance/history'))} style={styles.headerAction}>
+          <Pressable
+            onPress={() =>
+              guardNavigation(() => router.push("/attendance/history"))
+            }
+            style={styles.headerAction}
+          >
             <CalendarDays size={21} color="#FFFFFF" />
           </Pressable>
         }
@@ -124,17 +170,19 @@ export default function AttendanceScreen() {
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={[typography.label, { color: colors.muted }]}>Checking attendance...</Text>
+          <Text style={[typography.label, { color: colors.muted }]}>
+            Checking attendance...
+          </Text>
         </View>
       ) : isCheckedInToday && checkInLocation ? (
         <View style={styles.content}>
           <Card style={styles.markedCard}>
-            <View style={[styles.successIcon, { backgroundColor: '#DCFCE7' }]}>
+            <View style={[styles.successIcon, { backgroundColor: "#DCFCE7" }]}>
               <CheckCircle2 size={24} color={colors.green} />
             </View>
             <View style={styles.copy}>
               <Text style={[styles.title, { color: colors.text }]}>
-                {isCheckedOutToday ? 'Attendance Completed' : 'Checked In'}
+                {isCheckedOutToday ? "Attendance Completed" : "Checked In"}
               </Text>
               <Text style={[typography.label, { color: colors.muted }]}>
                 In: {formatTime(checkInAt)} : {formatDate(checkInAt)}
@@ -146,8 +194,12 @@ export default function AttendanceScreen() {
               ) : null}
               <View style={styles.locationLine}>
                 <MapPin size={14} color={colors.primary} />
-                <Text style={[typography.label, { color: colors.text }]} numberOfLines={2}>
-                  {checkInLocation.address ?? `${checkInLocation.latitude.toFixed(5)}, ${checkInLocation.longitude.toFixed(5)}`}
+                <Text
+                  style={[typography.label, { color: colors.text }]}
+                  numberOfLines={2}
+                >
+                  {checkInLocation.address ??
+                    `${checkInLocation.latitude.toFixed(5)}, ${checkInLocation.longitude.toFixed(5)}`}
                 </Text>
               </View>
             </View>
@@ -156,7 +208,10 @@ export default function AttendanceScreen() {
           <LocationMapView
             latitude={(checkOutLocation ?? checkInLocation).latitude}
             longitude={(checkOutLocation ?? checkInLocation).longitude}
-            label={(checkOutLocation ?? checkInLocation).address ?? 'Attendance captured here'}
+            label={
+              (checkOutLocation ?? checkInLocation).address ??
+              "Attendance captured here"
+            }
           />
 
           {!isCheckedOutToday ? (
@@ -169,7 +224,11 @@ export default function AttendanceScreen() {
                 multiline
                 style={[
                   styles.remarksInput,
-                  { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
                 ]}
               />
               <Button
@@ -184,7 +243,12 @@ export default function AttendanceScreen() {
       ) : (
         <View style={styles.content}>
           <Card style={styles.markCard}>
-            <View style={[styles.pendingIcon, { backgroundColor: colors.softOrange }]}>
+            <View
+              style={[
+                styles.pendingIcon,
+                { backgroundColor: colors.softOrange },
+              ]}
+            >
               <Navigation size={24} color={colors.primary} />
             </View>
             <Text style={[styles.title, { color: colors.text }]}>Check In</Text>
@@ -225,13 +289,13 @@ const styles = StyleSheet.create({
   headerAction: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   loading: {
     minHeight: 240,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.sm,
   },
   content: {
@@ -244,17 +308,17 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...typography.body,
     fontSize: 14,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   markCard: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.sm,
     padding: spacing.lg,
     borderRadius: radius.card,
   },
   markedCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.card,
@@ -262,15 +326,15 @@ const styles = StyleSheet.create({
   pendingIcon: {
     width: 46,
     height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.sm,
   },
   successIcon: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: radius.sm,
     marginTop: 1,
   },
@@ -287,11 +351,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 13,
     lineHeight: 18,
-    textAlign: 'center',
+    textAlign: "center",
   },
   locationLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
