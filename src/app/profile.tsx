@@ -1,26 +1,26 @@
 import { router } from 'expo-router';
-import { ArrowLeft, CircleHelp, Info, Moon, Sun } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ArrowLeft, CircleHelp, Info, ShieldCheck } from 'lucide-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AccountMenuDivider, AccountMenuRow } from '@/components/profile/AccountMenuRow';
+import { AppearanceMenuRow } from '@/components/profile/AppearanceMenuRow';
 import { LogoutButton } from '@/components/profile/LogoutButton';
 import { ProfileIdentityRow } from '@/components/profile/ProfileIdentityRow';
 import { AppHeader } from '@/components/shared/AppHeader';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
-import { Switch } from '@/components/ui/Switch';
 import { radius, spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
 import { useAccountLogout } from '@/hooks/useAccountLogout';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { openPrivacyPolicy } from '@/utils/openPrivacyPolicy';
 
 export default function ProfileScreen() {
-  const { colors, isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
   const authGuard = useAuthGuard();
   const handleLogout = useAccountLogout();
+  const { showToast } = useToast();
 
   // No _layout.tsx covers this route - it guards itself via the same
   // centralized check ProtectedStack uses for grouped routes.
@@ -36,13 +36,15 @@ export default function ProfileScreen() {
         </Card>
 
         <Card style={styles.menuCard}>
-          <View style={styles.menuRow}>
-            {isDark ? <Sun size={17} color={colors.primary} /> : <Moon size={17} color={colors.primary} />}
-            <Text style={[styles.menuLabel, { color: colors.text }]}>Theme</Text>
-            <Switch value={isDark} onValueChange={toggleTheme} />
-          </View>
+          <AppearanceMenuRow />
           <AccountMenuDivider />
           <AccountMenuRow icon={CircleHelp} label="Support & Help" />
+          <AccountMenuDivider />
+          <AccountMenuRow
+            icon={ShieldCheck}
+            label="Privacy Policy"
+            onPress={() => openPrivacyPolicy(showToast)}
+          />
           <AccountMenuDivider />
           <AccountMenuRow icon={Info} label="About HN Enterprises" />
         </Card>
@@ -82,17 +84,5 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: 'hidden',
     borderRadius: radius.sm,
-  },
-  menuRow: {
-    height: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  menuLabel: {
-    ...typography.label,
-    flex: 1,
-    fontSize: 12,
   },
 });

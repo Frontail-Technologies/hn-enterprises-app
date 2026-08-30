@@ -12,6 +12,14 @@ export function useComplaintsQuery(params: { supervisorId?: string; status?: Com
   });
 }
 
+export function useComplaintStatusCountsQuery(params: { supervisorId?: string } = {}) {
+  return useQuery({
+    queryKey: queryKeys.complaints.statusCounts(params),
+    queryFn: () => complaintsApi.statusCounts(params),
+    staleTime: 60_000,
+  });
+}
+
 const COMPLAINTS_PAGE_SIZE = 100;
 
 export function useComplaintsInfiniteQuery(

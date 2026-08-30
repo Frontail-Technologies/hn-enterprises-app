@@ -3,7 +3,7 @@ import { LockKeyhole } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AttendanceReminderSheet } from '@/components/shared/AttendanceReminderSheet';
+import { AttendanceReminderModal } from '@/components/shared/AttendanceReminderModal';
 import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -98,7 +98,7 @@ export function AttendanceSummarySection() {
         </Pressable>
       </Card>
 
-      <AttendanceReminderSheet visible={reminderVisible} onClose={() => setReminderVisible(false)} />
+      <AttendanceReminderModal visible={reminderVisible} onClose={() => setReminderVisible(false)} />
     </>
   );
 }

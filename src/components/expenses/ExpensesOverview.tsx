@@ -2,23 +2,21 @@ import { IndianRupee } from 'lucide-react-native';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DonutChart } from '@/components/expenses/DonutChart';
-import { formatExpenseCategory } from '@/constants/expenses';
+import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { getExpenseCategoryVisual } from '@/constants/expenseVisuals';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { FilterButton } from '@/components/shared/FilterButton';
 import { RevealGroup } from '@/components/ui/RevealGroup';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SimpleSelect } from '@/components/shared/SimpleSelect';
 import { useTheme } from '@/context/ThemeContext';
 import type { CategoryBreakdownItem } from '@/hooks/useExpensesOverview';
 import type { ExpenseCategory, ExpenseRecord } from '@/services/expenses.service';
-import { formatCurrency, formatDate } from '@/utils/format';
+import { formatCurrency } from '@/utils/format';
 
-const EM_DASH = '—';
 const DONUT_SIZE = 188;
 // Blended toward white for the donut ring only - the category rows below
 // keep the full-saturation color for their icon/tint, this just lightens
@@ -48,14 +46,13 @@ type ExpensesOverviewProps = {
   onMonthChange: (value: string) => void;
   monthSelectOpen: boolean;
   onMonthSelectOpenChange: (open: boolean) => void;
-  filterCount: number;
-  onFilterPress: () => void;
   filteredTotal: number;
   categoryBreakdown: CategoryBreakdownItem[];
   recentExpenses: ExpenseRecord[];
   plumberNameById: Map<string, string>;
   onCategoryPress: (category: ExpenseCategory) => void;
   onViewAllPress: () => void;
+  onExpensePress: (expense: ExpenseRecord) => void;
 };
 
 export function ExpensesOverview({
@@ -70,14 +67,13 @@ export function ExpensesOverview({
   onMonthChange,
   monthSelectOpen,
   onMonthSelectOpenChange,
-  filterCount,
-  onFilterPress,
   filteredTotal,
   categoryBreakdown,
   recentExpenses,
   plumberNameById,
   onCategoryPress,
   onViewAllPress,
+  onExpensePress,
 }: ExpensesOverviewProps) {
   const { colors } = useTheme();
   const hasResults = categoryBreakdown.length > 0;
@@ -97,6 +93,10 @@ export function ExpensesOverview({
         />
       }
     >
+      {/* Month is Overview's own primary browsing control (like the Overview/
+          All Expenses tabs), not a duplicate of the header's Filter action -
+          the FilterButton that used to sit next to it opened the exact same
+          sheet the header's Filter icon does now, so only that was removed. */}
       <View style={styles.filterRow}>
         <View style={styles.monthWrap}>
           <SimpleSelect
@@ -109,7 +109,6 @@ export function ExpensesOverview({
             onChange={onMonthChange}
           />
         </View>
-        <FilterButton activeCount={filterCount} onPress={onFilterPress} />
       </View>
 
       {isLoading ? (
@@ -170,16 +169,16 @@ export function ExpensesOverview({
                 <Text style={[typography.label, { color: colors.primary }]}>View all</Text>
               </Pressable>
             </View>
-            <Card style={styles.listCard}>
-              {recentExpenses.map((expense, index) => (
-                <RecentExpenseRow
+            <View style={styles.recentList}>
+              {recentExpenses.map((expense) => (
+                <ExpenseListItem
                   key={expense.id}
                   expense={expense}
                   plumberNameById={plumberNameById}
-                  last={index === recentExpenses.length - 1}
+                  onPress={onExpensePress}
                 />
               ))}
-            </Card>
+            </View>
           </View>
         </RevealGroup>
       )}
@@ -225,47 +224,6 @@ function CategoryRow({
         {formatCurrency(item.total)}
       </Text>
     </Pressable>
-  );
-}
-
-function RecentExpenseRow({
-  expense,
-  plumberNameById,
-  last,
-}: {
-  expense: ExpenseRecord;
-  plumberNameById: Map<string, string>;
-  last: boolean;
-}) {
-  const { colors } = useTheme();
-  const paidTo =
-    expense.category === 'plumber_payment'
-      ? plumberNameById.get(expense.plumberId) || expense.paidTo || EM_DASH
-      : expense.paidTo || EM_DASH;
-  const meta = [formatDate(expense.date), expense.address || null].filter(Boolean).join(' · ');
-
-  return (
-    <View
-      style={[
-        styles.recentRow,
-        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-      ]}
-    >
-      <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
-        {formatExpenseCategory(expense.category)}
-      </Text>
-      <View style={styles.recentMidRow}>
-        <Text style={[styles.recentPaidTo, { color: colors.text }]} numberOfLines={1}>
-          {paidTo}
-        </Text>
-        <Text style={[styles.recentAmount, { color: colors.primary }]} numberOfLines={1}>
-          {formatCurrency(expense.amount)}
-        </Text>
-      </View>
-      <Text style={[styles.recentMeta, { color: colors.muted }]} numberOfLines={1}>
-        {meta}
-      </Text>
-    </View>
   );
 }
 
@@ -376,34 +334,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontVariant: ['tabular-nums'],
   },
-  recentRow: {
-    gap: 3,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  recentMidRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  recentList: {
     gap: spacing.sm,
-  },
-  recentPaidTo: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: typography.caption.fontFamily,
-    fontSize: 12,
-    lineHeight: 15,
-  },
-  recentAmount: {
-    fontFamily: typography.bodyMedium.fontFamily,
-    fontSize: 13.5,
-    lineHeight: 17,
-    fontVariant: ['tabular-nums'],
-  },
-  recentMeta: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: 11.5,
-    lineHeight: 15,
   },
   skeletonWrap: {
     gap: spacing.md,

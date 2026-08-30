@@ -54,6 +54,7 @@ export function useCustomersGrid() {
 
   const {
     filters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -67,6 +68,9 @@ export function useCustomersGrid() {
     applyFilter,
     clearFilter,
     clearAllFilters,
+    commitFilters,
+    discardDraft,
+    resetAllFilters,
     activeFilterCount,
   } = useColumnFilters(customerGridColumns, rows);
 
@@ -114,6 +118,7 @@ export function useCustomersGrid() {
     filteredRows,
     openCustomer,
     filters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -126,6 +131,9 @@ export function useCustomersGrid() {
     applyFilter,
     clearFilter,
     clearAllFilters,
+    commitFilters,
+    discardDraft,
+    resetAllFilters,
     activeFilterCount,
   };
 }

@@ -1,7 +1,8 @@
 import { MessageSquareWarning } from 'lucide-react-native';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
@@ -29,13 +30,10 @@ export const ComplaintListItem = memo(function ComplaintListItem({ complaint, on
   const tone = priorityTone(complaint.priority, colors);
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={() => onPress(complaint)}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        pressed && { opacity: 0.72 },
-      ]}
+      scaleTo={0.99}
+      style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
       <View style={[styles.iconWrap, { backgroundColor: tone.background }]}>
         <MessageSquareWarning size={18} color={tone.color} />
@@ -49,7 +47,7 @@ export const ComplaintListItem = memo(function ComplaintListItem({ complaint, on
         </Text>
       </View>
       <Text style={[typography.caption, { color: colors.muted }]}>{getRelativeTime(complaint.createdAt)}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 });
 

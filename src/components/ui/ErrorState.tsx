@@ -1,10 +1,10 @@
-import { AlertTriangle } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { radius, spacing } from "@/constants/spacing";
+import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 import { Button } from "./Button";
+import { StateIllustration } from "./StateIllustration";
 
 type ErrorStateProps = {
   title?: string;
@@ -16,37 +16,37 @@ type ErrorStateProps = {
   // centers within a View that's already exactly its own content's size,
   // which does nothing visually when used as a list's ListEmptyComponent.
   fill?: boolean;
+  // Swaps the illustration/default copy for the no-internet variant - opt-in
+  // for call sites that already know the failure is a connectivity issue,
+  // rather than guessing from the error object.
+  offline?: boolean;
 };
 
 export function ErrorState({
-  title = "Something went wrong",
-  description = "Please try again in a moment.",
+  title,
+  description,
   onRetry,
   retryLabel = "Retry",
   compact,
   fill,
+  offline,
 }: ErrorStateProps) {
   const { colors } = useTheme();
+  const resolvedTitle = title ?? (offline ? "You're offline" : "Something went wrong");
+  const resolvedDescription =
+    description ?? (offline ? "Check your internet connection and try again." : "Please try again in a moment.");
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact, fill && styles.wrapFill]}>
       <View style={[styles.message, compact && styles.messageCompact]}>
-        <View
-          style={[
-            styles.iconWrap,
-            compact && styles.iconWrapCompact,
-            { backgroundColor: `${colors.red}1A` },
-          ]}
-        >
-          <AlertTriangle size={compact ? 18 : 22} color={colors.red} />
-        </View>
+        <StateIllustration kind={offline ? "offline" : "error"} size={compact ? 48 : 64} />
         <Text style={[typography.bodyMedium, styles.centered, { color: colors.text }]}>
-          {title}
+          {resolvedTitle}
         </Text>
         <Text
           style={[typography.caption, styles.centered, { color: colors.muted }]}
         >
-          {description}
+          {resolvedDescription}
         </Text>
       </View>
       {onRetry ? (
@@ -87,17 +87,6 @@ const styles = StyleSheet.create({
   },
   messageCompact: {
     gap: spacing.sm,
-  },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill,
-  },
-  iconWrapCompact: {
-    width: 36,
-    height: 36,
   },
   centered: {
     textAlign: "center",

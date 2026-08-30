@@ -1,16 +1,28 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useComplaintsInfiniteQuery } from '@/queries';
 import type { ComplaintRecord } from '@/services/complaints.service';
+import { complaintStatusFilters } from '@/constants/complaints';
 import type { ComplaintStatusFilter } from '@/types/complaints';
 import { dedupeById } from '@/utils/dedupeById';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
+function initialStatusFilter(param: string | string[] | undefined): ComplaintStatusFilter {
+  const value = Array.isArray(param) ? param[0] : param;
+  return complaintStatusFilters.includes(value as ComplaintStatusFilter)
+    ? (value as ComplaintStatusFilter)
+    : 'All';
+}
+
 export function useComplaintsScreen() {
+  const { status: statusParam } = useLocalSearchParams<{ status?: string }>();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ComplaintStatusFilter>('All');
+  const [statusFilter, setStatusFilter] = useState<ComplaintStatusFilter>(() =>
+    initialStatusFilter(statusParam),
+  );
   const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
 
   // Search now hits the server (paginated results can't be filtered

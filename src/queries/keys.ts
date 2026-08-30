@@ -120,6 +120,8 @@ export const queryKeys = {
       status?: string;
       search?: string;
     }) => ["complaints", "list", "infinite", params] as const,
+    statusCounts: (params: { supervisorId?: string }) =>
+      ["complaints", "status-counts", params] as const,
   },
   masters: {
     all: ["masters"] as const,

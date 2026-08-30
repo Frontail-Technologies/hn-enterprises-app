@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, FileText, ImageIcon, MapPin, Plus, RefreshCcw, RotateCcw, X } from 'lucide-react-native';
+import { Camera, FileText, ImageIcon, Plus, RefreshCcw, RotateCcw, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -19,7 +19,6 @@ import {
 } from '@/constants/uploads';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
-import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import type { EvidenceFile } from '@/types/evidence';
 import { processEvidenceImage } from '@/services/imageProcessing';
 import { resolveMediaUrl, uploadFile, type UploadAsset } from '@/services/uploads.service';
@@ -72,7 +71,6 @@ export function EvidenceUploader({
 }: EvidenceUploaderProps) {
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { location, error: locationError, loading: locationLoading, captureLocation } = useCurrentLocation();
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles);
   const [previewFile, setPreviewFile] = useState<EvidenceFile | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -123,7 +121,11 @@ export function EvidenceUploader({
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 });
+    // quality < 1 asks the native picker to compress the capture itself, instead of handing
+    // back a full-resolution (12-48MP+) decoded original that processEvidenceImage below is
+    // just going to downscale/recompress anyway - avoids the extra memory pressure of decoding
+    // the largest possible source image only to immediately shrink it.
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (result.canceled) return;
     queueAssets(result.assets.map((asset) => fromImageAsset(asset)));
   };
@@ -138,7 +140,7 @@ export function EvidenceUploader({
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsMultipleSelection: true,
       mediaTypes: ['images'],
-      quality: 1,
+      quality: 0.8,
     });
     if (result.canceled) return;
     queueAssets(result.assets.map((asset) => fromImageAsset(asset)));
@@ -218,9 +220,6 @@ export function EvidenceUploader({
     setProcessing(true);
     try {
       const capturedAt = new Date().toISOString();
-      const gpsLocation = location
-        ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
-        : undefined;
       const stamp = Date.now();
       const staged: EvidenceFile[] = [];
       const rejected: string[] = [];
@@ -232,7 +231,6 @@ export function EvidenceUploader({
           label: asset.label.trim() || undefined,
           status: (deferUpload ? 'Pending' : 'Uploading') as EvidenceFile['status'],
           capturedAt,
-          gpsLocation,
         };
 
         if (asset.isImage) {
@@ -276,7 +274,15 @@ export function EvidenceUploader({
   };
 
   const replaceFile = async (id: string) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+    // pickFromGallery (above) checks this before presenting the picker - this call site was
+    // missing the same check.
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast('Photo library permission is required.', 'error');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (result.canceled) return;
 
     const asset = result.assets[0];
@@ -395,25 +401,6 @@ export function EvidenceUploader({
                 <EvidenceAction icon={ImageIcon} label="Gallery" onPress={pickFromGallery} />
                 <EvidenceAction icon={FileText} label="File" onPress={pickFromFiles} />
               </View>
-              <Pressable
-                onPress={captureLocation}
-                disabled={locationLoading}
-                style={[styles.gpsButton, { borderColor: location ? colors.green : colors.border }]}
-              >
-                <MapPin size={14} color={location ? colors.green : colors.muted} />
-                <Text style={[styles.gpsText, { color: location ? colors.green : colors.muted }]}>
-                  {locationLoading
-                    ? 'Getting location…'
-                    : location
-                      ? `Location attached${location.accuracy ? ` · ±${Math.round(location.accuracy)}m` : ''}`
-                      : 'Tag current location'}
-                </Text>
-              </Pressable>
-              {locationError ? (
-                <Text style={[typography.label, { color: colors.red }]}>
-                  {locationError} Enable location permission in Settings to tag evidence.
-                </Text>
-              ) : null}
             </>
           ) : (
             <>
@@ -603,18 +590,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   actionText: {
-    ...typography.label,
-  },
-  gpsButton: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-  },
-  gpsText: {
     ...typography.label,
   },
   pendingRow: {

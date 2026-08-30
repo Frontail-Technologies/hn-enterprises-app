@@ -1,6 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, SlidersHorizontal, X } from 'lucide-react-native';
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/AppHeader';
@@ -22,6 +23,7 @@ import { formatDate, formatTime } from '@/utils/format';
 export default function NotificationsScreen() {
   const { colors } = useTheme();
   const authGuard = useAuthGuard();
+  const [filterOpen, setFilterOpen] = useState(false);
   const { notifications: allNotifications, markAllAsRead, isLoading } = useNotifications();
   const {
     notifications,
@@ -50,10 +52,50 @@ export default function NotificationsScreen() {
       <AppHeader
         title="Notifications"
         left={<BackButton />}
+        actions={
+          filterOpen
+            ? undefined
+            : [
+                {
+                  key: 'filter',
+                  icon: SlidersHorizontal,
+                  accessibilityLabel: 'Filter notifications',
+                  active: hasFilter,
+                  onPress: () => setFilterOpen(true),
+                },
+              ]
+        }
         right={
-          <Pressable onPress={markAllAsRead} hitSlop={10} style={styles.markAllButton}>
-            <Text style={[typography.label, styles.markAllText]}>Mark all read</Text>
-          </Pressable>
+          filterOpen ? undefined : (
+            <Pressable onPress={markAllAsRead} hitSlop={10} style={styles.markAllButton}>
+              <Text style={[typography.label, styles.markAllText]}>Mark all read</Text>
+            </Pressable>
+          )
+        }
+        bottomContent={
+          filterOpen ? (
+            <View style={styles.filtersRow}>
+              <SimpleSelect
+                label="Date"
+                value={dateFilter}
+                options={notificationDateFilters}
+                open={dateSelectOpen}
+                onOpenChange={setDateSelectOpen}
+                onChange={setDateFilter}
+              />
+              <SimpleSelect
+                label="Type"
+                value={typeFilter}
+                options={notificationTypeFilters}
+                open={typeSelectOpen}
+                onOpenChange={setTypeSelectOpen}
+                onChange={setTypeFilter}
+              />
+              <Pressable onPress={() => setFilterOpen(false)} style={styles.headerAction}>
+                <X size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ) : undefined
         }
       />
 
@@ -64,26 +106,6 @@ export default function NotificationsScreen() {
         renderItem={({ item }) => <NotificationListItem item={item} onPress={setSelectedNotification} />}
         ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.filtersRow}>
-            <SimpleSelect
-              label="Date"
-              value={dateFilter}
-              options={notificationDateFilters}
-              open={dateSelectOpen}
-              onOpenChange={setDateSelectOpen}
-              onChange={setDateFilter}
-            />
-            <SimpleSelect
-              label="Type"
-              value={typeFilter}
-              options={notificationTypeFilters}
-              open={typeSelectOpen}
-              onOpenChange={setTypeSelectOpen}
-              onChange={setTypeFilter}
-            />
-          </View>
-        }
         ListEmptyComponent={
           isLoading ? (
             <ComplaintBoxSkeleton />
@@ -171,8 +193,8 @@ const styles = StyleSheet.create({
   },
   filtersRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
   },
   listContent: {
     // flexGrow (not flex) - a scroll content container sizes to its own

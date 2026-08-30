@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { ArrowLeft, Search } from 'lucide-react-native';
+import { ArrowLeft, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -24,6 +24,8 @@ export default function ComplaintsScreen() {
   const { colors } = useTheme();
   const authGuard = useAuthGuard();
   const [refreshing, setRefreshing] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const {
     isLoading,
     isError,
@@ -66,6 +68,75 @@ export default function ComplaintsScreen() {
             <ArrowLeft size={22} color="#FFFFFF" />
           </Pressable>
         }
+        actions={
+          searchOpen || filterOpen
+            ? undefined
+            : [
+                {
+                  key: 'search',
+                  icon: Search,
+                  accessibilityLabel: 'Search complaints',
+                  onPress: () => {
+                    setFilterOpen(false);
+                    setSearchOpen(true);
+                  },
+                },
+                {
+                  key: 'filter',
+                  icon: SlidersHorizontal,
+                  accessibilityLabel: 'Filter complaints',
+                  // Reflects a status filter that arrived via Home's deep link
+                  // just as much as one set here - statusFilter's initial
+                  // value already comes from the route param (see
+                  // useComplaintsScreen), so this is accurate either way.
+                  active: statusFilter !== 'All',
+                  onPress: () => {
+                    setSearchOpen(false);
+                    setFilterOpen(true);
+                  },
+                },
+              ]
+        }
+        bottomContent={
+          searchOpen ? (
+            <View style={styles.expandedRow}>
+              <View style={styles.expandedInput}>
+                <Input
+                  autoFocus
+                  placeholder="Search complaint or customer..."
+                  value={search}
+                  onChangeText={setSearch}
+                  leftIcon={<Search size={18} color={colors.muted} />}
+                />
+              </View>
+              <Pressable
+                onPress={() => {
+                  setSearch('');
+                  setSearchOpen(false);
+                }}
+                style={styles.headerAction}
+              >
+                <X size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ) : filterOpen ? (
+            <View style={styles.expandedRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                {complaintStatusFilters.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item === 'All' ? 'All' : complaintStatusLabels[item]}
+                    active={statusFilter === item}
+                    onPress={() => setStatusFilter(item)}
+                  />
+                ))}
+              </ScrollView>
+              <Pressable onPress={() => setFilterOpen(false)} style={styles.headerAction}>
+                <X size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ) : undefined
+        }
       />
 
       <FlashList
@@ -85,29 +156,7 @@ export default function ComplaintsScreen() {
             progressBackgroundColor={colors.card}
           />
         }
-        ListHeaderComponent={
-          <View style={styles.headerBlock}>
-            <Input
-              placeholder="Search complaint or customer..."
-              value={search}
-              onChangeText={setSearch}
-              leftIcon={<Search size={18} color={colors.muted} />}
-            />
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {complaintStatusFilters.map((item) => (
-                <FilterChip
-                  key={item}
-                  label={item === 'All' ? 'All' : complaintStatusLabels[item]}
-                  active={statusFilter === item}
-                  onPress={() => setStatusFilter(item)}
-                />
-              ))}
-            </ScrollView>
-
-            {isLoading ? <ComplaintBoxSkeleton /> : null}
-          </View>
-        }
+        ListHeaderComponent={isLoading ? <View style={styles.headerBlock}><ComplaintBoxSkeleton /></View> : null}
         ListEmptyComponent={
           isLoading ? null : (
             <EmptyState
@@ -159,8 +208,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  expandedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  expandedInput: {
+    flex: 1,
+    minWidth: 0,
+  },
   headerBlock: {
-    gap: spacing.lg,
     paddingBottom: spacing.md,
   },
   chips: {

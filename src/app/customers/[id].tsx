@@ -1,6 +1,25 @@
 import { memo, ReactNode, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Info, Navigation, Phone, StickyNote } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Building2,
+  CircleDot,
+  ClipboardList,
+  FileImage,
+  Gauge,
+  Info,
+  Link2,
+  MessageSquareWarning,
+  Navigation,
+  Phone,
+  Receipt,
+  Route,
+  Ruler,
+  StickyNote,
+  User,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react-native";
 import {
   Linking,
   Pressable,
@@ -357,39 +376,53 @@ const FIXED_SECTIONS: {
   key: string;
   label: string;
   Component: (props: PanelProps) => ReactNode;
+  // Only the fixed sections get a tab icon - the dynamic custom-field-group
+  // tabs appended after these (see customFieldGroupTabs) are admin-
+  // configurable, so there's no sensible fixed icon to assign them.
+  icon: LucideIcon;
 }[] = [
-  { key: "customer", label: "Customer", Component: CustomerPanelPageMemo },
-  { key: "survey", label: "Survey", Component: SurveyPanelPageMemo },
-  { key: "gi-measurements", label: "GI Measurements", Component: GiPanelPageMemo },
+  { key: "customer", label: "Customer", Component: CustomerPanelPageMemo, icon: User },
+  { key: "survey", label: "Survey", Component: SurveyPanelPageMemo, icon: ClipboardList },
+  { key: "gi-measurements", label: "GI Measurements", Component: GiPanelPageMemo, icon: Ruler },
   {
     key: "isolation-regulators",
     label: "Isolation & Regulators",
     Component: IsolationPanelPageMemo,
+    icon: CircleDot,
   },
   {
     key: "fittings-accessories",
     label: "Fittings & Accessories",
     Component: FittingsPanelPageMemo,
+    icon: Wrench,
   },
-  { key: "lmc", label: "LMC Pipeline", Component: LmcPanelPageMemo },
-  { key: "civil-work", label: "Civil Work", Component: CivilPanelPageMemo },
-  { key: "mdpe-fittings", label: "MDPE Fittings", Component: MdpePanelPageMemo },
+  { key: "lmc", label: "LMC Pipeline", Component: LmcPanelPageMemo, icon: Route },
+  { key: "civil-work", label: "Civil Work", Component: CivilPanelPageMemo, icon: Building2 },
+  { key: "mdpe-fittings", label: "MDPE Fittings", Component: MdpePanelPageMemo, icon: Link2 },
   {
     key: "meter-commissioning",
     label: "Meter & Commissioning",
     Component: MeterPanelPageMemo,
+    icon: Gauge,
   },
   {
     key: "billing-remarks",
     label: "JMR / Billing Remarks",
     Component: BillingPanelPageMemo,
+    icon: Receipt,
   },
   {
     key: "documents",
     label: "Photos / Documents",
     Component: DocumentsPanelPageMemo,
+    icon: FileImage,
   },
-  { key: "complaints", label: "Complaints", Component: ComplaintsPanelPageMemo },
+  {
+    key: "complaints",
+    label: "Complaints",
+    Component: ComplaintsPanelPageMemo,
+    icon: MessageSquareWarning,
+  },
 ];
 
 export default function CustomerWorkspaceScreen() {
@@ -454,13 +487,17 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
     ...FIXED_SECTIONS.map((section) => ({
       key: section.key,
       label: section.label,
+      icon: section.icon as LucideIcon | undefined,
       render: () => (
         <section.Component customer={customer} onRefetch={onRefetch} />
       ),
     })),
+    // No icon for these - admin-configurable custom field groups, not part
+    // of the fixed section set (see FIXED_SECTIONS' own comment).
     ...customFieldGroupTabs.map((group) => ({
       key: group.key,
       label: group.label,
+      icon: undefined as LucideIcon | undefined,
       render: () => (
         <SectionPage footer={group.panel.footer}>
           {group.panel.content}
@@ -500,6 +537,7 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
             return {
               key: tab.key,
               label: tab.label,
+              icon: tab.icon,
               status: completionKey
                 ? customer.sectionCompletion?.[completionKey]?.status
                 : undefined,
@@ -507,6 +545,7 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
           })}
           activeKey={activeSection}
           onChange={handleTabChange}
+          surface
         />
       </StickyHeaderGroup>
 
@@ -562,9 +601,11 @@ function CustomerWorkspaceSkeleton({
           tabs={FIXED_SECTIONS.map((section) => ({
             key: section.key,
             label: section.label,
+            icon: section.icon,
           }))}
           activeKey={FIXED_SECTIONS[0].key}
           onChange={() => {}}
+          surface
         />
       </StickyHeaderGroup>
 

@@ -1,10 +1,9 @@
 import { FlashList } from "@shopify/flash-list";
-import { Search, UsersRound } from "lucide-react-native";
+import { ChevronLeft, Search, SlidersHorizontal, UsersRound, X } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
-import { FilterButton } from "@/components/shared/FilterButton";
 import { PAGINATION_OVERLAY_SPACE, PaginationOverlay } from "@/components/shared/PaginationOverlay";
 import { ScrollableTable } from "@/components/shared/ScrollableTable";
 import { TableFilterSheet } from "@/components/shared/TableFilterSheet";
@@ -54,7 +53,7 @@ export default function CustomersScreen() {
     total,
     filteredRows,
     openCustomer,
-    filters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -65,34 +64,69 @@ export default function CustomersScreen() {
     togglePendingValue,
     applyFilter,
     clearFilter,
-    clearAllFilters,
+    commitFilters,
+    discardDraft,
+    resetAllFilters,
     activeFilterCount,
   } = useCustomersGrid();
 
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const hasQueryOrFilter = search.trim().length > 0 || activeFilterCount > 0;
   const showSpinner = filteredRows.length > 0 && isFetchingNextPage;
   const showRetry = filteredRows.length > 0 && !isFetchingNextPage && isError && hasNextPage;
   const showPaginationFooter = showSpinner || showRetry;
 
   return (
-    <Screen edges={[]} contentStyle={styles.screen} revealContent={false}>
-      <AppHeader title="Customers" />
-
-      <View style={styles.toolbar}>
-        <View style={styles.searchWrap}>
-          <Input
-            placeholder="Search customer, BP/TR, mobile or address"
-            value={search}
-            onChangeText={setSearch}
-            leftIcon={<Search size={18} color={colors.muted} />}
-          />
-        </View>
-        <FilterButton
-          activeCount={activeFilterCount}
-          onPress={() => setFilterMenuOpen(true)}
-        />
-      </View>
+    <Screen tabBarAware edges={[]} contentStyle={styles.screen} revealContent={false}>
+      <AppHeader
+        title="Customers"
+        actions={
+          searchOpen
+            ? undefined
+            : [
+                {
+                  key: 'search',
+                  icon: Search,
+                  accessibilityLabel: 'Search customers',
+                  onPress: () => setSearchOpen(true),
+                },
+                {
+                  key: 'filter',
+                  icon: SlidersHorizontal,
+                  accessibilityLabel: 'Filter customers',
+                  active: activeFilterCount > 0,
+                  // Opens the existing TableFilterSheet directly - it's
+                  // already a modal, not an inline row, so there's no
+                  // bottomContent expansion for this one.
+                  onPress: () => setFilterMenuOpen(true),
+                },
+              ]
+        }
+        bottomContent={
+          searchOpen ? (
+            <View style={styles.toolbar}>
+              {/* Collapses the row without clearing - the query stays
+                  active in the background exactly as if the row were still
+                  expanded. Clearing is the Input's own rightIcon below. */}
+              <Pressable onPress={() => setSearchOpen(false)} style={styles.collapseButton}>
+                <ChevronLeft size={20} color="#FFFFFF" />
+              </Pressable>
+              <View style={styles.searchWrap}>
+                <Input
+                  autoFocus
+                  placeholder="Search customer, BP/TR, mobile or address"
+                  value={search}
+                  onChangeText={setSearch}
+                  leftIcon={<Search size={18} color={colors.muted} />}
+                  rightIcon={search ? <X size={16} color={colors.muted} /> : undefined}
+                  onRightIconPress={() => setSearch('')}
+                />
+              </View>
+            </View>
+          ) : undefined
+        }
+      />
 
       <Text style={[styles.resultText, { color: colors.muted }]}>
         {isLoading ? "Loading customers…" : formatCount(filteredRows.length, total, "customers")}
@@ -188,11 +222,18 @@ export default function CustomersScreen() {
 
       <TableFilterSheet
         visible={filterMenuOpen}
-        onClose={() => setFilterMenuOpen(false)}
+        onClose={() => {
+          discardDraft();
+          setFilterMenuOpen(false);
+        }}
+        onApply={() => {
+          commitFilters();
+          setFilterMenuOpen(false);
+        }}
         columns={customerGridColumns}
-        filters={filters}
+        filters={draftFilters}
         onClearAll={() => {
-          clearAllFilters();
+          resetAllFilters();
           setFilterMenuOpen(false);
         }}
         activeColumn={activeColumn}
@@ -277,6 +318,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  collapseButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchWrap: {
     flex: 1,

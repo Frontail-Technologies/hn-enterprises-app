@@ -46,6 +46,11 @@ export const FullScreenForm = forwardRef<FullScreenFormHandle, FullScreenFormPro
     <SafeAreaView edges={['bottom']} style={[styles.flex, { backgroundColor: colors.background }]}>
       <AppHeader
         title={title}
+        // Doesn't go through Screen's sticky-header mechanism (this form has
+        // its own SafeAreaView/ScrollView) - AppHeader no longer carries its
+        // own marginBottom by default (see Screen.tsx's headerGap for why),
+        // so it's restored here directly via AppHeader's own style override.
+        style={styles.header}
         left={
           <Pressable onPress={onBack} style={styles.back} hitSlop={8}>
             <ArrowLeft size={22} color="#FFFFFF" />
@@ -76,6 +81,9 @@ export const FullScreenForm = forwardRef<FullScreenFormHandle, FullScreenFormPro
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  header: {
+    marginBottom: spacing.md,
   },
   back: {
     width: 36,

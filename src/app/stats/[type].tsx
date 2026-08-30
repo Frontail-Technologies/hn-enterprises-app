@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Search } from 'lucide-react-native';
+import { ArrowLeft, ChevronLeft, Search, X } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
@@ -39,6 +39,7 @@ export default function StatDetailScreen() {
   const { colors, isDark } = useTheme();
   const dividers = tableDividers(colors, isDark);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { data: stats = [] } = useSupervisorStatsQuery();
   const stat = stats.find((item) => item.id === type) ?? null;
   const { rows, total, isLoading, isFetchingNextPage, hasNextPage, loadMore, refetch, error } = useSupervisorStatDetails(
@@ -61,13 +62,43 @@ export default function StatDetailScreen() {
 
   return (
     <Screen scroll={false} edges={['bottom']} contentStyle={styles.screen} revealContent={false}>
-      <AppHeader title={stat?.label ?? 'Stat Details'} subtitle={`${filteredRows.length} records`} left={<BackButton />} />
-
-      <Input
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Search BP/TR, customer, address or site..."
-        leftIcon={<Search size={18} color={colors.muted} />}
+      <AppHeader
+        title={stat?.label ?? 'Stat Details'}
+        subtitle={`${filteredRows.length} records`}
+        left={<BackButton />}
+        actions={
+          searchOpen
+            ? undefined
+            : [
+                {
+                  key: 'search',
+                  icon: Search,
+                  accessibilityLabel: 'Search records',
+                  active: hasFilter,
+                  onPress: () => setSearchOpen(true),
+                },
+              ]
+        }
+        bottomContent={
+          searchOpen ? (
+            <View style={styles.expandedRow}>
+              <Pressable onPress={() => setSearchOpen(false)} style={styles.headerButton}>
+                <ChevronLeft size={20} color="#FFFFFF" />
+              </Pressable>
+              <View style={styles.expandedContent}>
+                <Input
+                  autoFocus
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search BP/TR, customer, address or site..."
+                  leftIcon={<Search size={18} color={colors.muted} />}
+                  rightIcon={search ? <X size={16} color={colors.muted} /> : undefined}
+                  onRightIconPress={() => setSearch('')}
+                />
+              </View>
+            </View>
+          ) : undefined
+        }
       />
 
       <View style={styles.tablePanel}>
@@ -232,6 +263,15 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  expandedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  expandedContent: {
+    flex: 1,
+    minWidth: 0,
   },
   tablePanel: {
     flex: 1,

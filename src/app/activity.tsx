@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
-import { useCallback, useMemo } from 'react';
+import { ArrowLeft, SlidersHorizontal, X } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
@@ -25,6 +25,7 @@ export default function ActivityScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const authGuard = useAuthGuard();
+  const [filterOpen, setFilterOpen] = useState(false);
   const { checkInAt, checkOutAt, checkInLocation, checkOutLocation, refetch: refetchAttendance } = useAttendanceStatus();
 
   const extra = useMemo<ActivityLogEntry[]>(() => {
@@ -87,26 +88,48 @@ export default function ActivityScreen() {
 
   return (
     <Screen scroll edges={['bottom']} contentStyle={styles.screen} onRefresh={onRefresh}>
-      <AppHeader title="Recent Activity" left={<BackButton />} />
-
-      <View style={styles.filtersRow}>
-        <SimpleSelect
-          label="Date"
-          value={dateFilter}
-          options={activityDateFilters}
-          open={dateSelectOpen}
-          onOpenChange={setDateSelectOpen}
-          onChange={setDateFilter}
-        />
-        <SimpleSelect
-          label="Type"
-          value={typeFilter}
-          options={activityTypeFilters}
-          open={typeSelectOpen}
-          onOpenChange={setTypeSelectOpen}
-          onChange={setTypeFilter}
-        />
-      </View>
+      <AppHeader
+        title="Recent Activity"
+        left={<BackButton />}
+        actions={
+          filterOpen
+            ? undefined
+            : [
+                {
+                  key: 'filter',
+                  icon: SlidersHorizontal,
+                  accessibilityLabel: 'Filter activity',
+                  active: hasFilter,
+                  onPress: () => setFilterOpen(true),
+                },
+              ]
+        }
+        bottomContent={
+          filterOpen ? (
+            <View style={styles.filtersRow}>
+              <SimpleSelect
+                label="Date"
+                value={dateFilter}
+                options={activityDateFilters}
+                open={dateSelectOpen}
+                onOpenChange={setDateSelectOpen}
+                onChange={setDateFilter}
+              />
+              <SimpleSelect
+                label="Type"
+                value={typeFilter}
+                options={activityTypeFilters}
+                open={typeSelectOpen}
+                onOpenChange={setTypeSelectOpen}
+                onChange={setTypeFilter}
+              />
+              <Pressable onPress={() => setFilterOpen(false)} style={styles.headerAction}>
+                <X size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
         <RecentActivitySkeleton />
@@ -153,6 +176,7 @@ const styles = StyleSheet.create({
   },
   filtersRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   list: {

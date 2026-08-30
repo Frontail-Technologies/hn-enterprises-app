@@ -1,18 +1,13 @@
 import { FlashList } from '@shopify/flash-list';
-import { IndianRupee, Search, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { IndianRupee, X } from 'lucide-react-native';
 import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { EXPENSE_TABLE_COLUMNS, ExpenseTableRow, resolveExpenseColumns, styles as rowStyles } from '@/components/expenses/ExpenseTableRow';
-import { FilterButton } from '@/components/shared/FilterButton';
+import { ExpenseCardSkeleton } from '@/components/expenses/ExpenseCardSkeleton';
+import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
 import { PAGINATION_OVERLAY_SPACE, PaginationOverlay } from '@/components/shared/PaginationOverlay';
-import { ScrollableTable } from '@/components/shared/ScrollableTable';
-import { TableSkeleton } from '@/components/shared/TableSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Input } from '@/components/ui/Input';
 import { radius, spacing } from '@/constants/spacing';
-import { tableMetrics, tableDividers } from '@/constants/table';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import type { ExpenseRecord } from '@/services/expenses.service';
@@ -21,13 +16,17 @@ import { formatCount, formatCurrency } from '@/utils/format';
 type ExpensesListProps = {
   isLoading: boolean;
   isError: boolean;
+  isRefiltering: boolean;
+  // Search/filter controls themselves now live in AppHeader (see
+  // expenses.tsx) - this screen only needs the current values, to drive its
+  // own result-count text and empty-state messaging.
   search: string;
-  onSearchChange: (value: string) => void;
+  // Only for the empty-state message's "no matches" vs "nothing yet" copy -
+  // the actual filter controls live in AppHeader now.
+  hasActiveFilters: boolean;
   filteredExpenses: ExpenseRecord[];
   total: number;
   recordsTotal: number;
-  filterCount: number;
-  onFilterPress: () => void;
   categoryFilterLabel: string | null;
   onClearCategoryFilter: () => void;
   plumberNameById: Map<string, string>;
@@ -40,18 +39,15 @@ type ExpensesListProps = {
   onLoadMore: () => void;
 };
 
-// Column widths are recalculated from this view's own measured width, so
-// that state lives here rather than in the route screen.
 export function ExpensesList({
   isLoading,
   isError,
+  isRefiltering,
   search,
-  onSearchChange,
+  hasActiveFilters,
   filteredExpenses,
   total,
   recordsTotal,
-  filterCount,
-  onFilterPress,
   categoryFilterLabel,
   onClearCategoryFilter,
   plumberNameById,
@@ -63,11 +59,11 @@ export function ExpensesList({
   hasNextPage,
   onLoadMore,
 }: ExpensesListProps) {
-  const { colors, isDark } = useTheme();
-  const dividers = tableDividers(colors, isDark);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const { columns, tableWidth } = resolveExpenseColumns(containerWidth);
-  const showSpinner = filteredExpenses.length > 0 && isFetchingNextPage;
+  const { colors } = useTheme();
+  // Cached rows stay on screen during a filter/search refetch (isRefiltering)
+  // instead of being replaced by the full skeleton - this overlay is the
+  // only signal that a new result is on the way, same as the next-page spinner.
+  const showSpinner = filteredExpenses.length > 0 && (isFetchingNextPage || isRefiltering);
   const showRetry = filteredExpenses.length > 0 && !isFetchingNextPage && isError && hasNextPage;
   const showPaginationFooter = showSpinner || showRetry;
   // Only the initial load (no rows yet) gets the full-page ErrorState - a
@@ -76,19 +72,7 @@ export function ExpensesList({
   const showInitialError = isError && filteredExpenses.length === 0;
 
   return (
-    <View style={styles.tablePanel}>
-      <View style={styles.topRow}>
-        <View style={styles.searchWrap}>
-          <Input
-            value={search}
-            onChangeText={onSearchChange}
-            placeholder="Search expenses..."
-            leftIcon={<Search size={18} color={colors.muted} />}
-          />
-        </View>
-        <FilterButton activeCount={filterCount} onPress={onFilterPress} />
-      </View>
-
+    <View style={styles.listPanel}>
       {categoryFilterLabel ? (
         <Pressable
           onPress={onClearCategoryFilter}
@@ -114,16 +98,9 @@ export function ExpensesList({
           : `${formatCount(filteredExpenses.length, recordsTotal, 'expenses')} · ${formatCurrency(total)}`}
       </Text>
 
-      <View
-        style={styles.tableCard}
-        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
-      >
+      <View style={styles.listCard}>
         {isLoading ? (
-          <TableSkeleton
-            columnWidths={Object.values(columns)}
-            rowHeight={tableMetrics.rowHeight}
-            headerHeight={tableMetrics.headerHeight}
-          />
+          <ExpenseCardSkeleton />
         ) : showInitialError ? (
           <ErrorState
             title="Couldn't load expenses"
@@ -131,89 +108,48 @@ export function ExpensesList({
             onRetry={onRetry}
           />
         ) : (
-          <ScrollableTable
-            listMode
-            minWidth={tableWidth}
-            header={
-              <View
-                style={[
-                  rowStyles.tableRow,
-                  rowStyles.tableHeader,
-                  {
-                    backgroundColor: colors.surfaceMuted,
-                    borderBottomColor: dividers.header,
-                  },
-                ]}
-              >
-                {EXPENSE_TABLE_COLUMNS.map((column, index) => (
-                  <View
-                    key={column.key}
-                    style={[
-                      rowStyles.cell,
-                      index < EXPENSE_TABLE_COLUMNS.length - 1 && rowStyles.cellDivider,
-                      {
-                        width: columns[column.key],
-                        borderRightColor: dividers.vertical,
-                      },
-                    ]}
-                  >
-                    <Text style={[rowStyles.headerText, { color: colors.muted }]} numberOfLines={1}>
-                      {column.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+          <FlashList
+            style={styles.flex}
+            showsVerticalScrollIndicator
+            data={filteredExpenses}
+            keyExtractor={(expense) => expense.id}
+            contentContainerStyle={showPaginationFooter ? styles.listContentWithFooter : styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            onEndReachedThreshold={0.4}
+            onEndReached={onLoadMore}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primaryDark}
+                colors={[colors.primaryDark]}
+                progressBackgroundColor={colors.card}
+              />
             }
-          >
-            <FlashList
-              style={styles.flex}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-              data={filteredExpenses}
-              keyExtractor={(expense) => expense.id}
-              contentContainerStyle={showPaginationFooter ? styles.listContentWithFooter : styles.listContent}
-              onEndReachedThreshold={0.4}
-              onEndReached={onLoadMore}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={colors.primaryDark}
-                  colors={[colors.primaryDark]}
-                  progressBackgroundColor={colors.card}
-                />
-              }
-              renderItem={({ item: expense }) => (
-                <ExpenseTableRow
-                  expense={expense}
-                  plumberNameById={plumberNameById}
-                  onEdit={onEdit}
-                  columns={columns}
-                />
-              )}
-              ListEmptyComponent={
-                <EmptyState
-                  fill
-                  icon={<IndianRupee size={22} color={colors.primary} />}
-                  title={
-                    search.trim() || filterCount > 0 || categoryFilterLabel
-                      ? 'No matching expenses'
-                      : 'No expenses yet'
-                  }
-                  description={
-                    search.trim() || filterCount > 0 || categoryFilterLabel
-                      ? 'Try changing or clearing your search and filters.'
-                      : 'Recorded expenses will appear here.'
-                  }
-                />
-              }
-            />
-          </ScrollableTable>
+            renderItem={({ item: expense }) => (
+              <ExpenseListItem expense={expense} plumberNameById={plumberNameById} onPress={onEdit} />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                fill
+                icon={<IndianRupee size={22} color={colors.primary} />}
+                title={
+                  search.trim() || hasActiveFilters || categoryFilterLabel
+                    ? 'No matching expenses'
+                    : 'No expenses yet'
+                }
+                description={
+                  search.trim() || hasActiveFilters || categoryFilterLabel
+                    ? 'Try changing or clearing your search and filters.'
+                    : 'Recorded expenses will appear here.'
+                }
+              />
+            }
+          />
         )}
 
-        {/* Sibling of the horizontally-scrollable ScrollableTable, not a
-            child of it - stays centered on the device viewport regardless
-            of horizontal scroll position (see PaginationOverlay). */}
+        {/* Absolutely positioned, viewport-centered - stays put regardless
+            of scroll position (see PaginationOverlay). */}
         <PaginationOverlay
           isFetchingNextPage={showSpinner}
           showRetry={showRetry}
@@ -225,19 +161,10 @@ export function ExpensesList({
 }
 
 const styles = StyleSheet.create({
-  tablePanel: {
+  listPanel: {
     flex: 1,
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  searchWrap: {
-    flex: 1,
-    minWidth: 0,
   },
   categoryChip: {
     alignSelf: 'flex-start',
@@ -249,10 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
   },
-  // No visible card chrome here on purpose - the header row's border and each
-  // row's own hairline divider give it enough structure; a bordered/filled
-  // outer box would extend a big empty surface below the last record.
-  tableCard: {
+  listCard: {
     flex: 1,
   },
   flex: {
@@ -260,6 +184,9 @@ const styles = StyleSheet.create({
   },
   resultText: {
     ...typography.caption,
+  },
+  separator: {
+    height: spacing.sm,
   },
   // flexGrow (not flex): lets the content area grow to fill the viewport
   // when content is shorter than it (the empty state), which is what the
@@ -271,7 +198,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   // Extra bottom space so the last row never sits underneath the viewport-
-  // centered PaginationOverlay (see the tableCard wrapper above).
+  // centered PaginationOverlay (see the listCard wrapper above).
   listContentWithFooter: {
     flexGrow: 1,
     paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,

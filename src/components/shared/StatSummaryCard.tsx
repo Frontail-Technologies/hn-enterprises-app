@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import type { ClipboardCheck } from 'lucide-react-native';
-import { type DimensionValue, Pressable, StyleSheet, Text, View } from 'react-native';
+import { type DimensionValue, StyleSheet, Text, View } from 'react-native';
 
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { Card } from '@/components/ui/Card';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -32,9 +33,10 @@ export function StatSummaryCard({ id, label, value, icon: Icon, tone, widthPerce
   const softColor = getSoftColor(tone, colors);
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={() => guardNavigation(() => router.push({ pathname: '/stats/[type]', params: { type: id } }))}
-      style={({ pressed }) => [styles.pressable, widthPercent ? { width: widthPercent } : null, pressed && { opacity: 0.72 }]}
+      scaleTo={0.99}
+      style={[styles.pressable, widthPercent ? { width: widthPercent } : null]}
     >
       <Card style={styles.card}>
         <View style={[styles.iconBox, { backgroundColor: softColor }]}>
@@ -52,7 +54,7 @@ export function StatSummaryCard({ id, label, value, icon: Icon, tone, widthPerce
           {formatStatValue(value)}
         </Text>
       </Card>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

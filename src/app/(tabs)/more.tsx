@@ -1,29 +1,31 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Bell, CircleHelp, Info, LockKeyhole, Moon, Sun } from "lucide-react-native";
+import { Bell, CircleHelp, Info, LockKeyhole, ShieldCheck } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ChangePasswordSheet } from "@/components/auth/ChangePasswordSheet";
 import { AccountMenuDivider, AccountMenuRow } from "@/components/profile/AccountMenuRow";
+import { AppearanceMenuRow } from "@/components/profile/AppearanceMenuRow";
 import { LogoutButton } from "@/components/profile/LogoutButton";
 import { ProfileIdentityRow } from "@/components/profile/ProfileIdentityRow";
 import { AppHeader } from "@/components/shared/AppHeader";
 import { Card } from "@/components/ui/Card";
 import { RevealGroup } from "@/components/ui/RevealGroup";
 import { Screen } from "@/components/ui/Screen";
-import { Switch } from "@/components/ui/Switch";
 import { radius, spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useToast } from "@/context/ToastContext";
 import { useAccountLogout } from "@/hooks/useAccountLogout";
 import { guardNavigation } from "@/lib/navigation";
+import { openPrivacyPolicy } from "@/utils/openPrivacyPolicy";
 
 export default function MoreScreen() {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
+  const { showToast } = useToast();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const handleLogout = useAccountLogout();
 
@@ -53,15 +55,17 @@ export default function MoreScreen() {
           </Card>
 
           <Card flat style={styles.menuCard}>
-            <View style={styles.menuRow}>
-              {isDark ? <Sun size={17} color={colors.primary} /> : <Moon size={17} color={colors.primary} />}
-              <Text style={[styles.menuLabel, { color: colors.text }]}>Theme</Text>
-              <Switch value={isDark} onValueChange={toggleTheme} />
-            </View>
+            <AppearanceMenuRow />
             <AccountMenuDivider />
             <AccountMenuRow icon={LockKeyhole} label="Change Password" onPress={() => setChangePasswordOpen(true)} />
             <AccountMenuDivider />
             <AccountMenuRow icon={CircleHelp} label="Support & Help" />
+            <AccountMenuDivider />
+            <AccountMenuRow
+              icon={ShieldCheck}
+              label="Privacy Policy"
+              onPress={() => openPrivacyPolicy(showToast)}
+            />
             <AccountMenuDivider />
             <AccountMenuRow icon={Info} label="About HN Enterprises" />
           </Card>
@@ -112,17 +116,5 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: "hidden",
     borderRadius: radius.lg,
-  },
-  menuRow: {
-    height: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  menuLabel: {
-    ...typography.label,
-    flex: 1,
-    fontSize: 12,
   },
 });

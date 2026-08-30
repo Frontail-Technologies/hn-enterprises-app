@@ -14,7 +14,12 @@ import type { ExpenseColumnKey } from '@/types/expenses';
 
 type ExpenseFiltersSheetProps = {
   visible: boolean;
+  // Closing without applying (X, backdrop, hardware back) - the caller is
+  // expected to discard any in-progress draft edits, not just hide the sheet.
   onClose: () => void;
+  // Root sheet's "Apply Filters" - commits the complete draft (dates +
+  // column filters) and closes.
+  onApply: () => void;
   fromDate: string;
   onFromDateChange: (value: string) => void;
   toDate: string;
@@ -41,6 +46,7 @@ type ExpenseFiltersSheetProps = {
 export function ExpenseFiltersSheet({
   visible,
   onClose,
+  onApply,
   fromDate,
   onFromDateChange,
   toDate,
@@ -80,12 +86,12 @@ export function ExpenseFiltersSheet({
         isDetailView ? (
           <View style={styles.sheetFooter}>
             <Button label="Clear" variant="outline" onPress={onClearColumnFilter} style={styles.footerButton} />
-            <Button label="Apply" onPress={onApplyColumnFilter} style={styles.footerButton} />
+            <Button label="Done" onPress={onApplyColumnFilter} style={styles.footerButton} />
           </View>
         ) : (
           <View style={styles.sheetFooter}>
             <Button label="Reset" variant="outline" onPress={onReset} style={styles.footerButton} />
-            <Button label="Apply" onPress={onClose} style={styles.footerButton} />
+            <Button label="Apply Filters" onPress={onApply} style={styles.footerButton} />
           </View>
         )
       }

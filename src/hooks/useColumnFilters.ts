@@ -5,11 +5,23 @@ export type FilterableColumn<K extends string = string> = {
   label: string;
 };
 
+// Draft-vs-committed split: everything a column's own value picker touches
+// (openFilter/togglePendingValue/applyFilter/clearFilter/clearAllFilters)
+// only ever writes to the *draft* - the list/query-facing `filters` returned
+// below stays on whatever was last actually committed. This is what lets a
+// user drill into several columns, picking values in each, without any of
+// it taking effect (or hitting the network, for callers whose filters drive
+// a server query) until the root sheet's own "Apply Filters" explicitly
+// calls `commitFilters`. Closing the sheet without applying calls
+// `discardDraft` instead, snapping the draft back to the last committed
+// state so the next open starts clean rather than resurfacing an abandoned
+// edit.
 export function useColumnFilters<T extends Record<string, unknown>, K extends string>(
   columns: FilterableColumn<K>[],
   rows: T[],
 ) {
-  const [filters, setFilters] = useState<Partial<Record<K, string[]>>>({});
+  const [committedFilters, setCommittedFilters] = useState<Partial<Record<K, string[]>>>({});
+  const [draftFilters, setDraftFilters] = useState<Partial<Record<K, string[]>>>({});
   const [activeColumn, setActiveColumn] = useState<FilterableColumn<K> | null>(null);
   const [pendingValues, setPendingValues] = useState<string[]>([]);
   const [filterSearch, setFilterSearch] = useState('');
@@ -22,20 +34,25 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
       .filter((value) => (query ? value.toLowerCase().includes(query) : true));
   }, [activeColumn, filterSearch, rows]);
 
+  // What the list/query actually filters by - committed only, never the
+  // in-progress draft.
   const matchesFilters = useCallback(
     (row: T) =>
       columns.every((column) => {
-        const values = filters[column.key];
+        const values = committedFilters[column.key];
         return values?.length ? values.includes(String(row[column.key])) : true;
       }),
-    [columns, filters],
+    [columns, committedFilters],
   );
 
-  const isColumnActive = useCallback((key: K) => Boolean(filters[key]?.length), [filters]);
+  // The sheet's own "N selected" badges reflect the draft, so a user
+  // picking values across several columns sees all of them as they go, not
+  // just whichever was committed last time the sheet was opened.
+  const isColumnActive = useCallback((key: K) => Boolean(draftFilters[key]?.length), [draftFilters]);
 
   const openFilter = (column: FilterableColumn<K>) => {
     setActiveColumn(column);
-    setPendingValues(filters[column.key] ?? []);
+    setPendingValues(draftFilters[column.key] ?? []);
     setFilterSearch('');
   };
 
@@ -47,9 +64,11 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
     );
   };
 
+  // Child sheet's "Done" - merges the picker's pending values into the
+  // draft and returns to the column list. Never touches committedFilters.
   const applyFilter = () => {
     if (!activeColumn) return;
-    setFilters((current) => ({
+    setDraftFilters((current) => ({
       ...current,
       [activeColumn.key]: pendingValues,
     }));
@@ -59,7 +78,7 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
 
   const clearFilter = () => {
     if (!activeColumn) return;
-    setFilters((current) => {
+    setDraftFilters((current) => {
       const next = { ...current };
       delete next[activeColumn.key];
       return next;
@@ -69,20 +88,53 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
     setActiveColumn(null);
   };
 
+  // Root sheet's "Clear all" - also draft-only, same as a single column's
+  // Clear; still needs Apply Filters to actually take effect.
   const clearAllFilters = () => {
-    setFilters({});
+    setDraftFilters({});
+    setPendingValues([]);
+    setFilterSearch('');
+    setActiveColumn(null);
+  };
+
+  // Root sheet's "Apply Filters" - the only place committedFilters changes.
+  const commitFilters = () => {
+    setCommittedFilters(draftFilters);
+  };
+
+  // Root sheet closing without applying (X, backdrop, hardware back) -
+  // discards in-progress edits by resetting the draft back to whatever is
+  // currently committed.
+  const discardDraft = () => {
+    setDraftFilters(committedFilters);
+    setPendingValues([]);
+    setFilterSearch('');
+    setActiveColumn(null);
+  };
+
+  // Immediate full reset (both draft and committed at once) - for an
+  // explicit "Reset" action that's meant to take effect right away, not
+  // wait on a further Apply Filters tap.
+  const resetAllFilters = () => {
+    setDraftFilters({});
+    setCommittedFilters({});
     setPendingValues([]);
     setFilterSearch('');
     setActiveColumn(null);
   };
 
   const activeFilterCount = useMemo(
-    () => Object.values(filters).filter((values) => (values as string[] | undefined)?.length).length,
-    [filters],
+    () => Object.values(committedFilters).filter((values) => (values as string[] | undefined)?.length).length,
+    [committedFilters],
+  );
+  const draftFilterCount = useMemo(
+    () => Object.values(draftFilters).filter((values) => (values as string[] | undefined)?.length).length,
+    [draftFilters],
   );
 
   return {
-    filters,
+    filters: committedFilters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -96,6 +148,10 @@ export function useColumnFilters<T extends Record<string, unknown>, K extends st
     applyFilter,
     clearFilter,
     clearAllFilters,
+    commitFilters,
+    discardDraft,
+    resetAllFilters,
     activeFilterCount,
+    draftFilterCount,
   };
 }

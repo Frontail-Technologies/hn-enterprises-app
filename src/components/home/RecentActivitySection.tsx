@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActivityListItem } from '@/components/shared/ActivityListItem';
 import { RecentActivitySkeleton } from '@/components/shared/RecentActivitySkeleton';
+import { SectionHeader } from '@/components/shared/SectionHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -66,12 +67,7 @@ export function RecentActivitySection() {
 
   return (
     <View style={styles.quickSection}>
-      <View style={styles.sectionRow}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
-        <Pressable onPress={() => guardNavigation(() => router.push('/activity'))}>
-          <Text style={[typography.label, { color: colors.primary }]}>View all</Text>
-        </Pressable>
-      </View>
+      <SectionHeader title="Recent Activity" onPress={() => guardNavigation(() => router.push('/activity'))} />
       {isLoading ? (
         <RecentActivitySkeleton />
       ) : recentActivity.length ? (
@@ -93,16 +89,6 @@ export function RecentActivitySection() {
 const styles = StyleSheet.create({
   quickSection: {
     gap: spacing.md,
-  },
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    ...typography.h2,
-    fontSize: 17,
-    lineHeight: 22,
   },
   list: {
     gap: spacing.sm,

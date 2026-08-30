@@ -23,14 +23,11 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFF7ED",
-        "foregroundImage": "./assets/images/logo.png"
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "predictiveBackGestureEnabled": false,
       "package": "com.hnenterprises.mobile",
@@ -45,8 +42,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F9F6EE",
-          "image": "./assets/images/logo.png",
+          "backgroundColor": "#11100D",
+          "image": "./assets/images/logo-dark.png",
           "imageWidth": 200,
           "resizeMode": "contain"
         }
@@ -68,7 +65,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow HN Enterprises to select field photos and upload evidence."
+          "photosPermission": "Allow HN Enterprises to select field photos and upload evidence.",
+          "cameraPermission": "Allow HN Enterprises to capture field evidence photos.",
+          "microphonePermission": false
         }
       ],
       [

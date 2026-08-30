@@ -63,6 +63,9 @@ export type ExpenseRecord = {
   paidTo: string;
   plumberId: string;
   customerId: string;
+  // Joined in server-side (payments.service.ts) purely for display - empty
+  // whenever customerId isn't set (most categories have no linked customer).
+  customerName: string;
   siteId: string;
   address: string;
   amount: string;
@@ -79,6 +82,7 @@ type BackendPayment = {
   paidTo: string | null;
   plumberId: string | null;
   customerId: string | null;
+  customerName?: string | null;
   siteId: string | null;
   address: string | null;
   amount: string;
@@ -110,10 +114,11 @@ function mapExpense(raw: BackendPayment): ExpenseRecord {
     paidTo: raw.paidTo ?? "",
     plumberId: raw.plumberId ?? "",
     customerId: raw.customerId ?? "",
+    customerName: raw.customerName ?? "",
     siteId: raw.siteId ?? "",
     address: raw.address ?? "",
     amount: raw.amount,
-    date: raw.paymentDate.slice(0, 10),
+    date: (raw.paymentDate ?? "").slice(0, 10),
     paymentMode: raw.mode,
     status: raw.status,
     remarks: raw.remarks ?? "",

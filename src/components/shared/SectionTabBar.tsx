@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import type { LucideIcon } from "lucide-react-native";
 
 import { motion } from "@/constants/motion";
 import { radius, spacing } from "@/constants/spacing";
@@ -22,12 +23,23 @@ export type SectionTab = {
   key: string;
   label: string;
   status?: CompletionStatus;
+  icon?: LucideIcon;
 };
 
 type SectionTabBarProps = {
   tabs: SectionTab[];
   activeKey: string;
   onChange: (key: string) => void;
+  // Splits tabs evenly across the full width instead of the default
+  // content-sized, horizontally-scrollable layout - only sensible for a
+  // small, fixed tab count (Expenses' Overview/All Expenses, Planning's
+  // Work/DPR). Customer Detail's many section tabs keep the default
+  // scrollable behavior.
+  fullWidth?: boolean;
+  // Uses colors.card (the surface token - white in light mode) instead of
+  // the default colors.background (the page-canvas token) - opt-in per
+  // screen, e.g. Customer Detail, rather than a global change.
+  surface?: boolean;
 };
 
 const SCROLL_INTO_VIEW_PADDING = 8;
@@ -36,6 +48,8 @@ export function SectionTabBar({
   tabs,
   activeKey,
   onChange,
+  fullWidth = false,
+  surface = false,
 }: SectionTabBarProps) {
   const { colors } = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -163,13 +177,87 @@ export function SectionTabBar({
     };
   }, []);
 
+  const tabElements = tabs.map((tab) => {
+    const active = tab.key === activeKey;
+    const Icon = tab.icon;
+
+    return (
+      <Pressable
+        key={tab.key}
+        onPress={() => handlePress(tab.key)}
+        onLayout={handleTabLayout(tab.key)}
+        hitSlop={{ top: 6, bottom: 6 }}
+        style={[styles.tab, fullWidth && styles.tabFullWidth]}
+      >
+        <View style={[styles.tabContent, fullWidth && styles.tabContentFullWidth]}>
+          {Icon ? <Icon size={14} color={active ? colors.primary : colors.muted} /> : null}
+          {tab.status ? (
+            <View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    tab.status === "DONE"
+                      ? colors.green
+                      : tab.status === "IN_PROGRESS"
+                        ? colors.amber
+                        : colors.muted,
+                },
+              ]}
+            />
+          ) : null}
+          <Text
+            style={[
+              typography.label,
+              styles.label,
+              { color: active ? colors.primary : colors.muted },
+              active && styles.labelActive,
+            ]}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  });
+
+  const indicatorEl = (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.indicator, { backgroundColor: colors.primary }, indicatorStyle]}
+    />
+  );
+
+  // Explicit background rather than staying transparent - when used inside
+  // StickyHeaderGroup (alongside AppHeader), Screen's sticky-header wrapper
+  // now paints a single headerBackground color behind the whole group (see
+  // useAppHeaderBackground) so AppHeader's own accent/card color is never
+  // exposed to a gap on mount. Without its own explicit background, this tab
+  // bar would sit on top of that same accent/card color instead of the
+  // surface it's actually designed for - colors.background (page canvas) by
+  // default, or colors.card (surface token, white in light mode) when
+  // `surface` is set.
+  const tabBarBackground = surface ? colors.card : colors.background;
+
+  if (fullWidth) {
+    // No horizontal scroll needed - a small, fixed tab count fills the
+    // width evenly instead (see styles.tabFullWidth), so none of the
+    // scroll-position bookkeeping above applies here.
+    return (
+      <View style={[styles.row, styles.rowFullWidth, { backgroundColor: tabBarBackground }]} onLayout={handleViewportLayout}>
+        {tabElements}
+        {indicatorEl}
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       ref={scrollViewRef}
       horizontal
       showsHorizontalScrollIndicator={false}
-      nestedScrollEnabled
-      style={[styles.scroll]}
+      style={{ backgroundColor: tabBarBackground }}
       contentContainerStyle={styles.scrollContent}
       onLayout={handleViewportLayout}
       onScroll={handleScroll}
@@ -179,53 +267,9 @@ export function SectionTabBar({
       onMomentumScrollEnd={handleScrollEndDrag}
       scrollEventThrottle={16}
     >
-      <View style={[styles.row]}>
-        {tabs.map((tab) => {
-          const active = tab.key === activeKey;
-
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => handlePress(tab.key)}
-              onLayout={handleTabLayout(tab.key)}
-              hitSlop={{ top: 6, bottom: 6 }}
-              style={styles.tab}
-            >
-              <View style={[styles.tabContent]}>
-                {tab.status ? (
-                  <View
-                    style={[
-                      styles.dot,
-                      {
-                        backgroundColor:
-                          tab.status === "DONE"
-                            ? colors.green
-                            : tab.status === "IN_PROGRESS"
-                              ? colors.amber
-                              : colors.muted,
-                      },
-                    ]}
-                  />
-                ) : null}
-                <Text
-                  style={[
-                    typography.label,
-                    styles.label,
-                    { color: active ? colors.primary : colors.muted },
-                    active && styles.labelActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {tab.label}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.indicator, { backgroundColor: colors.primary }, indicatorStyle]}
-        />
+      <View style={styles.row}>
+        {tabElements}
+        {indicatorEl}
       </View>
     </ScrollView>
   );
@@ -235,15 +279,17 @@ SectionTabBar.displayName = "SectionTabBar";
 SectionTabBar.isStickyHeader = true;
 
 const styles = StyleSheet.create({
-  scroll: {
-    marginBottom: spacing.md,
-  },
   scrollContent: {
     paddingTop: 0,
   },
   row: {
     flexDirection: "row",
     position: "relative",
+  },
+  // Fills the full width instead of sizing to content - each tab below gets
+  // flex: 1 so a small, fixed tab count (2, typically) splits it evenly.
+  rowFullWidth: {
+    width: "100%",
   },
   tab: {
     minHeight: 42,
@@ -252,6 +298,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
+  },
+  tabFullWidth: {
+    flex: 1,
   },
   indicator: {
     position: "absolute",
@@ -267,14 +316,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.pill,
   },
+  tabContentFullWidth: {
+    justifyContent: "center",
+  },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
   label: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 18,
   },
   labelActive: {
     fontFamily: typography.bodyMedium.fontFamily,

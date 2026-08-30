@@ -11,8 +11,15 @@ import type { FilterableColumn } from '@/hooks/useColumnFilters';
 
 type TableFilterSheetProps<K extends string> = {
   visible: boolean;
+  // Closing without applying (X, backdrop, hardware back) - the caller's
+  // handler is expected to discard any in-progress draft edits, not just
+  // hide the sheet.
   onClose: () => void;
+  // Root sheet's "Apply Filters" - commits the complete draft and closes.
+  onApply: () => void;
   columns: FilterableColumn<K>[];
+  // The sheet's own in-progress selections (draft), not necessarily what's
+  // currently applied to the list - see useColumnFilters.
   filters: Partial<Record<K, string[]>>;
   onClearAll: () => void;
   // Column drill-down - rendered as a second view inside this same Sheet
@@ -36,6 +43,7 @@ type TableFilterSheetProps<K extends string> = {
 export function TableFilterSheet<K extends string>({
   visible,
   onClose,
+  onApply,
   columns,
   filters,
   onClearAll,
@@ -74,14 +82,14 @@ export function TableFilterSheet<K extends string>({
         isDetailView ? (
           <View style={styles.footer}>
             <Button label="Clear" variant="outline" onPress={onClearColumnFilter} style={styles.footerButton} />
-            <Button label="Apply" onPress={onApplyColumnFilter} style={styles.footerButton} />
+            <Button label="Done" onPress={onApplyColumnFilter} style={styles.footerButton} />
           </View>
         ) : (
           <View style={styles.footer}>
             {anyActive ? (
               <Button label="Clear all" variant="outline" onPress={onClearAll} style={styles.footerButton} />
             ) : null}
-            <Button label="Done" onPress={onClose} style={styles.footerButton} />
+            <Button label="Apply Filters" onPress={onApply} style={styles.footerButton} />
           </View>
         )
       }

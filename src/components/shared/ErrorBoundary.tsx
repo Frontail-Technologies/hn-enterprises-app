@@ -20,7 +20,7 @@ import * as Sentry from "@sentry/react-native";
 // screen must be able to render on its own even if something theme/context
 // -related is implicated in the crash it's catching.
 const FALLBACK_COLORS = {
-  background: "#F9F6EE",
+  background: "#F5F5F3",
   card: "#FFFFFF",
   border: "#E6E1D9",
   text: "#102033",

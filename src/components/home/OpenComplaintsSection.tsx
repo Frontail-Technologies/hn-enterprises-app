@@ -1,57 +1,57 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ComplaintUpdateSheet } from '@/components/complaints/ComplaintUpdateSheet';
-import { ComplaintBoxSkeleton } from '@/components/shared/ComplaintBoxSkeleton';
-import { ComplaintListItem } from '@/components/shared/ComplaintListItem';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ErrorState } from '@/components/ui/ErrorState';
-import { spacing } from '@/constants/spacing';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { SectionHeader } from '@/components/shared/SectionHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { complaintStatusLabels } from '@/constants/complaints';
+import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 import { guardNavigation } from '@/lib/navigation';
-import { useComplaintsQuery } from '@/queries';
-import { isOpenComplaint, type ComplaintRecord } from '@/services/complaints.service';
+import { useComplaintStatusCountsQuery } from '@/queries';
+import type { ComplaintStatus } from '@/services/complaints.service';
 
-const OPEN_COMPLAINTS_LIMIT = 3;
+const STATUS_ORDER: ComplaintStatus[] = ['open', 'in_progress', 'resolved', 'closed'];
 
-// Owns its own complaint-detail sheet, since tapping a row here is entirely
-// self-contained and doesn't need to bubble up to Home.
 export function OpenComplaintsSection() {
   const { colors } = useTheme();
-  const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
-  const { data: complaints = [], isLoading, isError, refetch } = useComplaintsQuery();
-  const openComplaints = complaints.filter(isOpenComplaint).slice(0, OPEN_COMPLAINTS_LIMIT);
+  const { data, isLoading, isError, refetch } = useComplaintStatusCountsQuery();
 
   return (
     <View style={styles.quickSection}>
-      <View style={styles.sectionRow}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Complaints</Text>
-        <Pressable onPress={() => guardNavigation(() => router.push('/complaints'))}>
-          <Text style={[typography.label, { color: colors.primary }]}>View all</Text>
-        </Pressable>
-      </View>
+      <SectionHeader title="Complaints" onPress={() => guardNavigation(() => router.push('/complaints'))} />
       {isLoading ? (
-        <ComplaintBoxSkeleton />
-      ) : isError ? (
-        <ErrorState
-          compact
-          title="Couldn't load complaints"
-          description="Check your connection and try again."
-          onRetry={refetch}
-        />
-      ) : openComplaints.length ? (
-        <View style={styles.list}>
-          {openComplaints.map((complaint) => (
-            <ComplaintListItem key={complaint.id} complaint={complaint} onPress={setActiveComplaint} />
+        <View style={styles.grid}>
+          {STATUS_ORDER.map((status) => (
+            <Skeleton key={status} style={styles.chip} />
           ))}
         </View>
+      ) : isError ? (
+        <Pressable onPress={() => refetch()} style={[styles.errorCard, { borderColor: colors.border }]}>
+          <Text style={[typography.caption, { color: colors.muted }]}>
+            Couldn&apos;t load complaint counts — tap to retry.
+          </Text>
+        </Pressable>
       ) : (
-        <EmptyState compact title="No open complaints" />
+        <View style={styles.grid}>
+          {STATUS_ORDER.map((status) => (
+            <AnimatedPressable
+              key={status}
+              scaleTo={0.99}
+              style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() =>
+                guardNavigation(() => router.push({ pathname: '/complaints', params: { status } }))
+              }
+            >
+              <Text style={[styles.count, { color: colors.text }]}>{data?.[status] ?? 0}</Text>
+              <Text style={[typography.caption, { color: colors.muted }]} numberOfLines={1}>
+                {complaintStatusLabels[status]}
+              </Text>
+            </AnimatedPressable>
+          ))}
+        </View>
       )}
-
-      <ComplaintUpdateSheet complaint={activeComplaint} onClose={() => setActiveComplaint(null)} />
     </View>
   );
 }
@@ -60,17 +60,31 @@ const styles = StyleSheet.create({
   quickSection: {
     gap: spacing.md,
   },
-  sectionRow: {
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    ...typography.h2,
-    fontSize: 17,
-    lineHeight: 22,
-  },
-  list: {
     gap: spacing.sm,
+  },
+  chip: {
+    flex: 1,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.sm,
+  },
+  count: {
+    ...typography.h2,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  errorCard: {
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
   },
 });

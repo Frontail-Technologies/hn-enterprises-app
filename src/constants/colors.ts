@@ -1,6 +1,6 @@
 export const colors = {
   // Page canvas - never used as a component fill.
-  background: "#F9F6EE",
+  background: "#F5F5F3",
   // Primary content surface (cards, sheets, table rows, inputs). `card` is
   // kept as an alias so existing references keep working unchanged.
   surface: "#FFFFFF",

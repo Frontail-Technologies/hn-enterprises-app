@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Plus } from "lucide-react-native";
+import { PieChart, Plus, Receipt, Search, SlidersHorizontal, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import PagerView from "react-native-pager-view";
 import { useCallback, useMemo, useState } from "react";
@@ -9,6 +9,7 @@ import { ExpenseFiltersSheet } from "@/components/expenses/ExpenseFiltersSheet";
 import { ExpensesList } from "@/components/expenses/ExpensesList";
 import { ExpensesOverview } from "@/components/expenses/ExpensesOverview";
 import { SectionTabBar } from "@/components/shared/SectionTabBar";
+import { Input } from "@/components/ui/Input";
 import { guardNavigation } from "@/lib/navigation";
 import { Screen } from "@/components/ui/Screen";
 import { StickyHeaderGroup } from "@/components/ui/StickyHeaderGroup";
@@ -25,8 +26,8 @@ import {
 } from "@/services/expenses.service";
 
 const SCREEN_TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "all", label: "All Expenses" },
+  { key: "overview", label: "Overview", icon: PieChart },
+  { key: "all", label: "All Expenses", icon: Receipt },
 ];
 
 const SCREEN_TAB_KEYS = SCREEN_TABS.map((tab) => tab.key);
@@ -37,6 +38,7 @@ const CATEGORY_LABEL_BY_VALUE = new Map(
 
 export default function ExpensesScreen() {
   const { colors } = useTheme();
+  const [searchOpen, setSearchOpen] = useState(false);
   const {
     activeKey: activeTab,
     pagerRef,
@@ -45,6 +47,12 @@ export default function ExpensesScreen() {
     isMounted,
     selectTab: setActiveTab,
   } = useSwipeableTabs(SCREEN_TAB_KEYS);
+  // Search only applies to the All Expenses list. Derived rather than reset
+  // via an effect - activeTab already updates correctly for both a tap
+  // (SectionTabBar -> selectTab) and a swipe (PagerView -> onPageSelected),
+  // so gating on it here closes the header's search row on either without
+  // an extra render pass.
+  const searchExpanded = searchOpen && activeTab === "all";
   const plumbersQuery = usePlumbersOptionsQuery();
 
   const plumberNameById = useMemo(
@@ -76,12 +84,16 @@ export default function ExpensesScreen() {
     search,
     setSearch,
     fromDate,
-    setFromDate,
     toDate,
-    setToDate,
+    draftFromDate,
+    setDraftFromDate,
+    draftToDate,
+    setDraftToDate,
     filterSheetOpen,
-    setFilterSheetOpen,
-    filters,
+    openFilterSheet,
+    applyFilterSheet,
+    discardFilterSheet,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -125,6 +137,7 @@ export default function ExpensesScreen() {
   return (
     <Screen
       scroll={false}
+      tabBarAware
       edges={[]}
       contentStyle={styles.screen}
       revealContent={false}
@@ -132,21 +145,69 @@ export default function ExpensesScreen() {
       <StickyHeaderGroup>
         <AppHeader
           title="Expenses"
+          actions={
+            searchExpanded
+              ? undefined
+              : [
+                  // Search only applies to the All Expenses list - Overview
+                  // is a browse/aggregate view, nothing to search there.
+                  ...(activeTab === "all"
+                    ? [
+                        {
+                          key: "search",
+                          icon: Search,
+                          accessibilityLabel: "Search expenses",
+                          onPress: () => setSearchOpen(true),
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "filter",
+                    icon: SlidersHorizontal,
+                    accessibilityLabel: "Filter expenses",
+                    // Same filter sheet/count both tabs already shared.
+                    active: expenseFilterCount > 0,
+                    onPress: () => openFilterSheet(),
+                  },
+                ]
+          }
           right={
-            <Pressable
-              onPress={() =>
-                guardNavigation(() => router.push("/expenses/new"))
-              }
-              style={({ pressed }) => [
-                styles.headerAddButton,
-                { backgroundColor: colors.primary },
-                pressed && { opacity: 0.85 },
-              ]}
-              hitSlop={6}
-            >
-              <Plus size={16} color="#FFFFFF" />
-              <Text style={styles.headerAddText}>Add</Text>
-            </Pressable>
+            searchExpanded ? undefined : (
+              <Pressable
+                onPress={() =>
+                  guardNavigation(() => router.push("/expenses/new"))
+                }
+                style={({ pressed }) => [
+                  styles.headerAddButton,
+                  { backgroundColor: colors.primary },
+                  pressed && { opacity: 0.85 },
+                ]}
+                hitSlop={6}
+              >
+                <Plus size={16} color="#FFFFFF" />
+                <Text style={styles.headerAddText}>Add</Text>
+              </Pressable>
+            )
+          }
+          bottomContent={
+            searchExpanded ? (
+              <View style={styles.searchRow}>
+                <View style={styles.searchWrap}>
+                  <Input
+                    autoFocus
+                    placeholder="Search expenses..."
+                    value={search}
+                    onChangeText={setSearch}
+                    leftIcon={<Search size={18} color={colors.muted} />}
+                    rightIcon={search ? <X size={16} color={colors.muted} /> : undefined}
+                    onRightIconPress={() => setSearch("")}
+                  />
+                </View>
+                <Pressable onPress={() => setSearchOpen(false)} style={styles.headerAction}>
+                  <X size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            ) : undefined
           }
         />
 
@@ -154,6 +215,8 @@ export default function ExpensesScreen() {
           tabs={SCREEN_TABS}
           activeKey={activeTab}
           onChange={setActiveTab}
+          fullWidth
+          surface
         />
       </StickyHeaderGroup>
 
@@ -177,14 +240,13 @@ export default function ExpensesScreen() {
               onMonthChange={setMonthFilter}
               monthSelectOpen={monthSelectOpen}
               onMonthSelectOpenChange={setMonthSelectOpen}
-              filterCount={expenseFilterCount}
-              onFilterPress={() => setFilterSheetOpen(true)}
               filteredTotal={overview.filteredTotal}
               categoryBreakdown={overview.categoryBreakdown}
               recentExpenses={overview.recentExpenses}
               plumberNameById={plumberNameById}
               onCategoryPress={handleCategoryPress}
               onViewAllPress={() => setActiveTab("all")}
+              onExpensePress={openEditExpense}
             />
           ) : null}
         </View>
@@ -192,15 +254,14 @@ export default function ExpensesScreen() {
         <View key="all" style={styles.page}>
           {isMounted("all") ? (
             <ExpensesList
-              isLoading={isLoading || isRefiltering}
+              isLoading={isLoading}
+              isRefiltering={isRefiltering}
               isError={isError}
               search={search}
-              onSearchChange={setSearch}
+              hasActiveFilters={expenseFilterCount > 0}
               filteredExpenses={filteredExpenses}
               total={total}
               recordsTotal={recordsTotal}
-              filterCount={expenseFilterCount}
-              onFilterPress={() => setFilterSheetOpen(true)}
               categoryFilterLabel={categoryFilterLabel}
               onClearCategoryFilter={() => setCategoryFilter(null)}
               plumberNameById={plumberNameById}
@@ -218,12 +279,13 @@ export default function ExpensesScreen() {
 
       <ExpenseFiltersSheet
         visible={filterSheetOpen}
-        onClose={() => setFilterSheetOpen(false)}
-        fromDate={fromDate}
-        onFromDateChange={setFromDate}
-        toDate={toDate}
-        onToDateChange={setToDate}
-        filters={filters}
+        onClose={discardFilterSheet}
+        onApply={applyFilterSheet}
+        fromDate={draftFromDate}
+        onFromDateChange={setDraftFromDate}
+        toDate={draftToDate}
+        onToDateChange={setDraftToDate}
+        filters={draftFilters}
         onOpenColumnFilter={openFilter}
         onReset={resetFilters}
         activeColumn={activeColumn}
@@ -279,5 +341,20 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: "#FFFFFF",
     fontSize: 13,
+  },
+  headerAction: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  searchWrap: {
+    flex: 1,
+    minWidth: 0,
   },
 });

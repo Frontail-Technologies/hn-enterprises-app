@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
+import { StateIllustration } from './StateIllustration';
 
 type EmptyStateProps = {
   title: string;
@@ -33,7 +34,9 @@ export function EmptyState({ title, description, action, icon, compact, fill }: 
           <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { backgroundColor: colors.softOrange }]}>
             {icon}
           </View>
-        ) : null}
+        ) : (
+          <StateIllustration kind="empty" size={compact ? 48 : 64} />
+        )}
         <Text style={[typography.bodyMedium, styles.centered, { color: colors.text }]}>{title}</Text>
         {description ? (
           <Text style={[typography.caption, styles.centered, { color: colors.muted }]}>{description}</Text>

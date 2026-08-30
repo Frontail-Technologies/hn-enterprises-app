@@ -27,7 +27,7 @@ export default function LoginScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.logoBlock}>
         <Image
-          source={require("@/assets/images/logo.png")}
+          source={isDark ? require("@/assets/images/logo-dark.png") : require("@/assets/images/logo.png")}
           style={styles.logo}
           contentFit="contain"
         />

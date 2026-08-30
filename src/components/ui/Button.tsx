@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   StyleProp,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
 import { controlHeight, radius, spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 type ButtonSize = "compact" | "default" | "cta";
@@ -71,10 +71,13 @@ export function Button({
   const textColor = isPrimary || isDestructive ? "#FFFFFF" : isGhost ? colors.primary : colors.text;
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      // Icon-only isn't this component's concern (Button always has a
+      // label), but a full-width CTA scaling down still reads fine here -
+      // it's the surface itself responding, not a large unrelated container.
+      style={[
         styles.base,
         !fullWidth && styles.inline,
         {
@@ -85,14 +88,15 @@ export function Button({
           borderWidth: isSecondary ? 1 : 0,
         },
         (disabled || loading) && styles.disabled,
-        pressed && !disabled && !loading && styles.pressed,
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={isPrimary || isDestructive ? "#FFFFFF" : colors.primary} />
-      ) : (
-        <View style={styles.contentRow}>
+      {/* Label stays laid out (just hidden) while loading, instead of being
+          replaced by the spinner - keeps the button's own content-driven
+          width stable for inline (!fullWidth) buttons instead of collapsing
+          to the spinner's much smaller width. */}
+      <View style={styles.contentWrap}>
+        <View style={[styles.contentRow, loading && styles.hidden]}>
           {icon}
           <Text
             style={[resolvedSize === "compact" ? styles.labelCompact : styles.label, { color: textColor }]}
@@ -101,8 +105,13 @@ export function Button({
             {label}
           </Text>
         </View>
-      )}
-    </Pressable>
+        {loading ? (
+          <View style={styles.spinnerOverlay}>
+            <ActivityIndicator color={isPrimary || isDestructive ? "#FFFFFF" : colors.primary} />
+          </View>
+        ) : null}
+      </View>
+    </AnimatedPressable>
   );
 }
 
@@ -120,13 +129,28 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-  pressed: {
-    opacity: 0.86,
+  contentWrap: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   contentRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  // opacity, not display: none - keeps occupying its own layout space so
+  // the button doesn't collapse to the spinner's smaller width.
+  hidden: {
+    opacity: 0,
+  },
+  spinnerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     ...typography.button,

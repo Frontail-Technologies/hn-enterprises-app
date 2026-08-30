@@ -492,6 +492,10 @@ export type CustomerOption = {
   projectName: string;
   siteId: string;
   siteArea: string;
+  // The customer's own street address - not the site's name (siteArea) -
+  // shown alongside TR/BP in pickers so customers who share a name are
+  // still distinguishable.
+  address: string;
 };
 
 function mapCustomerOption(raw: BackendCustomer): CustomerOption {
@@ -503,6 +507,7 @@ function mapCustomerOption(raw: BackendCustomer): CustomerOption {
     projectName: raw.project?.name ?? "",
     siteId: raw.site?.id ?? "",
     siteArea: raw.site?.name ?? "",
+    address: raw.fullAddress ?? "",
   };
 }
 

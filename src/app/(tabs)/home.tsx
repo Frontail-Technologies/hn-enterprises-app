@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Bell, UserRound } from "lucide-react-native";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "@/components/shared/AppHeader";
@@ -19,6 +19,11 @@ import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
 import { guardNavigation } from "@/lib/navigation";
 import { queryKeys, useComplaintsQuery } from "@/queries";
+import { complaintsApi } from "@/services/complaints.service";
+
+// Matches useComplaintsInfiniteQuery's own page size, so this prefetch
+// populates the exact cache entry the Complaints screen will read.
+const COMPLAINTS_PREFETCH_PAGE_SIZE = 100;
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -39,6 +44,17 @@ export default function HomeScreen() {
       refetchComplaints(),
     ]);
   }, [attendance, queryClient, refetchComplaints]);
+
+  // Home always links into Complaints - warm its first page once on mount so
+  // it's already cached by the time the user taps through.
+  useEffect(() => {
+    void queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.complaints.infiniteList({}),
+      queryFn: ({ pageParam }) =>
+        complaintsApi.listPage({ page: pageParam as number, limit: COMPLAINTS_PREFETCH_PAGE_SIZE }),
+      initialPageParam: 1,
+    });
+  }, [queryClient]);
 
   return (
     <Screen scroll tabBarAware edges={["bottom"]} contentStyle={styles.screen} onRefresh={onRefresh} revealContent={false}>

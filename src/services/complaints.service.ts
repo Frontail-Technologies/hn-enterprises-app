@@ -97,6 +97,12 @@ export const complaintsApi = {
     return mapComplaint(raw);
   },
 
+  async statusCounts(params: { supervisorId?: string } = {}): Promise<Record<ComplaintStatus, number>> {
+    const query = new URLSearchParams();
+    if (params.supervisorId) query.set("supervisorId", params.supervisorId);
+    return apiRequest<Record<ComplaintStatus, number>>(`/complaints/status-counts?${query.toString()}`);
+  },
+
   async updateStatus(id: string, input: { status: ComplaintStatus; supervisorRemark?: string }): Promise<ComplaintRecord> {
     const raw = await apiRequest<BackendComplaint>(`/complaints/${id}`, {
       method: "PATCH",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { expenseStatusOptions } from '@/constants/expenses';
+import { expenseStatusOptions, SUPERVISOR_VISIBLE_EXPENSE_CATEGORIES } from '@/constants/expenses';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
   useCreateExpenseMutation,
@@ -11,7 +12,7 @@ import {
   useUpdateExpenseMutation,
 } from '@/queries';
 import { ApiError } from '@/services/apiClient';
-import { expenseCategoryOptions, type ExpenseRecord, type ExpenseStatus } from '@/services/expenses.service';
+import { expenseCategoryOptions, type ExpenseCategory, type ExpenseRecord, type ExpenseStatus } from '@/services/expenses.service';
 import type { ExpenseDraft } from '@/types/expenses';
 import { normalizeError } from '@/utils/normalizeError';
 
@@ -21,9 +22,9 @@ export const draftStatusOptions = expenseStatusOptions.filter(
 
 export type ExpenseFieldKey = 'purpose' | 'amount';
 
-function emptyDraft(): ExpenseDraft {
+function emptyDraft(defaultCategory: ExpenseCategory): ExpenseDraft {
   return {
-    category: 'worker_payment',
+    category: defaultCategory,
     purpose: '',
     paidTo: '',
     plumberId: '',
@@ -58,6 +59,7 @@ function toDraft(expense: ExpenseRecord): ExpenseDraft {
 }
 
 export function useExpenseForm(expenseId?: string) {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const listQuery = useExpensesQuery();
   const detailQuery = useExpenseQuery(expenseId);
@@ -66,16 +68,27 @@ export function useExpenseForm(expenseId?: string) {
   const plumbersQuery = usePlumbersOptionsQuery();
   const paymentModesQuery = useMasterValuesQuery('Payment Types');
 
+  const categoryOptions = useMemo(
+    () =>
+      user?.role === 'supervisor'
+        ? expenseCategoryOptions.filter((option) =>
+            SUPERVISOR_VISIBLE_EXPENSE_CATEGORIES.includes(option.value),
+          )
+        : expenseCategoryOptions,
+    [user?.role],
+  );
+  const defaultCategory: ExpenseCategory = user?.role === 'supervisor' ? 'plumber_payment' : 'worker_payment';
+
   const cached = useMemo(
     () => (expenseId ? (listQuery.data ?? []).find((item) => item.id === expenseId) : undefined),
     [listQuery.data, expenseId],
   );
   const detail = detailQuery.data ?? cached;
 
-  const [initial, setInitial] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft()));
-  const [draft, setDraft] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft()));
+  const [initial, setInitial] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft(defaultCategory)));
+  const [draft, setDraft] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft(defaultCategory)));
   const [errors, setErrors] = useState<Partial<Record<ExpenseFieldKey, string>>>({});
-  const mountPlaceholder = useRef<ExpenseDraft>(cached ? toDraft(cached) : emptyDraft());
+  const mountPlaceholder = useRef<ExpenseDraft>(cached ? toDraft(cached) : emptyDraft(defaultCategory));
   // `cached` (from the list query) is a list-sized DTO with no `evidence`
   // field (see payments.service.ts#list on the backend) - it's only ever
   // used to instant-paint the form while the full detail (which does carry
@@ -183,7 +196,7 @@ export function useExpenseForm(expenseId?: string) {
     modesLoading: paymentModesQuery.isLoading,
     modesError: paymentModesQuery.isError,
     refetchModes: paymentModesQuery.refetch,
-    categoryOptions: expenseCategoryOptions,
+    categoryOptions,
     statusOptions: draftStatusOptions,
   };
 }

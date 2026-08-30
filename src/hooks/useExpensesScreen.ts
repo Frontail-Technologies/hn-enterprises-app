@@ -10,7 +10,14 @@ const ALL_MONTHS = 'All';
 const SEARCH_DEBOUNCE_MS = 350;
 
 function monthLabel(monthKey: string) {
-  return new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' }).format(new Date(`${monthKey}-01T00:00:00`));
+  const parsed = new Date(`${monthKey}-01T00:00:00`);
+  // Intl.DateTimeFormat().format() throws a RangeError on an invalid Date (unlike
+  // toLocaleString()/toString(), which just print "Invalid Date") - this runs inside a
+  // useMemo during render (see monthOptions below), so an unguarded throw here would take
+  // down the whole app via the root ErrorBoundary, not just this screen. Same guard already
+  // used for the same reason in DateField.tsx/PlanningDateNav.tsx.
+  if (Number.isNaN(parsed.getTime())) return monthKey;
+  return new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' }).format(parsed);
 }
 
 function monthRange(monthKey: string) {
@@ -22,8 +29,17 @@ function monthRange(monthKey: string) {
 export function useExpensesScreen() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Committed - what the server query actually filters by. Only ever
+  // changes when the filter sheet's root "Apply Filters" commits the draft
+  // below, never as the user edits inside the sheet.
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  // Draft - what the filter sheet's own DateFields edit. Seeded from the
+  // committed dates each time the sheet opens (see openFilterSheet), so
+  // reopening it always reflects what's actually applied, not a stale
+  // abandoned edit from a previous session.
+  const [draftFromDate, setDraftFromDate] = useState('');
+  const [draftToDate, setDraftToDate] = useState('');
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | null>(null);
   const [monthFilter, setMonthFilter] = useState(ALL_MONTHS);
@@ -52,6 +68,7 @@ export function useExpensesScreen() {
 
   const {
     filters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -62,7 +79,9 @@ export function useExpensesScreen() {
     togglePendingValue,
     applyFilter,
     clearFilter,
-    clearAllFilters,
+    commitFilters,
+    discardDraft,
+    resetAllFilters,
     activeFilterCount,
   } = useColumnFilters(expenseGridColumns, []);
 
@@ -171,10 +190,41 @@ export function useExpensesScreen() {
     ];
   }, [expenses]);
 
+  // Seeds the draft from whatever's currently committed/applied, so opening
+  // the sheet always starts from the real active filters, not a stale edit
+  // abandoned on a previous open.
+  const openFilterSheet = () => {
+    setDraftFromDate(fromDate);
+    setDraftToDate(toDate);
+    setFilterSheetOpen(true);
+  };
+
+  // Root sheet's "Apply Filters" - the only place the draft (dates + column
+  // filters) actually reaches the server query.
+  const applyFilterSheet = () => {
+    setFromDate(draftFromDate);
+    setToDate(draftToDate);
+    commitFilters();
+    setFilterSheetOpen(false);
+  };
+
+  // Closing without applying (X, backdrop, hardware back) - discards the
+  // draft instead of committing it.
+  const discardFilterSheet = () => {
+    setDraftFromDate(fromDate);
+    setDraftToDate(toDate);
+    discardDraft();
+    setFilterSheetOpen(false);
+  };
+
+  // An explicit, immediate full reset - unlike Apply Filters, this takes
+  // effect right away rather than waiting on a further commit.
   const resetFilters = () => {
     setFromDate('');
     setToDate('');
-    clearAllFilters();
+    setDraftFromDate('');
+    setDraftToDate('');
+    resetAllFilters();
     setFilterSheetOpen(false);
   };
 
@@ -211,12 +261,17 @@ export function useExpensesScreen() {
     search,
     setSearch,
     fromDate,
-    setFromDate,
     toDate,
-    setToDate,
+    draftFromDate,
+    setDraftFromDate,
+    draftToDate,
+    setDraftToDate,
     filterSheetOpen,
-    setFilterSheetOpen,
+    openFilterSheet,
+    applyFilterSheet,
+    discardFilterSheet,
     filters,
+    draftFilters,
     activeColumn,
     pendingValues,
     filterSearch,
@@ -228,7 +283,6 @@ export function useExpensesScreen() {
     togglePendingValue,
     applyFilter,
     clearFilter,
-    clearAllFilters,
     activeFilterCount,
     resetFilters,
     categoryFilter,

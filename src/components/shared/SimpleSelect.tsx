@@ -32,6 +32,10 @@ type SimpleSelectProps<T extends string> = {
   // Single-line toolbar trigger ("All Time ▾") instead of the default
   // two-line caption-label + value trigger. Sheet/options behavior is shared.
   compact?: boolean;
+  // Drops the trigger's own border - for a menu-row context (e.g. Profile's
+  // Appearance row) that already sits inside a bordered/backgrounded card,
+  // where a second border around the control itself is redundant.
+  borderless?: boolean;
 };
 
 export function SimpleSelect<T extends string>({
@@ -48,6 +52,7 @@ export function SimpleSelect<T extends string>({
   onRetry,
   emptyLabel,
   compact = false,
+  borderless = false,
 }: SimpleSelectProps<T>) {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
@@ -73,7 +78,11 @@ export function SimpleSelect<T extends string>({
         style={({ pressed }) => [
           styles.trigger,
           compact && styles.triggerCompact,
-          { backgroundColor: disabled ? colors.background : colors.card, borderColor: colors.border },
+          {
+            backgroundColor: disabled ? colors.background : colors.card,
+            borderColor: colors.border,
+            borderWidth: borderless ? 0 : 1,
+          },
           pressed && !disabled && { opacity: 0.82 },
         ]}
       >
@@ -153,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    borderWidth: 1,
+    // borderWidth is set inline (borderless prop) - not here.
     borderRadius: radius.input,
     paddingHorizontal: 14,
   },
