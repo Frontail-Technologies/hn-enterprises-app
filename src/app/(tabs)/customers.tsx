@@ -9,6 +9,7 @@ import { ScrollableTable } from "@/components/shared/ScrollableTable";
 import { TableFilterSheet } from "@/components/shared/TableFilterSheet";
 import { TableSkeleton } from "@/components/shared/TableSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
 import { customerGridColumns } from "@/constants/customers";
@@ -42,6 +43,7 @@ export default function CustomersScreen() {
     isFetchingNextPage,
     hasNextPage,
     loadMore,
+    refetch,
     total,
     filteredRows,
     openCustomer,
@@ -128,6 +130,19 @@ export default function CustomersScreen() {
             rowHeight={tableMetrics.rowHeight}
             headerHeight={tableMetrics.headerHeight}
           />
+        ) : isError && filteredRows.length === 0 ? (
+          <ErrorState title="Couldn't load customers" description="Check your connection and try again." onRetry={refetch} />
+        ) : filteredRows.length === 0 ? (
+          <EmptyState
+            fill
+            icon={<UsersRound size={22} color={colors.primary} />}
+            title={hasQueryOrFilter ? "No matching customers" : "No customers yet"}
+            description={
+              hasQueryOrFilter
+                ? "Try changing or clearing your search and filters."
+                : "Customers assigned to you will appear here."
+            }
+          />
         ) : (
           <ScrollableTable
             listMode
@@ -179,22 +194,6 @@ export default function CustomersScreen() {
               contentContainerStyle={showPaginationFooter ? styles.listContentWithFooter : styles.listContent}
               onEndReachedThreshold={0.4}
               onEndReached={loadMore}
-              ListEmptyComponent={
-                <EmptyState
-                  fill
-                  icon={<UsersRound size={22} color={colors.primary} />}
-                  title={
-                    hasQueryOrFilter
-                      ? "No matching customers"
-                      : "No customers yet"
-                  }
-                  description={
-                    hasQueryOrFilter
-                      ? "Try changing or clearing your search and filters."
-                      : "Customers assigned to you will appear here."
-                  }
-                />
-              }
             />
           </ScrollableTable>
         )}

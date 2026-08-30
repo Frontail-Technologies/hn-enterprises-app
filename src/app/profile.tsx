@@ -15,6 +15,7 @@ import { useToast } from '@/context/ToastContext';
 import { useAccountLogout } from '@/hooks/useAccountLogout';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { openPrivacyPolicy } from '@/utils/openPrivacyPolicy';
+import { openSupportPage } from '@/utils/openSupportPage';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
         <Card style={styles.menuCard}>
           <AppearanceMenuRow />
           <AccountMenuDivider />
-          <AccountMenuRow icon={CircleHelp} label="Support & Help" />
+          <AccountMenuRow icon={CircleHelp} label="Support & Help" onPress={() => openSupportPage(showToast)} />
           <AccountMenuDivider />
           <AccountMenuRow
             icon={ShieldCheck}

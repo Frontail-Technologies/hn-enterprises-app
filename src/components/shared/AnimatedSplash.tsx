@@ -35,20 +35,21 @@ export function AnimatedSplash() {
   const accentOpacity = useSharedValue(0);
   const accentWidth = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
-  const backgroundProgress = useSharedValue(0);
+  // The native splash (see app.json's expo-splash-screen "dark" variant) already
+  // shows the theme-correct background/logo before any JS runs - this only needs
+  // to start already matching that, not animate into it, or light-mode users would
+  // see a dark->light flash right after the theme-correct native frame.
+  const backgroundProgress = useSharedValue(isDark ? 0 : 1);
 
   useEffect(() => {
     if (reduceMotion) {
-      backgroundProgress.value = 1;
+      backgroundProgress.value = isDark ? 0 : 1;
       const id = setTimeout(() => setMinTimeElapsed(true), 0);
       return () => clearTimeout(id);
     }
 
     logoScale.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
     logoOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
-    if (!isDark) {
-      backgroundProgress.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
-    }
     accentOpacity.value = withDelay(300, withTiming(1, { duration: 200 }));
     accentWidth.value = withDelay(
       300,

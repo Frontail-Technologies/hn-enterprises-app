@@ -19,7 +19,7 @@ export function useCustomersGrid() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, isLoading, isError, isFetchingNextPage, hasNextPage, fetchNextPage } = useCustomerInfiniteListQuery(
+  const { data, isLoading, isError, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = useCustomerInfiniteListQuery(
     debouncedSearch || undefined,
   );
   const isFetchingRef = useRef(false);
@@ -105,6 +105,7 @@ export function useCustomersGrid() {
     isFetchingNextPage,
     hasNextPage,
     loadMore,
+    refetch,
     total,
     rows,
     filteredRows,

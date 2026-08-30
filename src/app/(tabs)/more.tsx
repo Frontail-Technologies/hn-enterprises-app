@@ -20,6 +20,7 @@ import { useToast } from "@/context/ToastContext";
 import { useAccountLogout } from "@/hooks/useAccountLogout";
 import { guardNavigation } from "@/lib/navigation";
 import { openPrivacyPolicy } from "@/utils/openPrivacyPolicy";
+import { openSupportPage } from "@/utils/openSupportPage";
 
 export default function MoreScreen() {
   const { colors } = useTheme();
@@ -59,7 +60,7 @@ export default function MoreScreen() {
             <AccountMenuDivider />
             <AccountMenuRow icon={LockKeyhole} label="Change Password" onPress={() => setChangePasswordOpen(true)} />
             <AccountMenuDivider />
-            <AccountMenuRow icon={CircleHelp} label="Support & Help" />
+            <AccountMenuRow icon={CircleHelp} label="Support & Help" onPress={() => openSupportPage(showToast)} />
             <AccountMenuDivider />
             <AccountMenuRow
               icon={ShieldCheck}
