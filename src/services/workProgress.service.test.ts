@@ -9,11 +9,6 @@ import {
 } from './workProgress.service';
 import type { CustomerRecord } from '../types/customers';
 
-// This centralization is the whole point of the Phase B "Work Progress
-// domain cleanup" - activity.service.ts now imports these same maps instead
-// of redefining its own copy. If a backend enum value or label ever changes,
-// these tests catch it in one place instead of the labels silently drifting
-// apart between the Work screens and the activity feed.
 
 describe('STAGE_TO_MOBILE', () => {
   it('maps every backend stage to its mobile label', () => {
@@ -137,10 +132,6 @@ describe('buildDetailRecord', () => {
   });
 });
 
-// Protects Phase D.1's "Work Queue filters must apply server-side before
-// pagination" fix: project/site/stage/status/search all have to actually
-// land in the request, using the same backend enum values as everywhere
-// else in the app, not the mobile display labels.
 describe('buildWorkQueueQuery', () => {
   it('omits every param when nothing is filtered', () => {
     expect(buildWorkQueueQuery({}).toString()).toBe('');

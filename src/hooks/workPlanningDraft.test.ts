@@ -2,12 +2,6 @@ import { dprTaskTemplates } from '@/constants/dprTasks';
 import { isEqualSnapshot } from '@/utils/isEqualSnapshot';
 import { blankTasks, normalizeTasks, type PlanTask } from './workPlanningDraft';
 
-// Protects the Work Planning no-op-save fix: app/planning/plan.tsx's
-// `isDirty` is exactly `!isEqualSnapshot(normalizeTasks(tasks), initialSnapshot)`,
-// so exercising that same pair of pure functions here covers the actual
-// decision `handleSave`'s guard makes, without needing to render the screen
-// (this codebase has no React Native renderer in its test setup - see the
-// other *.test.ts files next to the hooks/services they cover).
 
 function hydratedTasks(overrides: Partial<Record<string, { qty: string; worker: string }>> = {}): PlanTask[] {
   return dprTaskTemplates.map((task) => ({
@@ -29,7 +23,6 @@ describe('Work Planning dirty state (normalizeTasks + isEqualSnapshot together)'
     const hydrated = hydratedTasks({ survey: { qty: '3', worker: 'Ramesh' } });
     const initialSnapshot = normalizeTasks(hydrated);
 
-    // No edits at all - this is the exact bug report: open, change nothing, Save.
     const isDirty = !isEqualSnapshot(normalizeTasks(hydrated), initialSnapshot);
     expect(isDirty).toBe(false);
   });
@@ -82,11 +75,9 @@ describe('Work Planning dirty state (normalizeTasks + isEqualSnapshot together)'
     const hydrated = hydratedTasks({ survey: { qty: '0', worker: '' } });
     const initialSnapshot = normalizeTasks(hydrated);
 
-    // Re-typing the same "0" - must stay clean.
     const untouched = hydratedTasks({ survey: { qty: '0', worker: '' } });
     expect(isEqualSnapshot(normalizeTasks(untouched), initialSnapshot)).toBe(true);
 
-    // Clearing "0" to blank IS a real change.
     const cleared = hydrated.map((task) => (task.id === 'survey' ? { ...task, qty: '' } : task));
     expect(isEqualSnapshot(normalizeTasks(cleared), initialSnapshot)).toBe(false);
   });

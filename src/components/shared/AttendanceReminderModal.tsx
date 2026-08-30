@@ -17,27 +17,9 @@ type AttendanceReminderModalProps = {
   onClose: () => void;
 };
 
-// Centered dialog, not the shared bottom Sheet - this reminder is a brief
-// act-or-dismiss nudge, not a task with its own scrollable content, so a
-// small centered card fits better than a swipe-up sheet. Built directly on
-// React Native's own Modal (same pattern already used by EvidenceUploader's
-// preview dialog) rather than introducing a new modal framework.
-//
-// visible/onClose stay owned by the caller (AttendanceSummarySection) - the
-// scheduling/one-shot-gate logic that decides *when* visible flips true is
-// untouched, so this component only ever reflects a single boolean, and
-// React Native's Modal fully unmounts its backdrop+content the instant
-// visible is false. That's what guarantees at most one reminder is ever
-// mounted and that a closed modal never leaves a backdrop intercepting
-// touches - there's no imperative present/dismiss handle to get out of sync.
 export function AttendanceReminderModal({ visible, onClose }: AttendanceReminderModalProps) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
-  // The card mounts fresh every time (Modal fully unmounts on visible=false
-  // - see this file's top comment), so a plain mount effect below doubles
-  // as the "entrance" trigger - no need for Reanimated's entering/exiting
-  // API, which would need the card to stay mounted through Modal's own
-  // teardown to play an exit animation, undermining that same guarantee.
   const cardOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const cardScale = useSharedValue(reduceMotion ? 1 : 0.96);
 
@@ -52,9 +34,6 @@ export function AttendanceReminderModal({ visible, onClose }: AttendanceReminder
     transform: [{ scale: cardScale.value }],
   }));
 
-  // Same Sentry category/name the old Sheet emitted ("sheet"/"attendance_reminder")
-  // - kept as-is for continuity with any existing breadcrumb-based dashboards,
-  // even though this is no longer literally a Sheet.
   const handleClose = () => {
     addActionBreadcrumb('sheet', 'dismissed', { name: 'attendance_reminder' });
     onClose();
@@ -72,10 +51,6 @@ export function AttendanceReminderModal({ visible, onClose }: AttendanceReminder
       transparent
       animationType="fade"
       statusBarTranslucent
-      // Android hardware back fires this - required for Android to handle
-      // back at all on a transparent Modal. iOS has no swipe-down gesture on
-      // a plain transparent Modal to begin with, so there's nothing to
-      // suppress there.
       onRequestClose={handleClose}
       onShow={() => addActionBreadcrumb('sheet', 'opened', { name: 'attendance_reminder' })}
     >

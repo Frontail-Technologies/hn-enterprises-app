@@ -287,11 +287,6 @@ function ToggleRow({
   );
 }
 
-// Same visual row as ToggleRow, but backed by the audited completion API
-// instead of a plain form field: switching on marks the milestone complete
-// immediately (backend stamps completedAt/completedBy); switching off asks
-// for confirmation first, exactly like every other section's Reopen action,
-// and reverts to on if the reopen is cancelled or blocked (e.g. GC Bill Done).
 function MilestoneToggleRow({
   customerId,
   sectionKey,

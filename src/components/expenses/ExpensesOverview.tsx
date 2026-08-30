@@ -18,9 +18,6 @@ import type { ExpenseCategory, ExpenseRecord } from '@/services/expenses.service
 import { formatCurrency } from '@/utils/format';
 
 const DONUT_SIZE = 188;
-// Blended toward white for the donut ring only - the category rows below
-// keep the full-saturation color for their icon/tint, this just lightens
-// the chart itself, which read too dark/heavy at full strength.
 const DONUT_LIGHTEN_AMOUNT = 0.32;
 
 function lightenHex(hex: string, amount: number) {
@@ -249,10 +246,6 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  // flexGrow (not flex) so the empty/error state's own `fill` (flex: 1)
-  // has real space to center within instead of the ScrollView's content
-  // collapsing to just the filter row's height. No-op once real content
-  // exceeds the viewport.
   content: {
     flexGrow: 1,
     gap: spacing.lg,

@@ -19,11 +19,6 @@ export function useAttendanceDayQuery(date: string | undefined, options?: { enab
   });
 }
 
-// Shared by both check-in and check-out - they need to sync the cache
-// identically (the record's own `date` is authoritative for which day/month
-// it belongs to, not the request's local `date` param). Exported so it can
-// be tested directly against a real QueryClient without going through a
-// mutation/network call.
 export function applyAttendanceMutationResult(queryClient: QueryClient, record: BackendAttendanceRecord) {
   const month = record.date.slice(0, 7);
   queryClient.invalidateQueries({ queryKey: queryKeys.attendance.month(month) });

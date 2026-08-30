@@ -7,9 +7,6 @@ export type PlanTask = {
   worker: string;
 };
 
-// Only `qty`/`worker` are user-editable - `id`/`label` come from the fixed
-// dprTaskTemplates list and are never something the user changes, so they're
-// deliberately left out of the dirty comparison.
 export type TaskSnapshot = Record<string, { qty: string; worker: string }>;
 
 export function blankTasks(): PlanTask[] {

@@ -113,9 +113,6 @@ export default function StatDetailScreen() {
               headerHeight={tableMetrics.headerHeight}
             />
           ) : error && filteredRows.length === 0 ? (
-            // Only the initial load (no rows yet) gets the full-page
-            // ErrorState - a later page failing keeps the rows visible and
-            // surfaces a footer retry instead (below).
             <ErrorState title="Couldn't load records" description="Check your connection and try again." onRetry={refetch} />
           ) : filteredRows.length === 0 ? (
             <EmptyState
@@ -284,8 +281,6 @@ const styles = StyleSheet.create({
   resultText: {
     ...typography.caption,
   },
-  // No outer card chrome - header (surfaceMuted) and each row (surface) carry
-  // their own fill, so the list blends into the page only in the gaps.
   tableCard: {
     flex: 1,
   },
@@ -317,8 +312,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.md,
   },
-  // Extra bottom space so the last row never sits underneath the viewport-
-  // centered PaginationOverlay (see the tableCard wrapper above).
   listContentWithFooter: {
     paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,
   },

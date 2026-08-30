@@ -22,8 +22,6 @@ export default function ProfileScreen() {
   const handleLogout = useAccountLogout();
   const { showToast } = useToast();
 
-  // No _layout.tsx covers this route - it guards itself via the same
-  // centralized check ProtectedStack uses for grouped routes.
   if (authGuard.blocked) return authGuard.element;
 
   return (

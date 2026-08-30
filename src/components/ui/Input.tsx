@@ -33,11 +33,6 @@ export function Input({
   const { colors } = useTheme();
   const { ref, onFocus: scrollOnFocus } = useScrollIntoViewOnFocus();
   const [isFocused, setIsFocused] = useState(false);
-  // Inside a Sheet, BottomSheetTextInput registers focus with Gorhom's own
-  // keyboard coordination (interactive keyboardBehavior scrolls it into view
-  // automatically) - the manual scrollIntoView hack below is for the plain
-  // full-screen ScrollView case (Screen.tsx) and is a no-op here since Sheet
-  // no longer provides a ScrollIntoViewContext value.
   const insideSheet = useBottomSheetInternal(true) !== null;
 
   const fieldProps = {

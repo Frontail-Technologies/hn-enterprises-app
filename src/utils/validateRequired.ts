@@ -1,7 +1,3 @@
-// Shared "is every backend-flagged required field actually filled in"
-// check for the customer-section forms, whose required-field list comes
-// from `customer.sectionCompletion.<section>.requiredFields` rather than
-// being fixed per form.
 export function getRequiredFieldErrors(
   required: string[],
   values: Record<string, unknown>,

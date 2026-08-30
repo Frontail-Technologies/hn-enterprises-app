@@ -262,10 +262,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
   },
-  // flexGrow (not flex) so the content area can grow to fill the viewport
-  // when it's shorter than that (the empty/error state) - what
-  // EmptyState/ErrorState's own `fill` (flex: 1) needs to have space to
-  // center within. No-op once real rows exceed the viewport height.
   listContent: {
     flexGrow: 1,
     paddingBottom: spacing.xl,

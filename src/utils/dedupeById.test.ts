@@ -22,8 +22,6 @@ describe('dedupeById', () => {
   });
 
   it('an unstable sort tie-break repeating a row across a page boundary is collapsed to one', () => {
-    // Simulates a backend page boundary handing back the same last-page-1/
-    // first-page-2 row twice - the exact scenario this guards against.
     const page1 = [{ id: '1' }, { id: '2' }];
     const page2 = [{ id: '2' }, { id: '3' }];
 

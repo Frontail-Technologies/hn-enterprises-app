@@ -14,8 +14,6 @@ export function useCustomersGrid() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const openingRowRef = useRef<string | null>(null);
 
-  // Search now hits the server (paginated results can't be filtered
-  // client-side), so debounce it instead of firing a request per keystroke.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -24,9 +22,6 @@ export function useCustomersGrid() {
   const { data, isLoading, isError, isFetchingNextPage, hasNextPage, fetchNextPage } = useCustomerInfiniteListQuery(
     debouncedSearch || undefined,
   );
-  // isFetchingNextPage only flips after a render, so a burst of onScroll
-  // events (nested scroll views fire these often) can call loadMore several
-  // times before that catches up - this ref-based lock closes that gap.
   const isFetchingRef = useRef(false);
   useEffect(() => {
     isFetchingRef.current = isFetchingNextPage;
@@ -74,9 +69,6 @@ export function useCustomersGrid() {
     activeFilterCount,
   } = useColumnFilters(customerGridColumns, rows);
 
-  // Free-text search already narrowed `rows` server-side - only the column
-  // filter checkboxes need to run client-side, over whatever pages have
-  // loaded so far (their option lists grow as more pages load in).
   const filteredRows = useMemo(() => rows.filter((row) => matchesFilters(row)), [matchesFilters, rows]);
 
   const openCustomer = (row: CustomerGridRow) => {

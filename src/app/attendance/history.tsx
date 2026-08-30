@@ -30,8 +30,6 @@ export default function AttendanceHistoryScreen() {
     absentCount,
   } = useAttendanceCalendar();
   const queryClient = useQueryClient();
-  // Scoped to the attendance-month query group (covers whichever month is
-  // currently in view, since the visible month can change between pulls).
   const onRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.allMonths });
   }, [queryClient]);

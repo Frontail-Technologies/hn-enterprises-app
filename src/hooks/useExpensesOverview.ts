@@ -11,10 +11,6 @@ export type CategoryBreakdownItem = {
 
 const CATEGORY_LABEL_BY_VALUE = new Map(expenseCategoryOptions.map((option) => [option.value, option.label]));
 
-// Shapes the server-computed summary (expensesApi.summary - authoritative
-// over the whole search/date-filtered dataset, not just loaded pages) into
-// what the Overview tab renders. No aggregation happens here anymore - see
-// payments.service.ts#summary on the backend for where the real counting is.
 export function useExpensesOverview(summary: ExpenseSummary | undefined) {
   return useMemo(() => {
     const categoryBreakdown: CategoryBreakdownItem[] = (summary?.categoryBreakdown ?? [])

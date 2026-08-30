@@ -10,15 +10,6 @@ import { useAttendanceDayQuery, useCheckInMutation, useCheckOutMutation } from '
 import type { BackendAttendanceRecord } from '@/services/attendance.service';
 import { toDateKey } from '@/utils/date';
 
-// Paints today's attendance instantly on a cold launch, before the network
-// responds (React Query's cache is in-memory only and starts empty). This is
-// a mirror of the query cache, not a second source of truth - read once to
-// prime the query's own cache entry, written back only from that query's
-// settled result.
-//
-// Scoped by user id, like `useDraftForm`'s drafts - otherwise a check-in on
-// a shared device could prime the next logged-in user's "today" as the
-// previous user's.
 function cacheKey(userId: string) {
   return `attendance:today:v1:${userId}`;
 }
@@ -65,24 +56,10 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
   const { user, isLoading: authLoading } = useAuth();
   const userId = user?.id ?? null;
 
-  // Same query/mutation hooks the Attendance History/Day-detail screens use,
-  // so a check-in/out here updates the one cache entry every screen reads.
-  //
-  // Gated on auth being resolved AND a user existing: this provider is
-  // mounted at the root, above any route-level auth guard, so without this
-  // the query would fire before a token exists (during boot) or after
-  // logout - not a retry-worthy error, just a request with no business being
-  // made yet.
   const dayQuery = useAttendanceDayQuery(todayKey, { enabled: isAttendanceQueryEnabled(authLoading, userId) });
   const checkInMutation = useCheckInMutation();
   const checkOutMutation = useCheckOutMutation();
 
-  // Cold-start priming: read the last known on-device snapshot once and, if
-  // the query hasn't already resolved (from a real fetch) by the time this
-  // resolves, seed its cache entry so the first render has something to show.
-  // Guarded against the live query state (not a captured value) so a fast
-  // network response that lands first is never clobbered by a stale snapshot.
-  // No-ops without an authenticated user, same as `useDraftForm`.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -106,7 +83,6 @@ export function AttendanceProvider({ children }: PropsWithChildren) {
     };
   }, [queryClient, todayKey, userId]);
 
-  // Mirrors the settled query result back to disk for the next cold start.
   useEffect(() => {
     if (!userId || dayQuery.isLoading || dayQuery.data === undefined) return;
     const payload: CachedAttendance = { dateKey: todayKey, record: dayQuery.data };

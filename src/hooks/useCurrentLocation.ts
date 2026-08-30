@@ -12,9 +12,6 @@ export type CapturedLocation = {
   capturedAt: string;
 };
 
-// Lets callers (e.g. the Check-In button) show the exact guidance the
-// situation calls for - "enable Location Services" vs "open Settings to
-// grant permission" vs a plain retry - instead of one generic error string.
 export type LocationErrorKind =
   | 'services_disabled'
   | 'permission_denied'
@@ -29,13 +26,6 @@ type LocationState = {
   errorKind: LocationErrorKind | null;
 };
 
-// expo-location's getCurrentPositionAsync has no built-in timeout - on poor
-// or absent GPS signal (common indoors) it can hang far longer than a user
-// will wait. Without a bound here, the Check-In button's spinner never
-// resolves, and if the user gives up and navigates away while the native
-// permission/location call is still in flight, the resulting OS dialog can
-// surface later on whatever screen they've since moved to. Bounding the
-// wait client-side turns that into a clear, immediate error instead.
 const POSITION_TIMEOUT_MS = 15000;
 
 class LocationTimeoutError extends Error {}
@@ -72,18 +62,8 @@ export function useCurrentLocation() {
     };
   }, []);
 
-  // Re-entrant calls (a second tap that slips through before the button's
-  // own disabled-while-loading state re-renders, or two independent callers
-  // sharing intent) return the same in-flight promise instead of racing two
-  // native permission/location requests against each other.
   const inFlightRef = useRef<Promise<CapturedLocation | null> | null>(null);
 
-  // A caller that does `const captured = await captureLocation(); if
-  // (!captured) { ...read the failure reason... }` runs that check in the
-  // same tick the promise resolves, before React has re-rendered with the
-  // new state - reading `state.error`/`state.errorKind` there would be
-  // stale. This ref is set synchronously at the same point as the state
-  // update, so a getter reading it right after `await` is always current.
   const lastErrorRef = useRef<{ message: string; kind: LocationErrorKind } | null>(null);
 
   const captureLocation = useCallback(async () => {
@@ -152,9 +132,6 @@ export function useCurrentLocation() {
             ? 'timeout'
             : (error as { kind?: LocationErrorKind })?.kind ?? 'unknown';
         addActionBreadcrumb('location', 'capture_failed', { kind });
-        // 'unknown' means the native module threw something outside the handled
-        // categories above (services disabled / permission / timeout) - a genuinely
-        // unexpected failure worth reporting, not a normal denial/timeout outcome.
         if (kind === 'unknown') captureUnexpectedError(error, { feature: 'location_capture' });
         const message =
           kind === 'timeout'

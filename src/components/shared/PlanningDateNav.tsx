@@ -35,9 +35,6 @@ function buildMonthDays(month: Date) {
   return days;
 }
 
-// Compact date header for the Planning/DPR overview - a small ‹ date › nav
-// row plus an optional Today action, not a full labeled DateField. Tapping
-// the date opens the same month-grid picker DateField uses elsewhere.
 export function PlanningDateNav({ date, onChange }: { date: string; onChange: (value: string) => void }) {
   const { colors } = useTheme();
   const [pickerOpen, setPickerOpen] = useState(false);

@@ -47,11 +47,6 @@ export default function ExpensesScreen() {
     isMounted,
     selectTab: setActiveTab,
   } = useSwipeableTabs(SCREEN_TAB_KEYS);
-  // Search only applies to the All Expenses list. Derived rather than reset
-  // via an effect - activeTab already updates correctly for both a tap
-  // (SectionTabBar -> selectTab) and a swipe (PagerView -> onPageSelected),
-  // so gating on it here closes the header's search row on either without
-  // an extra render pass.
   const searchExpanded = searchOpen && activeTab === "all";
   const plumbersQuery = usePlumbersOptionsQuery();
 
@@ -149,8 +144,6 @@ export default function ExpensesScreen() {
             searchExpanded
               ? undefined
               : [
-                  // Search only applies to the All Expenses list - Overview
-                  // is a browse/aggregate view, nothing to search there.
                   ...(activeTab === "all"
                     ? [
                         {
@@ -165,7 +158,6 @@ export default function ExpensesScreen() {
                     key: "filter",
                     icon: SlidersHorizontal,
                     accessibilityLabel: "Filter expenses",
-                    // Same filter sheet/count both tabs already shared.
                     active: expenseFilterCount > 0,
                     onPress: () => openFilterSheet(),
                   },
@@ -302,8 +294,6 @@ export default function ExpensesScreen() {
   );
 }
 
-// Small, local, not worth its own file: wraps a `refetch` in the
-// refreshing-boolean dance every pull-to-refresh needs, shared by both tabs.
 function useExpensesRefresh(refetch: () => Promise<unknown>) {
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {

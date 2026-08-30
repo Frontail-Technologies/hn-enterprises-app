@@ -15,12 +15,6 @@ type WorkProgressCardProps = {
   record: WorkProgressRecord;
 };
 
-// Memoized deliberately: rendered as a FlashList row (work/index.tsx) with a
-// single prop, `record`, which is referentially stable across re-renders
-// (useWorkQueueFilters filters via .filter(), which never clones elements -
-// an unchanged record is still the same object). There's no callback prop
-// at all here (navigation happens internally via router.push), so nothing
-// undermines memo's shallow comparison the way an inline closure would.
 export const WorkProgressCard = memo(function WorkProgressCard({ record }: WorkProgressCardProps) {
   const { colors } = useTheme();
 

@@ -6,7 +6,7 @@ export function useMasterValuesQuery(category: string) {
   return useQuery({
     queryKey: queryKeys.masters.values(category),
     queryFn: () => fetchMasterValues(category),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     select: (data) => data.map((item) => item.value),
   });
 }

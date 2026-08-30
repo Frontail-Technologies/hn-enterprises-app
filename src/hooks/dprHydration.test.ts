@@ -9,11 +9,6 @@ import {
 } from './dprHydration';
 import type { BackendDprRecord } from '@/services/planning.service';
 
-// Regression coverage for the Phase A bug: useDprForm's hydration effect had
-// no guard, so a background refetch of the same DPR record (app foreground,
-// reconnect, another mutation invalidating the query) re-ran and silently
-// overwrote a supervisor's in-progress edits. The fix was `shouldHydrateDprDraft`
-// only allowing exactly one hydration per scope - these tests protect that.
 
 function makeRecord(overrides: Partial<BackendDprRecord> = {}): BackendDprRecord {
   return {
@@ -50,7 +45,6 @@ describe('buildDprDraft', () => {
     ]);
     const survey = draft.items.find((item) => item.id === 'survey');
     expect(survey).toMatchObject({ plannedQty: '10', completedQty: '8', worker: 'Ramesh' });
-    // Every template task is present, even ones with no matching server task.
     expect(draft.items).toHaveLength(initialDprItems.length);
     const untouched = draft.items.find((item) => item.id === 'gi');
     expect(untouched).toMatchObject({ plannedQty: '', completedQty: '', worker: '', delayReason: '' });
@@ -82,10 +76,6 @@ describe('shouldHydrateDprDraft', () => {
   });
 
   it('does NOT re-hydrate on a background refetch of the same scope - the Phase A bug', () => {
-    // Simulates: the scope has already been hydrated once, then the query
-    // refetches (e.g. app foreground) and resolves again with a new data
-    // reference for the exact same (customer, date, supervisor) - scopeKey
-    // is unchanged, so this must stay false or in-progress edits are lost.
     expect(shouldHydrateDprDraft(scopeKey, scopeKey, false)).toBe(false);
   });
 
@@ -94,7 +84,6 @@ describe('shouldHydrateDprDraft', () => {
     const newScope = computeDprScopeKey('cust-2', '2026-01-02', 'sup-1');
 
     expect(shouldHydrateDprDraft(previousScope, newScope, false)).toBe(true);
-    // And once that new scope is marked hydrated, it stops re-hydrating too.
     expect(shouldHydrateDprDraft(newScope, newScope, false)).toBe(false);
   });
 });
@@ -115,9 +104,6 @@ describe('computeDprScopeKey', () => {
   });
 });
 
-// Coverage for the NO-OP SAVE closure pass: DPR Submit is no longer a plain
-// `disabled={!isDirty}`. Content changes and workflow-transition need are
-// tracked separately and only OR'd together at the call site (canSubmit).
 
 describe('hasDprContentChanged', () => {
   const baseline: DprDraftState = buildDprDraft(undefined);

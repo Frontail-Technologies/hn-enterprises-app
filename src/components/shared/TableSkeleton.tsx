@@ -5,7 +5,6 @@ import { tableDividers, tableMetrics } from '@/constants/table';
 import { useTheme } from '@/context/ThemeContext';
 
 type TableSkeletonProps = {
-  /** Pixel width of each column, in order - reuse the same widths as the real table. */
   columnWidths: number[];
   rowCount?: number;
   rowHeight?: number;

@@ -6,9 +6,6 @@ import { useTheme } from '@/context/ThemeContext';
 
 const PLACEHOLDER_COUNT = 6;
 
-// Card-shaped placeholder matching ExpenseListItem's layout - the old
-// TableSkeleton (column-width based) no longer visually matches now that
-// the All Expenses list is a vertical card list, not a table.
 export function ExpenseCardSkeleton() {
   return (
     <View style={styles.list}>

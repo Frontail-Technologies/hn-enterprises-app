@@ -17,14 +17,9 @@ function priorityTone(priority: ComplaintPriority, colors: ReturnType<typeof use
 
 type ComplaintListItemProps = {
   complaint: ComplaintRecord;
-  // Takes the complaint rather than being pre-bound to it, so callers can
-  // pass a stable setState setter instead of a new inline closure per row -
-  // an inline closure here would defeat the memo below.
   onPress: (complaint: ComplaintRecord) => void;
 };
 
-// Rendered as a FlashList row (app/complaints/index.tsx) - memoized since
-// `complaint` and `onPress` are both stable references at the call sites.
 export const ComplaintListItem = memo(function ComplaintListItem({ complaint, onPress }: ComplaintListItemProps) {
   const { colors } = useTheme();
   const tone = priorityTone(complaint.priority, colors);

@@ -30,12 +30,6 @@ export function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }
   const [errors, setErrors] = useState<LoginErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollIntoView = useScrollIntoView();
-  // The password field's own scroll-into-view only guarantees the input
-  // itself clears the keyboard - not the error text/remember-me row/button
-  // that follow it. Re-targeting the scroll at the submit button on focus
-  // (rather than hardcoding extra clearance in the shared Screen mechanism,
-  // which every other form also relies on) ensures Login stays reachable
-  // without needing to dismiss the keyboard first.
   const submitRef = useRef<View>(null);
 
   const handleLogin = async () => {

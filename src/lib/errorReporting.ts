@@ -1,15 +1,3 @@
-// Nothing installed a global JS error handler anywhere in the app before
-// this. React Native exposes ErrorUtils (injected by its own polyfills, no
-// extra dependency needed) specifically so an app can observe a fatal JS
-// exception before the engine acts on it - without this, an uncaught error
-// in an event handler or async callback has no app-level trail at all, only
-// whatever generic crash report the OS/TestFlight happens to capture.
-//
-// This wraps, not replaces, the existing handler - the original behavior
-// (red box in dev, whatever RN/Hermes does by default in release) still
-// runs exactly as before. This only adds a console.error with full context
-// first, so "safe logging" here means strictly additive, never suppresses
-// or changes what happens to the error afterward.
 import { captureUnexpectedError } from "@/lib/sentry";
 
 declare const global: {
@@ -39,9 +27,6 @@ export function installGlobalErrorHandlers() {
     });
   }
 
-  // Hermes reports unhandled promise rejections through this global when
-  // present (RN wires it up on newer versions) - same additive logging, no
-  // behavior change.
   const globalWithRejectionHandler = global as unknown as {
     HermesInternal?: unknown;
     onunhandledrejection?: (event: { reason: unknown }) => void;

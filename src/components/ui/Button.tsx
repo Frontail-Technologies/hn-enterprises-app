@@ -57,8 +57,6 @@ export function Button({
   const isDestructive = resolved === "destructive";
   const isSecondary = resolved === "secondary";
   const isGhost = resolved === "ghost";
-  // Unset `size` keeps today's defaults: CTA-height for primary/destructive,
-  // input-height for everything else.
   const resolvedSize: ButtonSize = size ?? (isPrimary || isDestructive ? "cta" : "default");
 
   const backgroundColor = isPrimary
@@ -74,9 +72,6 @@ export function Button({
     <AnimatedPressable
       onPress={onPress}
       disabled={disabled || loading}
-      // Icon-only isn't this component's concern (Button always has a
-      // label), but a full-width CTA scaling down still reads fine here -
-      // it's the surface itself responding, not a large unrelated container.
       style={[
         styles.base,
         !fullWidth && styles.inline,
@@ -138,8 +133,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  // opacity, not display: none - keeps occupying its own layout space so
-  // the button doesn't collapse to the spinner's smaller width.
   hidden: {
     opacity: 0,
   },

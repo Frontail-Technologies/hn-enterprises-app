@@ -57,10 +57,6 @@ export default function PlanningOverviewScreen() {
   const [dateOpen, setDateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Both queries stay fetched regardless of which mode is active - Work and
-  // DPR are now separate swipeable pages (not swapped content bound to one
-  // "active" query), so both need real data ready the instant either page
-  // mounts, same as Expenses' Overview/All Expenses tabs.
   const workQuery = useWorkPlanningOverviewQuery(date);
   const dprQuery = useDprOverviewQuery(date);
 
@@ -288,9 +284,6 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  // See Screen.tsx's getChildFlexStyle - a real `style` prop with flex: 1
-  // is what lets the empty state actually claim/center within the
-  // remaining screen space, not just center within its own bounds.
   emptyFill: {
     flex: 1,
   },

@@ -30,8 +30,6 @@ export function useComplaintsInfiniteQuery(
     queryFn: ({ pageParam }) => complaintsApi.listPage({ page: pageParam, limit: COMPLAINTS_PAGE_SIZE, ...params }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => nextPageParam(lastPage.pagination),
-    // Keep previously loaded pages visible while a changed search/status
-    // refetches, so the list doesn't flash its skeleton on every keystroke.
     placeholderData: keepPreviousData,
   });
 }

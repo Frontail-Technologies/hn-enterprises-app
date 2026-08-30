@@ -28,8 +28,6 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
   const items = useMemo(() => notificationsQuery.data ?? [], [notificationsQuery.data]);
   const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
 
-  // Keep the app-icon badge in step with the backend unread count (the single
-  // source of truth) rather than a separately-maintained counter.
   useEffect(() => {
     Notifications.setBadgeCountAsync(unreadCount).catch(() => undefined);
   }, [unreadCount]);

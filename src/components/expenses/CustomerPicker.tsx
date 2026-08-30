@@ -14,9 +14,6 @@ import type { CustomerOption } from '@/services/customers.service';
 const EM_DASH = '—';
 
 type CustomerPickerProps = {
-  // The selected customer's full option (not just an id) - the caller needs
-  // both id and siteId out of a selection, and the trigger needs the name to
-  // display, so there's no separate options[] lookup to keep in sync.
   value: CustomerOption | null;
   options: CustomerOption[];
   open: boolean;
@@ -30,11 +27,6 @@ type CustomerPickerProps = {
   onRetry?: () => void;
 };
 
-// Purpose-built rather than reusing SimpleSelect: a customer needs three
-// lines to be reliably identified (name, TR/BP, address) - SimpleSelect's
-// single-line option row has no room for that, and generalizing it would
-// touch every other picker in the app (Category, Payment Mode, Status,
-// Plumber) for a need only this one field has.
 export function CustomerPicker({
   value,
   options,

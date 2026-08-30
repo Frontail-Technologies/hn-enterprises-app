@@ -14,11 +14,7 @@ import type { ExpenseColumnKey } from '@/types/expenses';
 
 type ExpenseFiltersSheetProps = {
   visible: boolean;
-  // Closing without applying (X, backdrop, hardware back) - the caller is
-  // expected to discard any in-progress draft edits, not just hide the sheet.
   onClose: () => void;
-  // Root sheet's "Apply Filters" - commits the complete draft (dates +
-  // column filters) and closes.
   onApply: () => void;
   fromDate: string;
   onFromDateChange: (value: string) => void;
@@ -38,11 +34,6 @@ type ExpenseFiltersSheetProps = {
   onApplyColumnFilter: () => void;
 };
 
-// One sheet, two views: the column list (date range + filterable columns)
-// and, when a column is picked, that column's value picker - switched in
-// place rather than stacking a second sheet on top. Picking a column no
-// longer leaves the filter list behind: applying/clearing/backing out of the
-// value picker returns to the same open sheet instead of closing everything.
 export function ExpenseFiltersSheet({
   visible,
   onClose,
@@ -67,11 +58,6 @@ export function ExpenseFiltersSheet({
   const { colors } = useTheme();
   const isDetailView = Boolean(activeColumn);
 
-  // The sheet's own close (X button, backdrop tap, hardware back) always
-  // fully closes - it also resets any in-progress column drill-down so the
-  // next open starts back at the column list, not wherever the user last
-  // left off. Going "back" to the column list *without* closing is a
-  // separate, explicit action - see the back row in the detail view below.
   const handleFullClose = () => {
     onCloseColumnFilter();
     onClose();

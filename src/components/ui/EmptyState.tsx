@@ -11,16 +11,7 @@ type EmptyStateProps = {
   description?: string;
   action?: ReactNode;
   icon?: ReactNode;
-  // For use inside sheets/tables/list areas - trims padding and icon size
-  // instead of the full-page presentation.
   compact?: boolean;
-  // For use as a FlashList/FlatList `ListEmptyComponent` - without flex: 1,
-  // `justifyContent: 'center'` on `wrap` centers within a View that's
-  // already exactly as tall as its own content, i.e. it does nothing
-  // visually, and the empty state renders pinned to the top of the list's
-  // viewport instead of centered in it. Opt-in (not the default) because
-  // EmptyState is also used inline in bounded, non-full-page contexts
-  // (cards, sheets, dropdowns) where stretching to fill would be wrong.
   fill?: boolean;
 };
 
@@ -61,9 +52,6 @@ const styles = StyleSheet.create({
   wrapFill: {
     flex: 1,
   },
-  // Dims the icon/title/description block only, not `action` (e.g. a Retry
-  // button) - a fallback message should read as quiet/secondary, but an
-  // interactive control inside it still needs full visibility.
   message: {
     alignItems: 'center',
     gap: spacing.md,

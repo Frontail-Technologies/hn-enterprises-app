@@ -37,19 +37,9 @@ export const FullScreenForm = forwardRef<FullScreenFormHandle, FullScreenFormPro
   );
 
   return (
-    // StickyFooter assumes its ancestor already clears the bottom safe area
-    // (that's what makes its own flat, small paddingBottom correct instead
-    // of double-counting insets.bottom on top of it) - Screen.tsx's
-    // SafeAreaView does that for every other footer host; this one needs
-    // the same edge so the footer here doesn't sit under the Android nav
-    // bar / iOS home indicator.
     <SafeAreaView edges={['bottom']} style={[styles.flex, { backgroundColor: colors.background }]}>
       <AppHeader
         title={title}
-        // Doesn't go through Screen's sticky-header mechanism (this form has
-        // its own SafeAreaView/ScrollView) - AppHeader no longer carries its
-        // own marginBottom by default (see Screen.tsx's headerGap for why),
-        // so it's restored here directly via AppHeader's own style override.
         style={styles.header}
         left={
           <Pressable onPress={onBack} style={styles.back} hitSlop={8}>

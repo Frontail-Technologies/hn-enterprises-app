@@ -41,10 +41,6 @@ export default function NotificationsScreen() {
 
   const hasFilter = dateFilter !== 'All' || typeFilter !== 'All';
 
-  // No shared route-group layout covers this screen, so it guards itself
-  // via the same centralized check ProtectedStack uses for grouped routes -
-  // important here since it's also the route most likely opened directly
-  // from a notification tap.
   if (authGuard.blocked) return authGuard.element;
 
   return (
@@ -197,13 +193,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   listContent: {
-    // flexGrow (not flex) - a scroll content container sizes to its own
-    // content by default, not the list's visible viewport, so there's
-    // nothing for the empty state's flex: 1 (its `fill` prop) to expand
-    // into without this. flexGrow: 1 lets the content area grow to fill
-    // the viewport specifically when content is shorter than it (an empty
-    // list), which is exactly when centering the empty state matters -
-    // it's a no-op once there's enough real content to scroll normally.
     flexGrow: 1,
     paddingBottom: spacing.xl,
   },

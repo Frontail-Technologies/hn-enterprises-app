@@ -12,13 +12,7 @@ type ErrorStateProps = {
   onRetry?: () => void;
   retryLabel?: string;
   compact?: boolean;
-  // See EmptyState's `fill` - same fix, same reason: without flex: 1 this
-  // centers within a View that's already exactly its own content's size,
-  // which does nothing visually when used as a list's ListEmptyComponent.
   fill?: boolean;
-  // Swaps the illustration/default copy for the no-internet variant - opt-in
-  // for call sites that already know the failure is a connectivity issue,
-  // rather than guessing from the error object.
   offline?: boolean;
 };
 
@@ -78,8 +72,6 @@ const styles = StyleSheet.create({
   wrapFill: {
     flex: 1,
   },
-  // Dims the icon/title/description block only, not the Retry button -
-  // matches EmptyState's `message`/`messageCompact`.
   message: {
     alignItems: "center",
     gap: spacing.md,

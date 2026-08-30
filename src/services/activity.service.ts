@@ -28,11 +28,6 @@ function mapDprToActivity(record: BackendDprRecord): ActivityLogEntry {
 
 export type RecentActivityResult = {
   items: ActivityLogEntry[];
-  // True if the work-progress or DPR source failed to load this time. The
-  // feed still resolves with whatever did load (plus the always-reliable
-  // local `extra` entries) rather than failing the whole query - this feed
-  // merges 3 independent sources, and one being briefly unavailable
-  // shouldn't blank out the other two.
   partial: boolean;
 };
 

@@ -1,8 +1,5 @@
 import { buildExpenseListQuery } from './expenses.service';
 
-// Protects Phase D.1's "Expenses filters must apply server-side before
-// pagination" fix: search/category/date-range/column-filter-checkboxes all
-// have to actually land in the request sent to the paginated list endpoint.
 describe('buildExpenseListQuery', () => {
   it('omits every param when nothing is filtered', () => {
     expect(buildExpenseListQuery({}).toString()).toBe('');
@@ -40,15 +37,11 @@ describe('buildExpenseListQuery', () => {
   });
 
   it('omits a column filter key whose value list is empty', () => {
-    // useColumnFilters can leave a cleared column as an empty array rather
-    // than deleting the key outright - that must not turn into `?status=`.
     const query = buildExpenseListQuery({ columnFilters: { status: [] } });
     expect(query.has('status')).toBe(false);
   });
 
   it('does not send category through the generic column-filter path', () => {
-    // Category is a single-value drill-down with its own dedicated param,
-    // deliberately kept separate from the checkbox columns' CSV mechanism.
     const query = buildExpenseListQuery({ category: 'rent', columnFilters: { status: ['draft'] } });
     expect(query.get('category')).toBe('rent');
     expect(query.getAll('category')).toHaveLength(1);

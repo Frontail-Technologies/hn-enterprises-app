@@ -251,9 +251,6 @@ export type CustomerSectionCompletion = {
   siteExpenses: SectionCompletionResult;
 };
 
-// Read-only "who/when completed this" projection for the 6 progress
-// milestones - resolved server-side (date + display name), matching the Web
-// Customer Detail's completionAudit shape 1:1 (§ shared column config).
 export type CustomerCompletionAudit = {
   gcCompletedOn: string | null;
   gcCompletedBy: string | null;

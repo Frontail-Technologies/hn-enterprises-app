@@ -17,8 +17,6 @@ export type PushData = {
 
 const ANDROID_CHANNEL_ID = 'default';
 
-// Only these destinations may be opened from a notification, so a payload can
-// never navigate the app to an arbitrary or unknown screen.
 const ALLOWED_PATHNAMES = new Set<string>([
   '/home',
   '/notifications',
@@ -47,9 +45,6 @@ export function getProjectId(): string | undefined {
   );
 }
 
-// Foreground presentation: still show the banner/list and keep the app-icon
-// badge in sync; the in-app list stays the canonical source and is refetched
-// by the notification observer.
 export function configureNotificationHandler(): void {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -66,19 +61,12 @@ export async function ensureAndroidChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
     name: 'General',
     importance: Notifications.AndroidImportance.HIGH,
-    // Omitted (not 'default') - as of the current expo-notifications native
-    // implementation, any string here (including the literal 'default') is
-    // looked up as a custom sound file registered in the config plugin's
-    // `sounds` array, which this app doesn't have. Omitting it uses the
-    // channel's actual OS default sound with no lookup/warning.
     showBadge: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     vibrationPattern: [0, 250, 250, 250],
   });
 }
 
-// Requests permission only when the OS hasn't decided yet (or still allows a
-// prompt). A prior denial is respected instead of re-prompting on every launch.
 export async function ensurePushPermissionGranted(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -112,7 +100,6 @@ function hrefFromType(type: string | undefined, entityId: string | undefined): H
   }
 }
 
-// Falls back to the Notifications screen so an unrecognized type is always safe.
 export function resolveNotificationHref(data: PushData | undefined): Href {
   const route = data?.route;
   if (route?.pathname && ALLOWED_PATHNAMES.has(route.pathname)) {

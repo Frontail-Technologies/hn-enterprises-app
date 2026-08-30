@@ -4,8 +4,8 @@ export const motion = {
     normal: 200,
     slow: 280,
   },
-  distance: 8, // px rise
-  staggerStep: 40, // ms per list index (fixed-content mode only)
-  staggerCap: 320, // ms max delay (fixed-content mode only)
+  distance: 8,
+  staggerStep: 40,
+  staggerCap: 320,
   pressScale: 0.98,
 };

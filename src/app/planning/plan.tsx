@@ -37,13 +37,7 @@ export default function PlanScreen() {
   }>();
 
   const [tasks, setTasks] = useState<PlanTask[]>(blankTasks());
-  // The snapshot Save compares against - captured once hydration finishes
-  // (see below) and reset to the newly-saved state after a successful save,
-  // so a second Save with no further edits is a no-op again.
   const [initialSnapshot, setInitialSnapshot] = useState<TaskSnapshot | null>(null);
-  // Stays true across the one microtask of delay after isLoading flips, so
-  // the screen doesn't paint a blank table for a frame before snapping to
-  // the real values once an existing plan loads.
   const [hydrated, setHydrated] = useState(false);
 
   const sitePlansQuery = useSitePlansQuery(
@@ -71,9 +65,6 @@ export default function PlanScreen() {
 
   const isLoading = !hydrated;
 
-  // No changes → false. A field changed then reverted to its original value
-  // → also false, since this compares against the snapshot, not against
-  // "has any onChange fired".
   const isDirty = useMemo(
     () => initialSnapshot !== null && !isEqualSnapshot(normalizeTasks(tasks), initialSnapshot),
     [tasks, initialSnapshot],
@@ -86,10 +77,6 @@ export default function PlanScreen() {
   };
 
   const handleSave = async () => {
-    // Defensive - the button is already disabled in this state, but a
-    // stale press (e.g. queued before the disabled state applied) must
-    // still not reach the mutation, invalidate anything, or toast a fake
-    // success.
     if (!isDirty) return;
 
     try {

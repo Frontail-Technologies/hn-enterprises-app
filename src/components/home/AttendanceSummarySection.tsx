@@ -30,18 +30,6 @@ export function AttendanceSummarySection() {
     )
       return;
 
-    // Claim the one-shot gate synchronously, the instant this effect
-    // decides to schedule the reminder - not inside the timeout below. The
-    // gate is a module-level flag shared across every mount of this
-    // component, so if it were only set once the timeout fires, a second
-    // concurrent effect invocation (a remount while this timer is still
-    // pending, a dev double-invoke, or the effect re-running as attendance
-    // state settles from loading -> loaded) would still see the gate open
-    // during that 500ms window and schedule its own independent timer -
-    // presenting a second, separately-stacked copy of this same sheet.
-    // Claiming here closes that window entirely: whichever effect
-    // invocation runs first wins, and every other one is turned away by the
-    // guard at the top of this effect, regardless of what triggered it.
     markAttendanceReminderShown();
 
     const timer = setTimeout(() => {

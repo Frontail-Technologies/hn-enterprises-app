@@ -26,9 +26,6 @@ function groupAnchorKey(groupName: string) {
   return `custom-${groupName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
 }
 
-// One tab per dynamic field group (mirroring the web dashboard), not a single
-// combined "Custom Fields" tab - so this returns an array of tab descriptors
-// (empty when the supervisor has no visible groups) instead of one panel.
 export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () => Promise<void>) {
   const { showToast } = useToast();
   const { user } = useAuth();
@@ -57,9 +54,6 @@ export function useCustomFieldsPanel(customer: CustomerRecord, onRefetch?: () =>
   }, [definitions, isAdmin]);
 
   const submit = async () => {
-    // Defensive - the button is already disabled in this state, but a
-    // stale press must still not reach the mutation or toast a fake
-    // success.
     if (!isDirty) return;
 
     try {

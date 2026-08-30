@@ -22,17 +22,10 @@ export function useExpensesInfiniteQuery(params: ExpenseListParams = {}) {
     queryFn: ({ pageParam }) => expensesApi.listPage({ page: pageParam, limit: EXPENSE_PAGE_SIZE, ...params }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => nextPageParam(lastPage.pagination),
-    // Keep previously loaded pages visible while a changed search/filter
-    // refetches, so the list doesn't flash its skeleton on every keystroke.
     placeholderData: keepPreviousData,
   });
 }
 
-// Dataset-wide aggregate, independent of the paginated list above. Callers
-// control scope by which params they pass - see expensesApi.summary.
-// `totalsOnly` is forwarded to the server (skips categoryBreakdown/recent for
-// callers that only read count/total) and folded into the key so a totals-
-// only result never collides with a full one cached for the same params.
 export function useExpensesSummaryQuery(params: ExpenseListParams = {}, options: { totalsOnly?: boolean } = {}) {
   return useQuery({
     queryKey: queryKeys.expenses.summary({ ...params, totalsOnly: options.totalsOnly }),

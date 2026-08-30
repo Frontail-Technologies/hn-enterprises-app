@@ -32,13 +32,6 @@ type ChangePasswordInput = {
   newPassword: string;
 };
 
-// Explicit states instead of inferring auth state from user===null combined
-// with a separate isLoading boolean - that combination is ambiguous exactly
-// when it matters most (a transient bootstrap failure previously had no way
-// to distinguish "still resolving" from "resolved as signed out" from
-// "resolved as signed in but the profile refetch failed"). Every consumer
-// still reads `isAuthenticated`/`isLoading` (derived below) - this is
-// additive, not a breaking change to the existing context shape.
 type AuthStatus = "bootstrapping" | "authenticated" | "unauthenticated";
 
 type AuthContextValue = {
@@ -83,14 +76,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
             addActionBreadcrumb("auth", "session_restored");
           }
         } catch (error) {
-          // Only a genuine "not authenticated" response should clear the
-          // session. apiClient's refresh-then-retry already collapses a
-          // truly expired session down to a 401 here - but a network blip,
-          // timeout, or backend 5xx during cold launch is not "logged out,"
-          // and wiping tokens for one forces a real logout + re-login over
-          // what's often just transient connectivity. Resolve as
-          // authenticated using the already-cached user in that case, and
-          // let a subsequent in-app 401 clear things properly instead.
           const isUnauthorized = error instanceof ApiError && (error.status === 401 || error.status === 403);
           if (isUnauthorized) {
             await authService.clearSession();
@@ -105,10 +90,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         }
       } catch {
-        // getStoredSession() itself failing is unexpected (it already
-        // catches its own JSON.parse error internally) - fail safe to
-        // unauthenticated rather than leaving status stuck on
-        // "bootstrapping" forever, which would strand the splash screen.
         if (mounted) setStatus("unauthenticated");
       }
     }
@@ -130,15 +111,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Local sign-out must always complete even if the server-side revoke
-    // throws, otherwise a failed network call strands the session on the
-    // device - the `finally` below guarantees local state is cleared
-    // regardless.
-    //
-    // Detach this device's push token first, while the session is still
-    // valid, so the next user on a shared device doesn't inherit the
-    // previous supervisor's notifications. Best-effort: a failed unregister
-    // must not block local sign-out.
     const pushToken = getStoredPushToken();
     if (pushToken) {
       await notificationsApi.unregisterPushToken(pushToken).catch(() => undefined);
@@ -153,9 +125,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       resetAttendanceReminder();
       clearSentryUser();
       addActionBreadcrumb("auth", "logout");
-      // Drop all cached server data so the next user on a shared device can't
-      // see the previous supervisor's customers/expenses/stats/notifications
-      // while their own queries refetch.
       queryClient.clear();
     }
   }, [queryClient]);

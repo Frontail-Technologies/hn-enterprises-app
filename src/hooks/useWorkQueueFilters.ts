@@ -16,8 +16,6 @@ export function useWorkQueueFilters() {
   const [siteFilter, setSiteFilter] = useState<string>(ALL);
   const [stageFilter, setStageFilter] = useState<WorkStage | typeof ALL>(ALL);
 
-  // Search now hits the server (paginated results can't be filtered
-  // client-side), so debounce it instead of firing a request per keystroke.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -26,9 +24,6 @@ export function useWorkQueueFilters() {
   const projectsQuery = useProjectsQuery();
   const allSitesQuery = useAllProjectSitesQuery();
 
-  // Options carry each project/site's stable id, not just its display name -
-  // an authoritative source (the same Projects/Sites APIs the rest of the
-  // app already uses), not "whatever names showed up in loaded rows".
   const projectOptions = [
     { value: ALL, label: ALL },
     ...(projectsQuery.data ?? []).map((project) => ({ value: project.id, label: project.name })),
@@ -51,9 +46,6 @@ export function useWorkQueueFilters() {
     useWorkQueueInfiniteQuery(filterParams);
   const summaryQuery = useWorkQueueSummaryQuery(filterParams);
 
-  // isFetchingNextPage only flips after a render, so a burst of onScroll
-  // events (nested scroll views fire these often) can call loadMore several
-  // times before that catches up - this ref-based lock closes that gap.
   const isFetchingRef = useRef(false);
   useEffect(() => {
     isFetchingRef.current = isFetchingNextPage;
@@ -90,8 +82,6 @@ export function useWorkQueueFilters() {
     refetch,
     total,
     records,
-    // Dataset-wide (server-aggregated), independent of loaded pages - see
-    // work-progress.service.ts#queueSummary on the backend.
     inProgressCount: summaryQuery.data?.inProgress ?? 0,
     sentBackCount: summaryQuery.data?.sentBack ?? 0,
     pendingEvidenceCount: summaryQuery.data?.pendingEvidence ?? 0,

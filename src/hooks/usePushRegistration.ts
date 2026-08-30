@@ -47,8 +47,6 @@ export function usePushRegistration(enabled: boolean) {
 
     register();
 
-    // Native (FCM/APNs) tokens can rotate; re-derive and re-register the Expo
-    // token so the backend association stays current without a logout/login.
     const rotationSub = Notifications.addPushTokenListener(() => {
       fetchAndRegister().catch(() => undefined);
     });

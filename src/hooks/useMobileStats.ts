@@ -7,9 +7,6 @@ export function useSupervisorStatDetails(type: string | undefined) {
   const rows = query.data?.pages.flatMap((page) => page.rows) ?? [];
   const total = query.data?.pages[0]?.pagination.total ?? 0;
 
-  // isFetchingNextPage only flips after a render, so a burst of onScroll
-  // events (nested scroll views fire these often) can call loadMore several
-  // times before that catches up - this ref-based lock closes that gap.
   const isFetchingRef = useRef(false);
   useEffect(() => {
     isFetchingRef.current = query.isFetchingNextPage;

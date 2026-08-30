@@ -278,7 +278,6 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
     plumberName: raw.plumberName ?? "",
     supervisorName: raw.supervisorName ?? "",
     supervisorId: raw.supervisorId ?? null,
-    // master-import writes this into billingCompletion.jobCardDone, not a top-level column
     jobCardDone: String((raw.billingCompletion as Record<string, unknown> | null)?.jobCardDone ?? ""),
     connectionType: (raw.connectionType as CustomerConnectionDetails["connectionType"]) || "Domestic",
     houseType: raw.houseType ?? "",
@@ -451,9 +450,6 @@ export function mapCustomer(raw: BackendCustomer): CustomerRecord {
   };
 }
 
-// Attachments are embedded directly in this multipart request instead of
-// uploaded separately beforehand - a photo picked but never saved never
-// reaches storage at all. Mirrors expenses.service.ts's buildExpenseFormData.
 async function updateCustomerSection(
   id: string,
   sectionKey: string,
@@ -492,9 +488,6 @@ export type CustomerOption = {
   projectName: string;
   siteId: string;
   siteArea: string;
-  // The customer's own street address - not the site's name (siteArea) -
-  // shown alongside TR/BP in pickers so customers who share a name are
-  // still distinguishable.
   address: string;
 };
 
@@ -519,9 +512,6 @@ export const customersService = {
     return rows.map(mapCustomer);
   },
 
-  // Lightweight list for pickers: only the fields needed to label a customer and
-  // resolve its linked project/site. Customers without a linked project+site are
-  // dropped since a DPR can't be filed against them.
   async listOptions(search?: string): Promise<CustomerOption[]> {
     const query = new URLSearchParams({ limit: "200" });
     if (search) query.set("search", search);

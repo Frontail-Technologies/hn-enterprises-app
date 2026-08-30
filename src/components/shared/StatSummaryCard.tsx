@@ -10,9 +10,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { guardNavigation } from '@/lib/navigation';
 import type { SupervisorStatTone } from '@/services/mobileStats';
 
-// Stat values arrive as "done/total" (e.g. "0/699") for progress-style stats,
-// or a plain count for others - the card only ever shows the single number
-// that matters at a glance (the "done" side), not the denominator.
 export function formatStatValue(value: string) {
   const [primary] = value.split('/');
   return primary?.trim() || value;

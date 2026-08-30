@@ -17,12 +17,7 @@ type ExpensesListProps = {
   isLoading: boolean;
   isError: boolean;
   isRefiltering: boolean;
-  // Search/filter controls themselves now live in AppHeader (see
-  // expenses.tsx) - this screen only needs the current values, to drive its
-  // own result-count text and empty-state messaging.
   search: string;
-  // Only for the empty-state message's "no matches" vs "nothing yet" copy -
-  // the actual filter controls live in AppHeader now.
   hasActiveFilters: boolean;
   filteredExpenses: ExpenseRecord[];
   total: number;
@@ -60,15 +55,9 @@ export function ExpensesList({
   onLoadMore,
 }: ExpensesListProps) {
   const { colors } = useTheme();
-  // Cached rows stay on screen during a filter/search refetch (isRefiltering)
-  // instead of being replaced by the full skeleton - this overlay is the
-  // only signal that a new result is on the way, same as the next-page spinner.
   const showSpinner = filteredExpenses.length > 0 && (isFetchingNextPage || isRefiltering);
   const showRetry = filteredExpenses.length > 0 && !isFetchingNextPage && isError && hasNextPage;
   const showPaginationFooter = showSpinner || showRetry;
-  // Only the initial load (no rows yet) gets the full-page ErrorState - a
-  // later page failing keeps the rows visible and surfaces a footer retry
-  // instead (PaginationOverlay below).
   const showInitialError = isError && filteredExpenses.length === 0;
 
   return (
@@ -188,17 +177,10 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.sm,
   },
-  // flexGrow (not flex): lets the content area grow to fill the viewport
-  // when content is shorter than it (the empty state), which is what the
-  // EmptyState's own `fill` (flex: 1) needs to actually have space to
-  // center within. No-op once real rows make the content taller than the
-  // viewport, so this doesn't affect normal scrolling.
   listContent: {
     flexGrow: 1,
     paddingBottom: spacing.md,
   },
-  // Extra bottom space so the last row never sits underneath the viewport-
-  // centered PaginationOverlay (see the listCard wrapper above).
   listContentWithFooter: {
     flexGrow: 1,
     paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,

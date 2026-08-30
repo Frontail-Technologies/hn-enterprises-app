@@ -1,9 +1,6 @@
 import { buildComplaintsQuery, isOpenComplaint } from './complaints.service';
 import type { ComplaintRecord } from './complaints.service';
 
-// Protects Phase D.1's "Complaints must migrate to the existing backend
-// pagination contract" fix: search/status/supervisor scope all have to
-// actually land in the request, not stay a client-side-only filter.
 describe('buildComplaintsQuery', () => {
   it('omits every param when nothing is filtered', () => {
     expect(buildComplaintsQuery({}).toString()).toBe('');

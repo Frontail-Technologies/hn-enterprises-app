@@ -21,8 +21,6 @@ export function useCustomerListQuery(search?: string) {
   return useQuery({
     queryKey: queryKeys.customers.list(search),
     queryFn: () => customersService.list(search),
-    // Keep the current results on screen while a new search term fetches,
-    // instead of blanking to a loading state on each keystroke.
     placeholderData: keepPreviousData,
   });
 }
@@ -43,8 +41,6 @@ export function useCustomerInfiniteListQuery(search?: string) {
     queryFn: ({ pageParam }) => customersService.listPage({ page: pageParam, limit: CUSTOMER_PAGE_SIZE, search }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => nextPageParam(lastPage.pagination),
-    // Keep the previously loaded pages visible while a changed search term
-    // refetches, so the grid doesn't flash its skeleton on every keystroke.
     placeholderData: keepPreviousData,
   });
 }
@@ -57,13 +53,6 @@ export function useCustomerQuery(id: string | undefined) {
   });
 }
 
-// Shared by every customer-section save and the LMC pipe upsert below - all
-// change a customer record that the customer list, Work, and Stats depend on.
-//
-// Deliberately does NOT invalidate `customers.detail` - the caller already
-// has the fresh record from the mutation response and applies it directly
-// via `setQueryData`, so invalidating that same key here would trigger an
-// immediate, redundant refetch of data we already have.
 export function invalidateCustomerDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.customers.allLists });
   queryClient.invalidateQueries({ queryKey: queryKeys.customers.allOptions });
@@ -71,10 +60,6 @@ export function invalidateCustomerDependents(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.stats.all });
 }
 
-// `label` is a fixed, developer-authored form identifier for Sentry breadcrumbs only (e.g.
-// "survey", "gi-measurements") - every one of this app's customer-section save mutations already
-// funnels through this one wrapper, so instrumenting FORMS submit started/succeeded/failed here
-// covers all of them without touching any of the individual section panel files.
 function useCustomerMutation<TBody>(mutationFn: (body: TBody) => Promise<CustomerRecord>, label: string) {
   const queryClient = useQueryClient();
 
@@ -189,10 +174,6 @@ export function useUpsertLmcPipeMutation(customerId: string) {
   return useMutation({
     mutationFn: (record: LmcPipeRecord) => customersService.upsertLmcPipeRecord(customerId, record),
     onSuccess: async () => {
-      // Unlike `useCustomerMutation`, this mutation's response is just the
-      // pipe record, not the full customer - so unlike that helper, the
-      // detail cache genuinely does need a refetch here, not just a
-      // `setQueryData`.
       await queryClient.invalidateQueries({ queryKey: queryKeys.customers.detail(customerId) });
       invalidateCustomerDependents(queryClient);
     },

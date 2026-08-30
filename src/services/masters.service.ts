@@ -9,9 +9,6 @@ export type MasterValue = {
   isActive: boolean;
 };
 
-// The backend only accepts these slugs (see masterValueCategoryEnum). Callers
-// pass the human-readable label - map it here so every screen can keep using
-// the same labels shown in the web admin panel.
 const CATEGORY_TO_BACKEND: Record<string, string> = {
   "Payment Types": "payment_types",
   "Connection Types": "connection_types",

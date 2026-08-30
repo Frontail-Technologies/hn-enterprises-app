@@ -59,9 +59,6 @@ export function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
     setIsSubmitting(true);
     try {
       const result = await requestPasswordReset(parsed.data.identifier);
-      // The backend may echo the OTP back for local convenience. Never retain
-      // it outside a development build so it can't be rendered in production
-      // even if the response still carries it (see backend follow-up).
       setDevOtp(__DEV__ ? (result.resetOtp ?? null) : null);
       setResetOtpSent(true);
       showToast("OTP sent if the account exists", "success");

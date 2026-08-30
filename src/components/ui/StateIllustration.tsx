@@ -9,18 +9,9 @@ type StateIllustrationProps = {
   size?: number;
 };
 
-// Small, theme-aware SVG illustrations for the app's informational states -
-// "no data found" (EmptyState), "please try again" (ErrorState), and
-// "no internet" (ErrorState's offline variant). Built entirely from simple
-// primitives (Circle/Rect/Line/Polygon) with coordinates chosen so every
-// shape's position is verifiable by construction, not hand-tuned - e.g. the
-// offline slash's endpoints are picked so their midpoint is exactly the
-// signal-circle's center.
 export function StateIllustration({ kind, size = 64 }: StateIllustrationProps) {
   const { colors } = useTheme();
   const tint = kind === 'error' ? colors.red : kind === 'offline' ? colors.blue : colors.primary;
-  // Matches the ~10% tint already used for these icon backdrops elsewhere
-  // (ErrorState's old `${colors.red}1A`).
   const backdrop = `${tint}1A`;
 
   return (

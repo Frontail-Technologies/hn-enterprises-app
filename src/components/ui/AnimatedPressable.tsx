@@ -6,19 +6,9 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
-// Shared UI-thread press-feedback for tappable surfaces app-wide (Button,
-// list cards, AppHeader action icons, bottom-tab buttons, etc.) - one
-// consistent "feels responsive" pattern instead of each screen hand-rolling
-// its own opacity snap. See AGENTS/ticket notes: press-in scales down and
-// dims very slightly, release eases back - fast and subtle, never a bounce.
 export type AnimatedPressableProps = Omit<PressableProps, 'style'> & {
-  // 1 disables the scale entirely - use for icon-only controls, where a
-  // noticeable scale reads as jittery rather than responsive.
   scaleTo?: number;
   opacityTo?: number;
-  // Static only, unlike Pressable's own `style` - press feedback is already
-  // handled internally, so there's no `pressed` state left for a caller's
-  // style function to react to.
   style?: StyleProp<ViewStyle>;
 };
 
@@ -43,10 +33,6 @@ export const AnimatedPressable = forwardRef<View, AnimatedPressableProps>(functi
       ref={ref}
       disabled={disabled}
       onPressIn={(event) => {
-        // Scale is a spatial motion cue (what reduced-motion settings target)
-        // - opacity is a plain state change, kept even under reduced motion
-        // so a press still visibly registers (see the ticket's own
-        // accessibility guidance: retain feedback, drop the motion).
         if (!reduceMotion) {
           scale.value = withTiming(scaleTo, { duration: PRESS_DURATION, easing: Easing.out(Easing.quad) });
         }

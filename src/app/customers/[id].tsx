@@ -215,9 +215,6 @@ function CustomerPanelPage({ customer }: PanelProps) {
   );
 }
 
-// Fetches independently of the Add Note sheet (that one only fetches while
-// open) so the note history is visible on the Customer tab itself, not just
-// inside the compose sheet.
 function CustomerNotesSection({ customerId }: { customerId: string }) {
   const { colors } = useTheme();
   const { data: notes = [], isLoading } = useCustomerNotesQuery(customerId);
@@ -356,9 +353,6 @@ const SECTION_COMPLETION_KEY: Record<string, keyof CustomerSectionCompletion> =
     "meter-commissioning": "commissioning",
   };
 
-// Memoized so switching tabs doesn't force every already-mounted panel to
-// re-render its full form too - customer/onRefetch stay referentially stable
-// across a tab switch, so a memoized panel correctly bails out.
 const CustomerPanelPageMemo = memo(CustomerPanelPage);
 const SurveyPanelPageMemo = memo(SurveyPanelPage);
 const GiPanelPageMemo = memo(GiPanelPage);
@@ -376,9 +370,6 @@ const FIXED_SECTIONS: {
   key: string;
   label: string;
   Component: (props: PanelProps) => ReactNode;
-  // Only the fixed sections get a tab icon - the dynamic custom-field-group
-  // tabs appended after these (see customFieldGroupTabs) are admin-
-  // configurable, so there's no sensible fixed icon to assign them.
   icon: LucideIcon;
 }[] = [
   { key: "customer", label: "Customer", Component: CustomerPanelPageMemo, icon: User },
@@ -465,22 +456,12 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
   const { user } = useAuth();
   const connection = customer.customerConnection;
 
-  // customer id itself is never included - the route breadcrumb already
-  // records "/customers/:id" with the real id stripped; this just marks that
-  // a detail view was actually reached.
   useEffect(() => {
     addActionBreadcrumb("customer", "detail_opened");
   }, []);
 
-  // The backend is the actual enforcement (every save request is checked
-  // against the customer's assigned supervisor) - this only gives a
-  // supervisor upfront notice instead of letting them fill out a whole form
-  // before hitting a permission error. Admins can always edit.
   const canEdit = user?.role !== "supervisor" || connection.supervisorId === user?.id;
 
-  // Custom field groups share a single hook (one draft/mutation spanning
-  // every group tab), so this one stays at the parent - unlike the fixed
-  // sections, which each own their hook inside their own panel component.
   const customFieldGroupTabs = useCustomFieldsPanel(customer, onRefetch);
 
   const tabs = [
@@ -492,8 +473,6 @@ function CustomerWorkspaceContent({ customer, onRefetch }: PanelProps) {
         <section.Component customer={customer} onRefetch={onRefetch} />
       ),
     })),
-    // No icon for these - admin-configurable custom field groups, not part
-    // of the fixed section set (see FIXED_SECTIONS' own comment).
     ...customFieldGroupTabs.map((group) => ({
       key: group.key,
       label: group.label,
@@ -975,8 +954,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.md,
   },
-  // No border/padding here - Sheet's own footerWrap already supplies the top
-  // border and padding around whatever `footer` content is passed to it.
   noteFooter: {
     flexDirection: "row",
     gap: spacing.sm,

@@ -27,9 +27,6 @@ import { queryClient, queryKeys } from "@/queries";
 import { customersService } from "@/services/customers.service";
 import { expensesApi } from "@/services/expenses.service";
 
-// Matches the page size each screen's own infinite-query hook uses
-// (useCustomerInfiniteListQuery / useExpensesInfiniteQuery), so a tab-press
-// prefetch populates the exact cache entry the real screen will read.
 const PREFETCH_PAGE_SIZE = 100;
 
 const ROOT_TABS = ["home", "attendance", "customers", "planning", "expenses"];
@@ -73,35 +70,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // Traced via expo-router's own vendored bottom-tabs source
-      // (react-navigation/bottom-tabs/views/BottomTabView.js): this defaults
-      // to true on every platform, meaning react-native-screens detaches
-      // each inactive tab's *native* screen surface and re-attaches it on
-      // refocus. That surface (react-native-screens' Screen/MaybeScreen) has
-      // no background of its own - our sceneStyle below only reaches an
-      // *inner* JS-level wrapper one layer beneath it, never that native
-      // surface - so every re-attach exposed its native default background
-      // for a frame before our inner themed layers painted over it. This is
-      // what the previous Screen.tsx wrapper fix could not reach, since that
-      // fix operates entirely inside the JS tree, downstream of this native
-      // surface. Disabling it keeps each visited tab's native view attached
-      // permanently after its first mount, removing the repeated
-      // detach/re-attach cycle entirely (memory cost is a handful of
-      // moderate-weight screens staying resident, not video/heavy content).
       detachInactiveScreens={false}
-      // Closes the one remaining gap detachInactiveScreens doesn't cover: a
-      // tab's *first-ever* native creation (lazy is expo-router's own
-      // default, mounting each tab only on its first visit - confirmed in
-      // the same BottomTabView.js source). That first creation still shows
-      // the native surface's own unset background for a frame, same
-      // mechanism as above. Forcing all tabs to mount immediately means that
-      // one-time creation happens while AnimatedSplash's overlay (zIndex
-      // 1000) is already covering the screen, instead of later mid-session
-      // when a user first taps into a not-yet-visited tab. Trade-off: every
-      // tab's own initial data fetch now kicks off at launch instead of on
-      // first visit - each screen already gates its own loading state
-      // independently, so this doesn't block anything, just starts those
-      // requests earlier.
       screenOptions={{
         headerShown: false,
         lazy: false,
@@ -121,10 +90,6 @@ export default function TabsLayout() {
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 12),
         },
-        // "shift" (the previous value) slides the outgoing/incoming screens
-        // horizontally past each other, which is what made their edges
-        // visibly meet/collide mid-transition. "fade" cross-fades instead -
-        // no horizontal motion, so there's no edge to touch.
         animation: "fade",
         tabBarItemStyle: styles.tabItem,
         tabBarIconStyle: styles.tabIcon,
@@ -258,8 +223,6 @@ function TabButton({
       android_ripple={{ color: "transparent", borderless: false }}
       onLongPress={onLongPress}
       onPress={onPress}
-      // A full tab column, not a card - scaling that would read as jittery,
-      // so opacity alone carries the feedback here.
       scaleTo={1}
       opacityTo={0.6}
       style={styles.tabButton}
@@ -281,10 +244,6 @@ function TabIcon({
 }) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
-  // Interpolates between the tab bar's own resting background (colors.card)
-  // and the active pill color, rather than transparent -> color - a solid
-  // endpoint blends correctly through the transition instead of an alpha
-  // fade that can look washed out partway through.
   const progress = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {

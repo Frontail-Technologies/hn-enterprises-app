@@ -21,8 +21,6 @@ import { guardNavigation } from "@/lib/navigation";
 import { queryKeys, useComplaintsQuery } from "@/queries";
 import { complaintsApi } from "@/services/complaints.service";
 
-// Matches useComplaintsInfiniteQuery's own page size, so this prefetch
-// populates the exact cache entry the Complaints screen will read.
 const COMPLAINTS_PREFETCH_PAGE_SIZE = 100;
 
 export default function HomeScreen() {
@@ -33,9 +31,6 @@ export default function HomeScreen() {
   const { refetch: refetchComplaints } = useComplaintsQuery();
   const queryClient = useQueryClient();
 
-  // Home surfaces attendance + stats + complaints + activity - each pulled
-  // from its own source, so a pull-to-refresh here refetches exactly those
-  // four instead of every active query in the app.
   const onRefresh = useCallback(async () => {
     await Promise.all([
       attendance.refetch(),
@@ -45,8 +40,6 @@ export default function HomeScreen() {
     ]);
   }, [attendance, queryClient, refetchComplaints]);
 
-  // Home always links into Complaints - warm its first page once on mount so
-  // it's already cached by the time the user taps through.
   useEffect(() => {
     void queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.complaints.infiniteList({}),

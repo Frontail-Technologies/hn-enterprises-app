@@ -53,9 +53,6 @@ export type BackendSitePlan = {
 
 export type PlanningOverviewStatus = "pending" | "partial" | "done";
 
-// One row per Site for the mobile overview - an aggregate over the same
-// customer-wise records the editors read/write, never a separate source of
-// truth. See backend planning.service.ts's getWorkPlanningOverview/getDprOverview.
 export type SiteOverviewRow = {
   siteId: string;
   siteName: string;

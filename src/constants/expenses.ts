@@ -35,12 +35,6 @@ export const expenseGridColumns: FilterableColumn<ExpenseColumnKey>[] = [
 
 const EM_DASH = '—';
 
-// Supervisors only handle plumber payments and miscellaneous ("Other")
-// expenses on site - everything else (worker/supervisor payroll, rent,
-// material expenses) belongs to office/admin roles. Mirrors the backend's
-// own restriction (payments.service.ts's SUPERVISOR_VISIBLE_CATEGORIES) -
-// this just keeps the Add/Edit form's category picker from ever offering a
-// value the server would reject.
 export const SUPERVISOR_VISIBLE_EXPENSE_CATEGORIES: ExpenseCategory[] = ['plumber_payment', 'other_expense'];
 
 const CATEGORY_LABELS = new Map(expenseCategoryOptions.map((option) => [option.value, option.label]));
@@ -54,9 +48,6 @@ function humanizeToken(value: string) {
     .join(' ');
 }
 
-// Shared label formatting for expense category/payment-mode tokens - used by
-// both the All Expenses table and the Overview tab so a raw enum value like
-// `worker_payment` never reaches the screen.
 export function formatExpenseCategory(value: ExpenseCategory) {
   return CATEGORY_LABELS.get(value) ?? humanizeToken(value);
 }

@@ -14,17 +14,9 @@ import { formatCurrency, formatDate } from '@/utils/format';
 type ExpenseListItemProps = {
   expense: ExpenseRecord;
   plumberNameById: Map<string, string>;
-  // Takes the expense rather than being pre-bound, so callers can pass a
-  // stable function instead of a new inline closure per row - an inline
-  // closure here would defeat the memo below.
   onPress: (expense: ExpenseRecord) => void;
 };
 
-// Rendered as a FlashList row (components/expenses/ExpensesList.tsx) -
-// memoized since `expense`/`plumberNameById`/`onPress` are all stable
-// references at the call site. Replaces the old table-row presentation with
-// a compact mobile-native card - full detail (notes, evidence, approval
-// history) stays in the Expense Detail screen this card opens.
 export const ExpenseListItem = memo(function ExpenseListItem({
   expense,
   plumberNameById,
@@ -35,12 +27,6 @@ export const ExpenseListItem = memo(function ExpenseListItem({
   const Icon = visual.icon;
   const tint = colors[visual.colorKey];
 
-  // Purpose is the card's real title - what the money was actually for, not
-  // which bucket it's filed under. A handful of older/plumber-payment rows
-  // were never given a purpose, so this falls back to the next most specific
-  // thing that's actually populated (who it was paid to, resolved to the
-  // plumber's name for that category same as the old card did) before ever
-  // falling back to the category label itself.
   const resolvedPaidTo =
     expense.category === 'plumber_payment'
       ? plumberNameById.get(expense.plumberId) || expense.paidTo
@@ -89,9 +75,6 @@ export const ExpenseListItem = memo(function ExpenseListItem({
   );
 });
 
-// Same status -> color mapping the old table's StatusPill used - carried
-// over unchanged (including "rejected" using the same soft-orange
-// background as the default/draft tint), not a design change.
 function StatusPill({ status }: { status: ExpenseStatus }) {
   const { colors } = useTheme();
   const tint =

@@ -16,17 +16,11 @@ type NotificationListItemProps = {
   onPress?: (item: Notification) => void;
 };
 
-// Rendered as a FlashList row - memoized because `item`/`onPress` are
-// referentially stable across unrelated parent re-renders (a raw setState
-// setter, not an inline closure), so memo actually skips work here.
 export const NotificationListItem = memo(function NotificationListItem({ item, onPress }: NotificationListItemProps) {
   const { colors } = useTheme();
   const { markAsRead, deleteNotification } = useNotifications();
   const tone = getCategoryTone(item.category, colors);
 
-  // Swiping left reveals a delete action behind the row (on the right) -
-  // deletes just this user's copy, per notifications.service.ts#remove on
-  // the backend (each row already belongs to exactly one user).
   const renderRightActions = useCallback(
     (progress: SharedValue<number>) => (
       <DeleteAction progress={progress} color={colors.red} onPress={() => deleteNotification(item.id)} />
@@ -35,10 +29,6 @@ export const NotificationListItem = memo(function NotificationListItem({ item, o
   );
 
   return (
-    // Keyed by item.id so a row FlashList recycles for a different
-    // notification always starts closed - Swipeable owns its open/closed
-    // state internally, and reusing the same instance across items lets a
-    // stale open offset (or gesture state) carry over onto the wrong row.
     <Swipeable key={item.id} renderRightActions={renderRightActions} overshootRight={false}>
       <Pressable
         onPress={() => {
@@ -87,9 +77,6 @@ function DeleteAction({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  // Fades in as the row is dragged open rather than snapping to full
-  // opacity immediately, so a small/aborted swipe doesn't flash the panel
-  // before springing back closed.
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
   }));

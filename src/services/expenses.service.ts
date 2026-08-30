@@ -8,10 +8,6 @@ export type ExpenseListParams = {
   category?: ExpenseCategory;
   from?: string;
   to?: string;
-  // The All Expenses column-filter checkboxes (purpose/paidTo/address/
-  // amount/date/status) - each an exact-value multi-select, sent up as a
-  // comma-separated list per column. Deliberately separate from `category`,
-  // which is a single-value drill-down with its own UI.
   columnFilters?: Partial<Record<ExpenseColumnKey, string[]>>;
 };
 
@@ -63,8 +59,6 @@ export type ExpenseRecord = {
   paidTo: string;
   plumberId: string;
   customerId: string;
-  // Joined in server-side (payments.service.ts) purely for display - empty
-  // whenever customerId isn't set (most categories have no linked customer).
   customerName: string;
   siteId: string;
   address: string;
@@ -142,9 +136,6 @@ type ExpenseInput = {
   evidence: EvidenceFile[];
 };
 
-// Attachments are embedded directly in this multipart request instead of
-// uploaded separately beforehand - a photo the user picks but never actually
-// saves (e.g. backs out of the form) never reaches storage at all.
 function buildExpenseFormData(input: ExpenseInput) {
   const formData = new FormData();
   formData.append("category", input.category);
@@ -160,9 +151,6 @@ function buildExpenseFormData(input: ExpenseInput) {
   formData.append("status", input.status);
   if (input.remarks) formData.append("remarks", input.remarks);
 
-  // Always append evidence, even when empty - omitting the field entirely
-  // (vs. sending an empty array) reads as "leave it alone" on the backend,
-  // which would silently un-delete any photos the user just removed.
   const alreadyUploaded = input.evidence.filter((file) => file.fileUrl);
   formData.append(
     "evidence",
@@ -179,11 +167,6 @@ function buildExpenseFormData(input: ExpenseInput) {
 }
 
 export const expensesApi = {
-  // Backend clamps `limit` to 100 regardless of what's asked for (see
-  // parsePagination's MAX_LIMIT) - kept flat/unpaginated only for
-  // useExpenseForm's instant-paint-from-cache trick on the edit screen,
-  // which never scrolls, so a bounded single fetch is fine there. The
-  // Expenses list screen itself uses listPage() below instead.
   async list(): Promise<ExpenseRecord[]> {
     const rows = await apiRequest<BackendPayment[]>("/payments?limit=100");
     return rows.map(mapExpense);
@@ -201,17 +184,6 @@ export const expensesApi = {
     return { expenses, pagination: pagination ?? { page: params.page, limit: params.limit, total: expenses.length, totalPages: 1 } };
   },
 
-  // Dataset-wide total/count/category breakdown, computed server-side so it
-  // stays correct regardless of how many pages are loaded. Reused with two
-  // different scopes:
-  //  - Overview tab calls this with search/from/to only, so category/column
-  //    filters on the All Expenses list can never collapse its totals.
-  //  - All Expenses' own "N expenses, ₹total" line calls this with the full
-  //    active filter set (same params as listPage), so that figure matches
-  //    exactly what's on screen.
-  // `totalsOnly` skips the server's categoryBreakdown/recent sub-queries for
-  // callers (the list's own total line, the "any expenses at all" check)
-  // that only read count/total - categoryBreakdown/recent come back empty.
   async summary(params: ExpenseListParams, options: { totalsOnly?: boolean } = {}): Promise<ExpenseSummary> {
     const query = buildExpenseListQuery(params);
     if (options.totalsOnly) query.set("totalsOnly", "true");
@@ -221,8 +193,6 @@ export const expensesApi = {
     return { ...raw, recent: raw.recent.map(mapExpense) };
   },
 
-  // Authoritative option universe for a column-filter checkbox sheet - see
-  // payments.service.ts#filterValues on the backend.
   async fetchFilterValues(column: ExpenseColumnKey | "category"): Promise<string[]> {
     return apiRequest<string[]>(`/payments/filter-values?column=${encodeURIComponent(column)}`);
   },

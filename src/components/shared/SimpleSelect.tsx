@@ -29,12 +29,7 @@ type SimpleSelectProps<T extends string> = {
   error?: boolean;
   onRetry?: () => void;
   emptyLabel?: string;
-  // Single-line toolbar trigger ("All Time ▾") instead of the default
-  // two-line caption-label + value trigger. Sheet/options behavior is shared.
   compact?: boolean;
-  // Drops the trigger's own border - for a menu-row context (e.g. Profile's
-  // Appearance row) that already sits inside a bordered/backgrounded card,
-  // where a second border around the control itself is redundant.
   borderless?: boolean;
 };
 
@@ -162,7 +157,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    // borderWidth is set inline (borderless prop) - not here.
     borderRadius: radius.input,
     paddingHorizontal: 14,
   },

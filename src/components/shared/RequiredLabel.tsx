@@ -8,8 +8,6 @@ type RequiredLabelProps = {
   required?: boolean;
 };
 
-// Trailing asterisk ("Meter Reading *"), matching Input/DateField's own
-// required-field label convention.
 export function RequiredLabel({ label, required }: RequiredLabelProps) {
   const { colors } = useTheme();
 

@@ -104,13 +104,9 @@ function ComplaintUpdateForm({ complaint, onClose }: { complaint: ComplaintRecor
   const [remark, setRemark] = useState(complaint.supervisorRemark);
   const updateMutation = useUpdateComplaintMutation();
 
-  // Only status/remark are user-editable here - compared against what this
-  // sheet was opened with, not re-derived every render.
   const isDirty = !isEqualSnapshot({ status, remark }, { status: complaint.status, remark: complaint.supervisorRemark });
 
   const handleSave = async () => {
-    // Defensive - the button is already disabled in this state, but a
-    // stale press must still not reach the mutation or toast a fake success.
     if (!isDirty) return;
 
     try {

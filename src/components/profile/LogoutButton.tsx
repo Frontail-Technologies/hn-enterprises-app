@@ -5,7 +5,6 @@ import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 import { useTheme } from '@/context/ThemeContext';
 
-// `borderRadius` is passed in since Profile and More use different corner-radius tokens.
 export function LogoutButton({ onPress, borderRadius }: { onPress: () => void; borderRadius: number }) {
   const { colors } = useTheme();
 

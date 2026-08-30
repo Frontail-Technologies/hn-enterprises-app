@@ -3,8 +3,6 @@ import { useState } from "react";
 import type { ActivityDateFilter, ActivityLogEntry, ActivityTypeFilter } from "@/types/activity";
 import { matchesRelativeDateFilter } from "@/utils/dateFilters";
 
-// activity is already sorted newest-first (see activity.service.ts's
-// getRecentActivity) - filtering here never needs to re-sort it.
 export function useActivityListFilters(activity: ActivityLogEntry[]) {
   const [dateFilter, setDateFilter] = useState<ActivityDateFilter>("All");
   const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>("All");

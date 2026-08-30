@@ -11,23 +11,11 @@ import type { FilterableColumn } from '@/hooks/useColumnFilters';
 
 type TableFilterSheetProps<K extends string> = {
   visible: boolean;
-  // Closing without applying (X, backdrop, hardware back) - the caller's
-  // handler is expected to discard any in-progress draft edits, not just
-  // hide the sheet.
   onClose: () => void;
-  // Root sheet's "Apply Filters" - commits the complete draft and closes.
   onApply: () => void;
   columns: FilterableColumn<K>[];
-  // The sheet's own in-progress selections (draft), not necessarily what's
-  // currently applied to the list - see useColumnFilters.
   filters: Partial<Record<K, string[]>>;
   onClearAll: () => void;
-  // Column drill-down - rendered as a second view inside this same Sheet
-  // (not a second stacked BottomSheetModal - @gorhom/bottom-sheet v5 doesn't
-  // reliably keep an earlier presented modal visible/interactive once a
-  // second one is presented on top of it here, the same issue already
-  // worked around this same way in ExpenseFiltersSheet). Picking a column
-  // switches the view in place; the sheet itself never closes.
   activeColumn: FilterableColumn<K> | null;
   activeValues: string[];
   pendingValues: string[];
@@ -62,11 +50,6 @@ export function TableFilterSheet<K extends string>({
   const anyActive = columns.some((column) => filters[column.key]?.length);
   const isDetailView = Boolean(activeColumn);
 
-  // The sheet's own close (X button, backdrop tap, hardware back) always
-  // fully closes - it also resets any in-progress column drill-down so the
-  // next open starts back at the column list, not wherever the user last
-  // left off. Going "back" to the column list *without* closing is the
-  // separate, explicit back row below.
   const handleFullClose = () => {
     onCloseColumnFilter();
     onClose();

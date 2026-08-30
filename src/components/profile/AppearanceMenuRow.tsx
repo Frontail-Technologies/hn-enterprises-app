@@ -13,13 +13,6 @@ const THEME_PREFERENCE_OPTIONS: { label: string; value: ThemePreference }[] = [
   { label: 'Dark', value: 'dark' },
 ];
 
-// Shared by profile.tsx and (tabs)/more.tsx - both had an identical
-// Sun/Moon icon + Switch row that only ever toggled between light/dark,
-// with no way back to following the system appearance. Replaces just the
-// trailing control with the existing SimpleSelect picker (same component
-// already used elsewhere in the app), wired to ThemeContext's
-// themePreference/setThemePreference - "System" stays reachable at all
-// times, and System resolves live via useColorScheme() in ThemeContext.
 export function AppearanceMenuRow() {
   const { colors, isDark, themePreference, setThemePreference } = useTheme();
   const [open, setOpen] = useState(false);

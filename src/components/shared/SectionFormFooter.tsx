@@ -10,8 +10,6 @@ type SectionFormFooterProps = {
   onSubmit: () => void;
   submitLabel?: string;
   isSubmitting?: boolean;
-  // Optional - most sections don't have a cheap enough dirty check to pass
-  // this yet (see useDraftForm's isDirty), so it defaults to enabled.
   disabled?: boolean;
 };
 

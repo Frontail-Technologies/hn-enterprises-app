@@ -6,9 +6,6 @@ import { applyAttendanceMutationResult } from './attendance.queries';
 import { queryKeys } from './keys';
 import type { BackendAttendanceRecord } from '@/services/attendance.service';
 
-// Uses a real QueryClient (no React rendering, no fake react-query) so these
-// tests exercise the actual cache-sync logic the app runs, not a
-// reimplementation of it.
 
 const clients: QueryClient[] = [];
 afterEach(() => {
@@ -53,8 +50,6 @@ describe('applyAttendanceMutationResult (shared by check-in and check-out)', () 
   function setup() {
     const queryClient = createTestQueryClient();
     clients.push(queryClient);
-    // Seed a stale month cache entry the way the app would have it after an
-    // earlier fetch, so we can observe it actually gets invalidated.
     queryClient.setQueryData(queryKeys.attendance.month('2026-03'), []);
     return queryClient;
   }
@@ -100,9 +95,6 @@ describe('applyAttendanceMutationResult (shared by check-in and check-out)', () 
   });
 
   it('keys off the record’s own date, not any caller-supplied date', () => {
-    // Guards against a regression where a caller passes a request date that
-    // doesn't match what the server actually recorded (e.g. a late-night
-    // check-in crossing midnight) - the cache must follow the server's answer.
     const queryClient = setup();
     queryClient.setQueryData(queryKeys.attendance.month('2026-04'), []);
     const record = makeRecord({ date: '2026-04-01' });

@@ -89,14 +89,6 @@ export function useExpenseForm(expenseId?: string) {
   const [draft, setDraft] = useState<ExpenseDraft>(() => (cached ? toDraft(cached) : emptyDraft(defaultCategory)));
   const [errors, setErrors] = useState<Partial<Record<ExpenseFieldKey, string>>>({});
   const mountPlaceholder = useRef<ExpenseDraft>(cached ? toDraft(cached) : emptyDraft(defaultCategory));
-  // `cached` (from the list query) is a list-sized DTO with no `evidence`
-  // field (see payments.service.ts#list on the backend) - it's only ever
-  // used to instant-paint the form while the full detail (which does carry
-  // evidence) loads. Marking "hydrated" just because `cached` existed skips
-  // the effect below entirely, so the evidence-bearing detail response never
-  // gets applied and photo previews stay permanently empty when editing an
-  // expense opened from the list. Only skip hydration when there's nothing
-  // to hydrate (new expense) or the detail data is already in hand.
   const hydratedRef = useRef<boolean>(!expenseId || Boolean(detailQuery.data));
 
   useEffect(() => {
@@ -146,11 +138,6 @@ export function useExpenseForm(expenseId?: string) {
   };
 
   const save = async (): Promise<{ ok: boolean; firstInvalid?: ExpenseFieldKey | null }> => {
-    // Defensive - the button is already disabled in this state, but a stale
-    // press must still not reach the mutation, invalidate anything, or toast
-    // a fake success. Only applies to editing an existing expense; a new,
-    // never-submitted expense is always submittable (validate() above
-    // already gates it on the fields that actually matter).
     if (isEdit && !dirty) return { ok: true };
 
     const { firstInvalid } = validate();
@@ -159,9 +146,6 @@ export function useExpenseForm(expenseId?: string) {
     try {
       if (expenseId) {
         const saved = await updateMutation.mutateAsync({ id: expenseId, input: draft });
-        // Resets the dirty baseline to what the server actually stored, so
-        // if the screen stays open (or reopens on this same record) a
-        // second Save with no further edits is a no-op again.
         setInitial(toDraft(saved));
         showToast('Expense updated', 'success');
       } else {

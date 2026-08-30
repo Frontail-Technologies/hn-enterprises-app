@@ -22,18 +22,10 @@ import { formatCount } from "@/utils/format";
 
 const EM_DASH = "—";
 
-// Status and Supervisor stay filterable (TableFilterSheet still uses the
-// full customerGridColumns) but aren't shown as table columns - this is the
-// subset actually rendered.
 const CUSTOMER_TABLE_COLUMNS = customerGridColumns.filter(
   (column) => column.key !== "status" && column.key !== "supervisorName",
 );
 
-// Every column gets its own generously-sized fixed width (already curated in
-// customerGridColumns for exactly this purpose) and the table scrolls
-// horizontally instead of squeezing columns to fit the phone width - so a
-// cell only ever truncates if its own content is wider than that column's
-// deliberately-chosen width, not because the screen ran out of room.
 const CUSTOMER_TABLE_WIDTH = CUSTOMER_TABLE_COLUMNS.reduce(
   (total, column) => total + column.width,
   0,
@@ -96,9 +88,6 @@ export default function CustomersScreen() {
                   icon: SlidersHorizontal,
                   accessibilityLabel: 'Filter customers',
                   active: activeFilterCount > 0,
-                  // Opens the existing TableFilterSheet directly - it's
-                  // already a modal, not an inline row, so there's no
-                  // bottomContent expansion for this one.
                   onPress: () => setFilterMenuOpen(true),
                 },
               ]
@@ -367,17 +356,10 @@ const styles = StyleSheet.create({
   cellText: {
     ...tableText.secondary,
   },
-  // flexGrow (not flex): lets the content area grow to fill the viewport
-  // when content is shorter than it (the empty state), which is what the
-  // EmptyState's own `fill` (flex: 1) needs to actually have space to
-  // center within. No-op once real rows make the content taller than the
-  // viewport, so this doesn't affect normal scrolling.
   listContent: {
     flexGrow: 1,
     paddingBottom: spacing.md,
   },
-  // Extra bottom space so the last row never sits underneath the viewport-
-  // centered PaginationOverlay (see the tableCard wrapper below).
   listContentWithFooter: {
     flexGrow: 1,
     paddingBottom: spacing.md + PAGINATION_OVERLAY_SPACE,

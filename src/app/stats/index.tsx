@@ -70,10 +70,6 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  // Gives Screen's Reveal-wrapping mechanism (getChildFlexStyle) a real
-  // `style` prop with flex: 1 to detect and pass through, so the empty/
-  // error state's own `fill` has real space to center within instead of
-  // the ScrollView content collapsing to just the header's height.
   emptyFill: {
     flex: 1,
   },

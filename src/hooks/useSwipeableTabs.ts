@@ -7,10 +7,6 @@ export function useSwipeableTabs(tabKeys: string[], initialKey?: string) {
   const pagerRef = useRef<PagerView>(null);
   const initialIndex = Math.max(tabKeys.indexOf(activeKey), 0);
 
-  // Mounting every tab's content at once is expensive when tabs carry forms/uploaders,
-  // and that cost shows up as lag while swiping. Only mount a tab once it's actually
-  // been reached, plus its immediate neighbours, so swiping one step still feels instant
-  // - once mounted a tab stays mounted so in-progress input isn't lost.
   const [mountedKeys, setMountedKeys] = useState<Set<string>>(() => new Set([activeKey]));
 
   const ensureMounted = useCallback(

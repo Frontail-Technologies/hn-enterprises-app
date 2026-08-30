@@ -79,11 +79,6 @@ export default function ActivityScreen() {
     ]);
   }, [queryClient, refetchAttendance]);
 
-  // No _layout.tsx covers this route - it guards itself via the same
-  // centralized check ProtectedStack uses for grouped routes. The early
-  // return itself must stay after all hook calls above (not before), so
-  // hook call order stays stable every render; useAuthGuard() being called
-  // earlier is fine since it's an unconditional hook call, not a bail-out.
   if (authGuard.blocked) return authGuard.element;
 
   return (
@@ -182,10 +177,6 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.sm,
   },
-  // Gives Screen's Reveal-wrapping mechanism (getChildFlexStyle) a real
-  // `style` prop with flex: 1 to detect and pass through - EmptyState's own
-  // `fill` prop only handles centering *within* itself, not claiming space
-  // from its parent, which this wrapper does.
   emptyFill: {
     flex: 1,
   },

@@ -35,10 +35,6 @@ export function useDprRecordsQuery(params: PlanningParams, options: { enabled?: 
   });
 }
 
-// Site-wise aggregates for the overview - see planning.service.ts's
-// getWorkPlanningOverview/getDprOverview. Both mutations below already
-// invalidate the broad ["planning"] key on save, which covers these too since
-// they're nested under it - no extra invalidation wiring needed.
 export function useWorkPlanningOverviewQuery(date: string) {
   return useQuery({
     queryKey: queryKeys.planning.workOverview(date),
@@ -61,17 +57,10 @@ export function useSiteCustomersQuery(siteId: string, options: { enabled?: boole
   });
 }
 
-// Extracted so the invalidation set itself is directly testable (this repo's
-// test setup has no React renderer - see workPlanningDraft.test.ts) without
-// needing to render the mutation hook.
 export function sitePlanInvalidationKeys(record: BackendSitePlan) {
   return [
     queryKeys.planning.all,
     queryKeys.activity.all,
-    // Backend stats.service.ts's Planning stat reads the sitePlans table
-    // directly - without this, a successful plan change leaves that stat
-    // stale until something else happens to invalidate it. Mirrors the DPR
-    // mutation below, which already does this.
     queryKeys.stats.all,
     queryKeys.projects.sites(record.projectId),
   ];

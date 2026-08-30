@@ -7,9 +7,6 @@ import { useTheme } from '@/context/ThemeContext';
 import type { AuthUser } from '@/types/auth';
 import { formatRole } from '@/utils/format';
 
-// Each screen keeps its own surrounding `Card` (different corner radii/
-// elevation), so only the row content lives here. `roleColor` exists because
-// Profile and More render the role line in different colors.
 export function ProfileIdentityRow({ user, roleColor }: { user: AuthUser | null; roleColor?: string }) {
   const { colors } = useTheme();
 

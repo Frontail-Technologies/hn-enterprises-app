@@ -95,8 +95,6 @@ type BackendWorkProgressQueueRow = {
   stage: BackendWorkStage;
   status: BackendWorkProgressStatus;
   nextRequiredAction: string | null;
-  // Queue rows carry a count, not the evidence files themselves - see
-  // work-progress.service.ts#listQueue on the backend.
   evidenceCount: number;
   lastUpdated: string | null;
   supervisor: { id: string; name: string } | null;
@@ -140,9 +138,6 @@ export function mapWorkQueueRow(raw: BackendWorkProgressQueueRow): WorkProgressR
   };
 }
 
-// The customer -> buildDetailRecord input mapping was duplicated verbatim
-// between the work detail and work update screens - both need the same
-// handful of fields pulled out of the much larger `CustomerRecord`.
 export function adaptCustomerForWorkDetail(customer: CustomerRecord) {
   return {
     id: customer.id,
@@ -216,9 +211,6 @@ export const workProgressApi = {
     return { records, pagination: pagination ?? { page: params.page, limit: params.limit, total: records.length, totalPages: 1 } };
   },
 
-  // Dataset-wide counts for the queue's summary tiles - same filter scope as
-  // listQueuePage, computed server-side so they stay correct regardless of
-  // how many pages Mobile has actually loaded.
   async queueSummary(
     params: WorkQueueFilterParams,
   ): Promise<{ inProgress: number; sentBack: number; pendingEvidence: number }> {

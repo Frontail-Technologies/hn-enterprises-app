@@ -121,10 +121,6 @@ export function EvidenceUploader({
       return;
     }
 
-    // quality < 1 asks the native picker to compress the capture itself, instead of handing
-    // back a full-resolution (12-48MP+) decoded original that processEvidenceImage below is
-    // just going to downscale/recompress anyway - avoids the extra memory pressure of decoding
-    // the largest possible source image only to immediately shrink it.
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (result.canceled) return;
     queueAssets(result.assets.map((asset) => fromImageAsset(asset)));
@@ -274,8 +270,6 @@ export function EvidenceUploader({
   };
 
   const replaceFile = async (id: string) => {
-    // pickFromGallery (above) checks this before presenting the picker - this call site was
-    // missing the same check.
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       showToast('Photo library permission is required.', 'error');

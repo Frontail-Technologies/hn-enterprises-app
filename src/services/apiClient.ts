@@ -42,10 +42,6 @@ export type PaginationMeta = {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-// Tokens always live here for the current app session. Whether they ALSO get
-// written to SecureStore (surviving an app restart) depends on "remember me" -
-// tracked here so a later silent token refresh keeps honoring the choice made
-// at login, without every setTokens() call needing to repeat it.
 let memoryAccessToken: string | null = null;
 let memoryRefreshToken: string | null = null;
 let rememberSession = true;
@@ -97,8 +93,6 @@ async function performRequest(path: string, options: ApiRequestOptions): Promise
   const { auth = true, skipRefresh = false, timeoutMs, headers, ...requestOptions } =
     options;
   const token = auth ? await getAccessToken() : null;
-  // FormData bodies must not get a manual Content-Type - the runtime sets the
-  // multipart boundary itself. Only default to JSON for plain/string bodies.
   const isFormData = typeof FormData !== "undefined" && requestOptions.body instanceof FormData;
 
   const response = await requestWithTimeout(
@@ -107,8 +101,6 @@ async function performRequest(path: string, options: ApiRequestOptions): Promise
       ...requestOptions,
       headers: {
         Accept: "application/json",
-        // Bypasses ngrok's free-tier browser-warning interstitial when the API is
-        // tunneled during local dev (see mobile-app/.env) - ignored by the real backend.
         "ngrok-skip-browser-warning": "true",
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -136,8 +128,6 @@ export async function apiRequest<T>(
   return parseResponse<T>(response);
 }
 
-// Same request/auth-retry path as apiRequest, but surfaces meta.pagination
-// instead of discarding it.
 export async function apiRequestPaginated<T>(
   path: string,
   options: ApiRequestOptions = {},
@@ -152,12 +142,6 @@ export async function apiRequestPaginated<T>(
   return { data: payload?.data as T, pagination: payload?.meta?.pagination };
 }
 
-// Expo's fetch (the default global `fetch` since SDK 53) can't send React
-// Native's classic {uri,name,type} FormData file part - it throws
-// "Unsupported FormDataPart implementation". XMLHttpRequest uses RN's native
-// networking bridge instead, which streams `uri` parts from disk directly and
-// has supported this shape for years - so any FormData body with an embedded
-// file must go through here, not through apiRequest()/fetch().
 export async function apiRequestFormData<T>(
   path: string,
   formData: FormData,
@@ -278,10 +262,6 @@ async function requestWithTimeout(url: string, options: RequestInit, timeoutMs =
       throw new ApiError("Server connection timed out", 0);
     }
 
-    // "Unable to connect to server" is a catch-all label - log what fetch
-    // actually threw, since this also fires for local failures (e.g. reading
-    // a bad file:// / content:// uri for a multipart body), not just genuine
-    // network unreachability.
     console.error("[apiClient] fetch threw", {
       url,
       name: error instanceof Error ? error.name : typeof error,

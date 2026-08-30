@@ -54,8 +54,6 @@ export default function ComplaintsScreen() {
     }
   }, [refetch]);
 
-  // No _layout.tsx covers this route - it guards itself via the same
-  // centralized check ProtectedStack uses for grouped routes.
   if (authGuard.blocked) return authGuard.element;
 
   return (
@@ -85,10 +83,6 @@ export default function ComplaintsScreen() {
                   key: 'filter',
                   icon: SlidersHorizontal,
                   accessibilityLabel: 'Filter complaints',
-                  // Reflects a status filter that arrived via Home's deep link
-                  // just as much as one set here - statusFilter's initial
-                  // value already comes from the route param (see
-                  // useComplaintsScreen), so this is accurate either way.
                   active: statusFilter !== 'All',
                   onPress: () => {
                     setSearchOpen(false);
@@ -224,10 +218,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  // flexGrow (not flex) so the content area can grow to fill the viewport
-  // when it's shorter than that (the empty state) - what EmptyState's own
-  // `fill` (flex: 1) needs to have space to center within. No-op once real
-  // rows exceed the viewport height.
   listContent: {
     flexGrow: 1,
     paddingBottom: spacing.xl,

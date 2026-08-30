@@ -84,9 +84,6 @@ export function useDeleteNotificationMutation() {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.notifications.all, context.previous);
       }
-      // The optimistic remove above hides the row instantly - without this,
-      // a failed delete (network drop, stale/already-removed id) rolls the
-      // row back silently and just looks like "nothing happened."
       showToast("Couldn't delete notification. Try again.", "error");
     },
     onSettled: () => {

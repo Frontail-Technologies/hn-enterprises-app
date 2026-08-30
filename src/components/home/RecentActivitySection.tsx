@@ -17,9 +17,6 @@ import type { ActivityLogEntry } from '@/types/activity';
 
 const RECENT_ACTIVITY_LIMIT = 4;
 
-// Reads attendance directly from context (rather than via a prop from Home)
-// so today's check-in/out synthetic activity stays next to the one section
-// that needs it.
 export function RecentActivitySection() {
   const { colors } = useTheme();
   const { user } = useAuth();

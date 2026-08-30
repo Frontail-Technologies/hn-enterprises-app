@@ -15,26 +15,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
-// Must match app.json's expo-splash-screen plugin config exactly
-// (imageWidth: 200, same logo.png, which is a 1:1 square asset - see
-// assets/images/logo.png's own PNG header, 1254x1254) so the JS overlay's
-// very first rendered frame is pixel-identical to the native splash's last
-// frame. Any difference here is what causes a visible "pop" at the handoff.
 const NATIVE_LOGO_SIZE = 200;
-// Native splash can never know the resolved app theme before JS starts - it
-// has no access to the persisted themePreference in AsyncStorage, only the
-// OS-level light/dark setting, which can legitimately differ from what the
-// user has explicitly forced HN to. Using ONE fixed background here (that
-// exactly matches app.json's splash `backgroundColor` - see the dark theme
-// palette in ThemeContext.tsx, where this is also the actual dark
-// background) means the native -> JS handoff is pixel-identical regardless
-// of system mode vs forced light vs forced dark. If the resolved theme
-// turns out to be light, the overlay animates from this into the real light
-// background below, rather than the native layer guessing wrong.
 const SPLASH_BACKGROUND = "#11100D";
-// Minimum time the overlay stays up so the branded motion is always visible,
-// even when auth bootstrap resolves near-instantly - real readiness (below)
-// can only extend this, never shorten it.
 const MIN_VISIBLE_MS = 900;
 
 export function AnimatedSplash() {
@@ -43,41 +25,18 @@ export function AnimatedSplash() {
   const reduceMotion = useReducedMotion();
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [hidden, setHidden] = useState(false);
-  // app/index.tsx renders null while isLoading, then a <Redirect> that
-  // itself needs another render+navigation commit before a real screen
-  // (Home/Login) is actually mounted - isLoading alone flips false a beat
-  // before that lands, which let this overlay start fading (or a
-  // reduced-motion user's overlay unmount outright) over that in-between
-  // "/" route's empty paint. usePathname() reflects the actually-committed
-  // route, so gating on it too closes that gap regardless of how long the
-  // redirect takes on a given run, instead of assuming it's always fast.
   const pathname = usePathname();
   const hasRealRoute = Boolean(pathname) && pathname !== "/";
 
-  // Deliberate, small departure from the native splash's last frame (scale 1,
-  // opacity 1): starting a hair below full size/opacity and zooming up to 1
-  // reads as an intentional "arrival" motion instead of the logo just sitting
-  // static. The gap is kept tiny (0.92, not e.g. 0.7) specifically so the
-  // handoff pop this introduces stays at the edge of perceptible rather than
-  // a visible jump - reduced-motion users never see it (logoStyle isn't
-  // applied at all in that branch, so the View renders at its natural scale/
-  // opacity of 1 with no transform).
   const logoScale = useSharedValue(0.92);
   const logoOpacity = useSharedValue(0.92);
   const accentOpacity = useSharedValue(0);
   const accentWidth = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
-  // 0 = SPLASH_BACKGROUND (matches native exactly), 1 = the resolved app
-  // background. Dark theme's own background already equals
-  // SPLASH_BACKGROUND (see ThemeContext.tsx), so this only ever animates
-  // when the resolved theme is light.
   const backgroundProgress = useSharedValue(0);
 
   useEffect(() => {
     if (reduceMotion) {
-      // No animated transition - jump straight to the correct resolved
-      // background instead of holding the splash color for the fixed
-      // fallback duration below.
       backgroundProgress.value = 1;
       const id = setTimeout(() => setMinTimeElapsed(true), 0);
       return () => clearTimeout(id);
@@ -95,8 +54,6 @@ export function AnimatedSplash() {
         runOnJS(setMinTimeElapsed)(true);
       }),
     );
-    // Fallback in case the animation callback above doesn't fire for any
-    // reason - never leaves the overlay stuck up past MIN_VISIBLE_MS.
     const fallback = setTimeout(() => setMinTimeElapsed(true), MIN_VISIBLE_MS);
     return () => clearTimeout(fallback);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,14 +81,6 @@ export function AnimatedSplash() {
     transform: [{ scale: logoScale.value }],
     opacity: logoOpacity.value,
   }));
-  // The native splash (fixed dark background, before JS starts) always shows
-  // the monochrome logo - it's the only one that reads on that background.
-  // The colored logo only fades in here, in lockstep with the same
-  // backgroundProgress driving the background transition above, so a
-  // resolved-light theme crossfades logo and background together as one
-  // motion instead of the logo silently popping between assets. A resolved-
-  // dark theme never animates backgroundProgress past 0, so the colored
-  // layer just stays fully transparent and the monochrome logo never changes.
   const coloredLogoStyle = useAnimatedStyle(() => ({
     opacity: backgroundProgress.value,
   }));

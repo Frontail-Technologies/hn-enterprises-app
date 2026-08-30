@@ -4,12 +4,6 @@ import { createTestQueryClient } from '@/testUtils/queryClient';
 import { invalidateCustomerDependents } from './customers.queries';
 import { queryKeys } from './keys';
 
-// Protects the Phase B cache-sync behavior: saving a customer section should
-// make the customer list/options, work, and stats views refetch, but must
-// NOT re-invalidate the customer detail cache the caller just freshened via
-// setQueryData - doing so would trigger an immediate, redundant refetch of
-// data the mutation response already gave us. Uses a real QueryClient so
-// this is testing actual invalidation behavior, not a re-implementation of it.
 
 const clients: QueryClient[] = [];
 afterEach(() => {
@@ -66,7 +60,6 @@ describe('invalidateCustomerDependents', () => {
     invalidateCustomerDependents(queryClient);
 
     expect(isInvalidated(queryClient, queryKeys.customers.detail('c-1'))).toBe(false);
-    // The data itself is still there and unchanged.
     expect(queryClient.getQueryData(queryKeys.customers.detail('c-1'))).toEqual({ id: 'c-1', status: 'Active' });
   });
 

@@ -41,12 +41,6 @@ type SheetProps = PropsWithChildren<{
   description?: string;
   footer?: ReactNode;
   snapPoints?: (string | number)[];
-  // A fixed, developer-authored identifier for Sentry breadcrumbs only - e.g.
-  // "attendance_reminder", "customer_filters". Deliberately separate from
-  // `title` (which is display copy a caller can pass dynamically, and some
-  // callers do - e.g. "Filter {column.label}") so a breadcrumb can never end
-  // up carrying customer/business text. Omit it and the sheet still gets a
-  // generic, unnamed open/dismiss breadcrumb.
   sentryName?: string;
 }>;
 
@@ -212,14 +206,6 @@ export function Sheet({
       enablePanDownToClose
       snapPoints={snapPoints}
       index={0}
-      // @gorhom/bottom-sheet defaults every BottomSheetModal to
-      // stackBehavior "switch", which MINIMIZES (hides) an already-presented
-      // sheet the instant a second one presents - the actual root cause
-      // behind "opening sheet B makes sheet A disappear" wherever one Sheet's
-      // content opens another (e.g. a form's SimpleSelect/DateField, or an
-      // edit sheet opened from within another sheet). "push" stacks the new
-      // sheet on top without touching sheets already presented underneath it,
-      // which is what every such parent -> child flow in this app needs.
       stackBehavior="push"
       animationConfigs={animationConfigs}
       keyboardBehavior="interactive"

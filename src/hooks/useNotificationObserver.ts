@@ -34,8 +34,6 @@ export function useNotificationObserver() {
       const href = resolveNotificationHref(data);
       const notificationId = data?.notificationId ?? null;
 
-      // Navigate only once auth is resolved and the router is mounted; otherwise
-      // hold the destination and let the effect below flush it.
       if (authReadyRef.current && navReadyRef.current) {
         consume(href, notificationId);
       } else {

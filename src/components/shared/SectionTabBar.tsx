@@ -30,15 +30,7 @@ type SectionTabBarProps = {
   tabs: SectionTab[];
   activeKey: string;
   onChange: (key: string) => void;
-  // Splits tabs evenly across the full width instead of the default
-  // content-sized, horizontally-scrollable layout - only sensible for a
-  // small, fixed tab count (Expenses' Overview/All Expenses, Planning's
-  // Work/DPR). Customer Detail's many section tabs keep the default
-  // scrollable behavior.
   fullWidth?: boolean;
-  // Uses colors.card (the surface token - white in light mode) instead of
-  // the default colors.background (the page-canvas token) - opt-in per
-  // screen, e.g. Customer Detail, rather than a global change.
   surface?: boolean;
 };
 
@@ -64,18 +56,10 @@ export function SectionTabBar({
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
 
-  // Slides the underline to whichever tab's measured layout is passed in.
-  // `animate: false` is used for the initial snap-into-place once a tab's
-  // layout is first measured (nothing to animate from yet); tab changes
-  // afterwards animate.
   const moveIndicator = useCallback(
     (key: string, animate: boolean) => {
       const layout = tabLayoutsRef.current.get(key);
       if (!layout) return;
-      // Reanimated shared values are mutated via `.value` by design (the UI
-      // thread reads that mutation directly, outside React's render cycle) -
-      // react-hooks/immutability doesn't model that escape hatch and flags
-      // it as if it were a plain object, so it's disabled here specifically.
       if (animate && !reduceMotion) {
         // eslint-disable-next-line react-hooks/immutability
         indicatorX.value = withTiming(layout.x, { duration: motion.duration.normal });
@@ -112,8 +96,6 @@ export function SectionTabBar({
   };
 
   const handleScrollEndDrag = () => {
-    // Keep the drag guard up briefly after release - the tap that ends a swipe
-    // still fires onPress on whichever tab the finger lands on otherwise.
     if (dragEndTimerRef.current) clearTimeout(dragEndTimerRef.current);
     dragEndTimerRef.current = setTimeout(() => {
       isDraggingRef.current = false;
@@ -229,21 +211,9 @@ export function SectionTabBar({
     />
   );
 
-  // Explicit background rather than staying transparent - when used inside
-  // StickyHeaderGroup (alongside AppHeader), Screen's sticky-header wrapper
-  // now paints a single headerBackground color behind the whole group (see
-  // useAppHeaderBackground) so AppHeader's own accent/card color is never
-  // exposed to a gap on mount. Without its own explicit background, this tab
-  // bar would sit on top of that same accent/card color instead of the
-  // surface it's actually designed for - colors.background (page canvas) by
-  // default, or colors.card (surface token, white in light mode) when
-  // `surface` is set.
   const tabBarBackground = surface ? colors.card : colors.background;
 
   if (fullWidth) {
-    // No horizontal scroll needed - a small, fixed tab count fills the
-    // width evenly instead (see styles.tabFullWidth), so none of the
-    // scroll-position bookkeeping above applies here.
     return (
       <View style={[styles.row, styles.rowFullWidth, { backgroundColor: tabBarBackground }]} onLayout={handleViewportLayout}>
         {tabElements}
@@ -286,8 +256,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     position: "relative",
   },
-  // Fills the full width instead of sizing to content - each tab below gets
-  // flex: 1 so a small, fixed tab count (2, typically) splits it evenly.
   rowFullWidth: {
     width: "100%",
   },

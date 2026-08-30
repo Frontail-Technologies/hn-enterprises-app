@@ -2,9 +2,6 @@ import { isEvidenceDirty, normalizeEvidence } from './evidenceSnapshot';
 import { isEqualSnapshot } from './isEqualSnapshot';
 import type { EvidenceFile } from '@/types/evidence';
 
-// Coverage for the composite `isDirty = valuesDirty || evidenceDirty` fix
-// applied to every evidence-carrying customer-section form (Billing, GI,
-// Isolation, LMC Civil, LMC Pipe, Meter/Commissioning, Survey, Fittings).
 
 function uploaded(id: string, fileUrl: string, extra: Partial<EvidenceFile> = {}): EvidenceFile {
   return { id, fileName: `${id}.jpg`, fileUrl, ...extra };
@@ -48,8 +45,6 @@ describe('isEvidenceDirty', () => {
 
   it('ignores transient upload progress, status, and error metadata', () => {
     const baseline = [pending('new', 'file:///local/new.jpg', { status: 'Pending' })];
-    // Same file, mid-upload (status flipped, an error came and went) - not a
-    // real content change, must not read as dirty.
     const current = [pending('new', 'file:///local/new.jpg', { status: 'Uploading', errorMessage: 'retrying' })];
     expect(isEvidenceDirty(current, baseline)).toBe(false);
   });
@@ -61,12 +56,6 @@ describe('isEvidenceDirty', () => {
   });
 
   it('treats a local pending pick becoming uploaded (fileUrl assigned) as unchanged once identity carries over', () => {
-    // Identity priority is fileUrl > uri > id - a file that finishes
-    // uploading gains a fileUrl but its `uri` is what the baseline knew it
-    // by; once fileUrl is present that becomes the identity going forward,
-    // so this models the two ends of that transition separately rather than
-    // asserting they're equal to each other (they aren't - different
-    // fields), only that each is stable against itself.
     const stillPending = [pending('new', 'file:///local/new.jpg')];
     expect(isEvidenceDirty(stillPending, stillPending)).toBe(false);
   });
@@ -90,11 +79,6 @@ describe('normalizeEvidence', () => {
   });
 });
 
-// Proves the composite formula every evidence-carrying customer-section form
-// now uses: `isDirty = valuesDirty || evidenceDirty`. Each form wires its own
-// `values` object through useDraftForm and its own `evidence` state through
-// this helper - this exercises the same OR-composition generically, since the
-// forms themselves aren't renderable in this repo's test setup.
 describe('composite isDirty = valuesDirty || evidenceDirty', () => {
   const baselineValues = { remarks: 'Site is accessible' };
   const baselineEvidence = [uploaded('a', 'https://cdn/a.jpg')];

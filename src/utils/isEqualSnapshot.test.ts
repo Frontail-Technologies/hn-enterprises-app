@@ -15,9 +15,6 @@ describe('isEqualSnapshot', () => {
     expect(isEqualSnapshot(true, false)).toBe(false);
   });
 
-  // The exact regression this exists to prevent: a naive `!value` truthiness
-  // check would treat 0, false, and "" as "no value" and wrongly report no
-  // change (or a false change) around them.
   it('treats 0, false, and "" as real, distinct values - never as "no value"', () => {
     expect(isEqualSnapshot(0, 0)).toBe(true);
     expect(isEqualSnapshot(false, false)).toBe(true);

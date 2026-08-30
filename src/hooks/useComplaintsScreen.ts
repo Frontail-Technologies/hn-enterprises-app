@@ -25,8 +25,6 @@ export function useComplaintsScreen() {
   );
   const [activeComplaint, setActiveComplaint] = useState<ComplaintRecord | null>(null);
 
-  // Search now hits the server (paginated results can't be filtered
-  // client-side), so debounce it instead of firing a request per keystroke.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -38,17 +36,11 @@ export function useComplaintsScreen() {
       status: statusFilter === 'All' ? undefined : statusFilter,
     });
 
-  // isFetchingNextPage only flips after a render, so a burst of onScroll
-  // events (nested scroll views fire these often) can call loadMore several
-  // times before that catches up - this ref-based lock closes that gap.
   const isFetchingRef = useRef(false);
   useEffect(() => {
     isFetchingRef.current = isFetchingNextPage;
   }, [isFetchingNextPage]);
 
-  // Dedupe by id as a safety net - unstable sort tie-breaks on the backend
-  // (or any other pagination hiccup) could otherwise hand back the same
-  // complaint on two pages, which would crash the list on a duplicate key.
   const complaints = dedupeById(data?.pages.flatMap((page) => page.complaints) ?? []);
   const total = data?.pages[0]?.pagination.total ?? 0;
 
@@ -66,8 +58,6 @@ export function useComplaintsScreen() {
     loadMore,
     total,
     complaints,
-    // Every server filter (search/status) is already applied - what's
-    // loaded IS the filtered set.
     filteredComplaints: complaints,
     search,
     setSearch,

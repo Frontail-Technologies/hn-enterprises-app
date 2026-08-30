@@ -27,9 +27,6 @@ type BackendComplaint = {
   createdAt: string;
 };
 
-// "Open" for display purposes (e.g. Home's open-complaints section) means
-// not yet resolved or closed - used wherever a screen needs to highlight
-// complaints that still need attention.
 export function isOpenComplaint(complaint: ComplaintRecord) {
   return complaint.status === "open" || complaint.status === "in_progress";
 }
@@ -63,10 +60,6 @@ function mapComplaint(raw: BackendComplaint): ComplaintRecord {
 }
 
 export const complaintsApi = {
-  // Backend clamps `limit` to 100 regardless of what's asked for (see
-  // parsePagination's MAX_LIMIT) - kept flat/unpaginated only for Home's
-  // "first few open complaints" widget, which never scrolls past a handful
-  // of items. The full Complaints screen uses listPage() below instead.
   async list(params: { supervisorId?: string; status?: ComplaintStatus } = {}): Promise<ComplaintRecord[]> {
     const query = new URLSearchParams({ limit: "100" });
     if (params.supervisorId) query.set("supervisorId", params.supervisorId);

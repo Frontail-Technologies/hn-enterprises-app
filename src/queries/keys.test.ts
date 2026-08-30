@@ -1,10 +1,5 @@
 import { queryKeys } from './keys';
 
-// Protects the invalidation-prefix assumption every mutation in the app
-// relies on: `queryClient.invalidateQueries({ queryKey: queryKeys.X.all })`
-// only works if every query key actually built for resource X starts with
-// that same prefix array. These are cheap shape checks, not a re-test of
-// React Query's own prefix-matching.
 
 function startsWith(key: readonly unknown[], prefix: readonly unknown[]) {
   return prefix.every((segment, index) => key[index] === segment);
@@ -55,9 +50,6 @@ describe('work keys', () => {
   it('queueSummary falls under the Work prefix but is a separate cache entry from the paginated queue, even with identical params', () => {
     const params = { search: 'BP123', status: 'in_progress' };
     expect(startsWith(queryKeys.work.queueSummary(params), queryKeys.work.all)).toBe(true);
-    // Same filters, but the summary must never resolve to the list's own
-    // cache entry (or vice versa) - the aggregate has to stay independent
-    // of however many pages the list has loaded.
     expect(queryKeys.work.queueSummary(params)).not.toEqual(queryKeys.work.queue(params));
   });
 });

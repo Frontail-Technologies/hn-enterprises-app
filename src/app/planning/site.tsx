@@ -200,9 +200,6 @@ function CustomerRow({
 }
 
 const styles = StyleSheet.create({
-  // See Screen.tsx's getChildFlexStyle - a real `style` prop with flex: 1
-  // is what lets the empty state actually claim/center within the
-  // remaining screen space, not just center within its own bounds.
   emptyFill: {
     flex: 1,
   },
