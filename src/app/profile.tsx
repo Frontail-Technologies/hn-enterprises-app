@@ -19,7 +19,7 @@ import { openPrivacyPolicy } from '@/utils/openPrivacyPolicy';
 export default function ProfileScreen() {
   const { user } = useAuth();
   const authGuard = useAuthGuard();
-  const handleLogout = useAccountLogout();
+  const { requestLogout, dialog: logoutDialog } = useAccountLogout();
   const { showToast } = useToast();
 
   if (authGuard.blocked) return authGuard.element;
@@ -47,8 +47,9 @@ export default function ProfileScreen() {
           <AccountMenuRow icon={Info} label="About HN Enterprises" />
         </Card>
 
-        <LogoutButton onPress={handleLogout} borderRadius={radius.sm} />
+        <LogoutButton onPress={requestLogout} borderRadius={radius.sm} />
       </View>
+      {logoutDialog}
     </Screen>
   );
 }

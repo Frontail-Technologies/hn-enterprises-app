@@ -1,7 +1,6 @@
 import {
   Children,
   PropsWithChildren,
-  ReactElement,
   ReactNode,
   isValidElement,
   useCallback,
@@ -25,9 +24,7 @@ import { Edge, SafeAreaView } from "react-native-safe-area-context";
 import { pagePadding, spacing } from "@/constants/spacing";
 import { ScrollIntoViewProvider } from "@/context/ScrollIntoViewContext";
 import { useTheme } from "@/context/ThemeContext";
-import { useAppHeaderBackground } from "@/hooks/useAppHeaderBackground";
 import { Reveal, getChildFlexStyle } from "./Reveal";
-import { StickyHeaderGroup } from "./StickyHeaderGroup";
 
 type KeyboardScrollTarget = Parameters<
   InstanceType<typeof ScrollView>["scrollResponderScrollNativeHandleToKeyboard"]
@@ -68,7 +65,6 @@ export function Screen({
   revealContent = true,
 }: ScreenProps) {
   const { colors } = useTheme();
-  const headerBackground = useAppHeaderBackground();
   const [refreshing, setRefreshing] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -82,13 +78,6 @@ export function Screen({
   const bodyChildren = shouldStickFirstChild
     ? contentChildren.slice(1)
     : contentChildren;
-
-  const groupedHeaderChildren =
-    headerChild && isValidElement(headerChild) && headerChild.type === StickyHeaderGroup
-      ? Children.toArray((headerChild as ReactElement<PropsWithChildren>).props.children)
-      : null;
-  const boxedHeaderChild = groupedHeaderChildren ? groupedHeaderChildren[0] : headerChild;
-  const unboxedHeaderChildren = groupedHeaderChildren ? groupedHeaderChildren.slice(1) : null;
 
   const safeEdges = edges.filter((edge) => {
     if (tabBarAware && edge === "bottom") return false;
@@ -150,21 +139,7 @@ export function Screen({
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {headerChild ? (
-          <>
-            {/* Same resolved color AppHeader itself paints (see
-              useAppHeaderBackground) - previously this wrapper had no
-              background of its own at all, so the instant between a fresh
-              screen mounting and AppHeader's own View actually painting could
-              expose a default/unrendered layer instead of the correct brand
-              color. This box hugs only AppHeader's own bounds (not a whole
-              StickyHeaderGroup - see groupedHeaderChildren above), so there's
-              no left-over margin here that would get repainted with the
-              header's color instead of the screen's base background. */}
-            <View style={{ backgroundColor: headerBackground }}>{boxedHeaderChild}</View>
-            {unboxedHeaderChildren}
-          </>
-        ) : null}
+        {headerChild ? <View>{headerChild}</View> : null}
         <ScrollIntoViewProvider value={scrollIntoView}>
           {scroll ? (
             <ScrollView

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { Sheet } from '@/components/ui/Sheet';
 import { radius, spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
@@ -73,6 +74,7 @@ export function EvidenceUploader({
   const { showToast } = useToast();
   const [files, setFiles] = useState<EvidenceFile[]>(initialFiles);
   const [previewFile, setPreviewFile] = useState<EvidenceFile | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingAssets, setPendingAssets] = useState<PendingAsset[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -269,6 +271,14 @@ export function EvidenceUploader({
     updateFiles((current) => current.filter((file) => file.id !== id));
   };
 
+  const pendingRemoveIndex = files.findIndex((file) => file.id === pendingRemoveId);
+  const pendingRemoveFile = pendingRemoveIndex >= 0 ? files[pendingRemoveIndex] : null;
+
+  const confirmRemove = () => {
+    if (pendingRemoveId) removeFile(pendingRemoveId);
+    setPendingRemoveId(null);
+  };
+
   const replaceFile = async (id: string) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -375,7 +385,7 @@ export function EvidenceUploader({
                         <RotateCcw size={16} color={colors.red} />
                       </Pressable>
                     ) : null}
-                    <Pressable onPress={() => removeFile(file.id)} hitSlop={6}>
+                    <Pressable onPress={() => setPendingRemoveId(file.id)} hitSlop={6}>
                       <X size={16} color={colors.red} />
                     </Pressable>
                   </View>
@@ -445,6 +455,22 @@ export function EvidenceUploader({
           </View>
         </Pressable>
       </Modal>
+
+      <ConfirmationDialog
+        visible={Boolean(pendingRemoveId)}
+        title="Remove file?"
+        message={
+          pendingRemoveFile
+            ? `"${displayName(pendingRemoveFile, pendingRemoveIndex)}" will be removed from this record.`
+            : 'This file will be removed from this record.'
+        }
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingRemoveId(null)}
+        sentryName="evidence_remove"
+      />
     </View>
   );
 }

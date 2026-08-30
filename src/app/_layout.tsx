@@ -31,7 +31,6 @@ import { addRouteBreadcrumb, initSentry } from "@/lib/sentry";
 import { AppQueryProvider } from "@/queries";
 
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ duration: 400, fade: true });
 configureNotificationHandler();
 installGlobalErrorHandlers();
 initSentry();
@@ -56,7 +55,6 @@ function RootLayout() {
                 <NotificationsProvider>
                   <AttendanceProvider>
                     <BottomSheetModalProvider>
-                      <SplashGate />
                       <AppBootObservers />
                       <RouteBreadcrumbs />
                       <ThemedStatusBar />
@@ -117,18 +115,6 @@ function AppBootObservers() {
 
   usePushRegistration(isAuthenticated);
   useNotificationObserver();
-
-  return null;
-}
-
-function SplashGate() {
-  const { isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
 
   return null;
 }

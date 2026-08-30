@@ -1,6 +1,7 @@
 import { usePathname } from "expo-router";
-import { useEffect, useState } from "react";
-import { Image, StyleSheet } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useRef, useState } from "react";
+import { Image, LayoutChangeEvent, StyleSheet } from "react-native";
 import Animated, {
   Easing,
   useSharedValue,
@@ -27,9 +28,10 @@ export function AnimatedSplash() {
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
   const hasRealRoute = Boolean(pathname) && pathname !== "/";
+  const nativeSplashHiddenRef = useRef(false);
 
-  const logoScale = useSharedValue(0.92);
-  const logoOpacity = useSharedValue(0.92);
+  const logoScale = useSharedValue(0.9);
+  const logoOpacity = useSharedValue(0.9);
   const accentOpacity = useSharedValue(0);
   const accentWidth = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
@@ -42,8 +44,8 @@ export function AnimatedSplash() {
       return () => clearTimeout(id);
     }
 
-    logoScale.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) });
-    logoOpacity.value = withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) });
+    logoScale.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
+    logoOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
     if (!isDark) {
       backgroundProgress.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
     }
@@ -89,10 +91,16 @@ export function AnimatedSplash() {
     width: 36 * accentWidth.value,
   }));
 
+  const handleFirstFrameLayout = (_event: LayoutChangeEvent) => {
+    if (nativeSplashHiddenRef.current) return;
+    nativeSplashHiddenRef.current = true;
+    void SplashScreen.hideAsync();
+  };
+
   if (hidden) return null;
 
   return (
-    <Animated.View pointerEvents="none" style={[styles.overlay, overlayStyle]}>
+    <Animated.View pointerEvents="none" style={[styles.overlay, overlayStyle]} onLayout={handleFirstFrameLayout}>
       <Animated.View style={reduceMotion ? undefined : logoStyle}>
         <Image
           source={require("../../../assets/images/logo-dark.png")}

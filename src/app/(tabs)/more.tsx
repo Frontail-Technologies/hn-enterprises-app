@@ -27,7 +27,7 @@ export default function MoreScreen() {
   const { unreadCount } = useNotifications();
   const { showToast } = useToast();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const handleLogout = useAccountLogout();
+  const { requestLogout, dialog: logoutDialog } = useAccountLogout();
 
   return (
     <Screen scroll tabBarAware edges={["bottom"]} refreshable={false} contentStyle={styles.screen} revealContent={false}>
@@ -70,11 +70,12 @@ export default function MoreScreen() {
             <AccountMenuRow icon={Info} label="About HN Enterprises" />
           </Card>
 
-          <LogoutButton onPress={handleLogout} borderRadius={radius.lg} />
+          <LogoutButton onPress={requestLogout} borderRadius={radius.lg} />
         </RevealGroup>
       </View>
 
       <ChangePasswordSheet visible={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+      {logoutDialog}
     </Screen>
   );
 }
